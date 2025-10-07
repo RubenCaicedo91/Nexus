@@ -6,8 +6,8 @@
 <!-- Navbar -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="{{ route('dashboard') }}">
-            <i class="fas fa-file-invoice-dollar me-2"></i>CuentasCobro
+        <a class="navbar-brand text-white" href="{{ route('dashboard') }}">
+            <i class="fas fa-school me-2"></i> Nexus Team Education
         </a>
         
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -55,19 +55,22 @@
                 </div>
                 <nav class="nav flex-column px-3">
                     <a class="nav-link active" href="{{ route('dashboard') }}">
-                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        <i class="fas fa-book me-2"></i>Gestion Institucional
                     </a>
                     <a class="nav-link" href="#">
-                        <i class="fas fa-file-invoice me-2"></i>Cuentas de Cobro
+                        <i class="fas fa-chalkboard-teacher me-2"></i>Gestion Academica
                     </a>
                     <a class="nav-link" href="#">
-                        <i class="fas fa-plus-circle me-2"></i>Nueva Cuenta
+                        <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria
                     </a>
                     <a class="nav-link" href="#">
-                        <i class="fas fa-users me-2"></i>Clientes
+                        <i class="fas fa-chart-line me-2"></i>Gestion Financiera
                     </a>
                     <a class="nav-link" href="#">
-                        <i class="fas fa-chart-bar me-2"></i>Reportes
+                        <i class="fas fa-comment-dots me-2"></i>Orientacion
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-comments me-2"></i>Modulo de Comunicación
                     </a>
                     <a class="nav-link" href="#">
                         <i class="fas fa-cog me-2"></i>Configuración

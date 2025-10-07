@@ -10,7 +10,7 @@
                 <div class="login-card p-4">
                     <div class="text-center mb-4">
                         <i class="fas fa-file-invoice-dollar fa-3x text-primary mb-3"></i>
-                        <h3 class="fw-bold text-dark">NexusTeamEducation</h3>
+                        <h3 class="fw-bold text-dark">CuentasCobro</h3>
                         <p class="text-muted">Inicia sesión en tu cuenta</p>
                     </div>
 

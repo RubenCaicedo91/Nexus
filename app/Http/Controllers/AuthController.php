@@ -42,7 +42,7 @@ class AuthController extends Controller
     }
 
     // Procesar logout
-    public function logout(Request $request)
+   public function logout(Request $request)
     {
         Auth::logout();
         $request->session()->invalidate();

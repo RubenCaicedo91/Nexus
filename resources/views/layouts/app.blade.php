@@ -25,7 +25,7 @@
         
         .navbar-brand {
             font-weight: bold;
-            color: #2c3e50 !important;
+            color: #ebeef1ff !important;
         }
         
         .sidebar {
