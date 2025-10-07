@@ -11,7 +11,7 @@
                     <div class="text-center mb-4">
                         <i class="fas fa-file-invoice-dollar fa-3x text-primary mb-3"></i>
                         <h3 class="fw-bold text-dark">CuentasCobro</h3>
-                        <p class="text-muted">Inicia sesión en tu cuenta</p>
+                        <p class="text-muted">Registrar usuario</p>
                     </div>
 
                     @if ($errors->any())
@@ -24,9 +24,29 @@
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('login') }}">
+                    <form method="POST" action="{{ route('register') }}">
                         @csrf
                         
+                        <div class="mb-3">
+                            <label for="name" class="form-label">
+                                <i class="fas fa-user me-1"></i>Nombre
+                            </label>
+                            <input type="text" 
+                                   class="form-control @error('name') is-invalid @enderror" 
+                                   id="name" 
+                                   name="name" 
+                                   value="{{ old('name') }}" 
+                                   required 
+                                   autocomplete="name" 
+                                   autofocus
+                                   placeholder="Ingresa tu nombre">
+                            @error('name')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                        </div>
+
                         <div class="mb-3">
                             <label for="email" class="form-label">
                                 <i class="fas fa-envelope me-1"></i>Correo electrónico
@@ -56,9 +76,24 @@
                                    id="password" 
                                    name="password" 
                                    required 
-                                   autocomplete="current-password"
+                                   autocomplete="new-password"
                                    placeholder="Ingresa tu contraseña">
                             @error('password')
+                                <div class="invalid-feedback">
+                                    {{ $message }}
+                                </div>
+                            @enderror
+                            <label for="password_confirmation" class="form-label">
+                                <i class="fas fa-lock me-1"></i>Repetir Contraseña
+                            </label>
+                            <input type="password" 
+                                   class="form-control @error('password_confirmation') is-invalid @enderror" 
+                                   id="password_confirmation" 
+                                   name="password_confirmation" 
+                                   required 
+                                   autocomplete="new-password"
+                                   placeholder="Repite tu contraseña">
+                            @error('password_confirmation')
                                 <div class="invalid-feedback">
                                     {{ $message }}
                                 </div>
@@ -74,7 +109,7 @@
 
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-sign-in-alt me-1"></i>Iniciar Sesión
+                                <i class="fas fa-user-plus me-1"></i>Registrarse
                             </button>
                         </div>
                     </form>
@@ -82,7 +117,7 @@
                     <div class="text-center mt-4">
                         <small class="text-muted">
                             ¿No tienes una cuenta? 
-                            <a href="{{ route('register') }}" class="text-decoration-none">Regístrate aquí</a>
+                            <a href="#" class="text-decoration-none">Regístrate aquí</a>
                         </small>
                     </div>
                 </div>
