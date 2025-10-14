@@ -18,27 +18,22 @@ class RolesSeeder extends Seeder
                 'nombre' => 'Rector',
                 'descripcion' => 'Máxima autoridad del colegio, responsable de la dirección y administración general',
                 'permisos' => [
-                    'gestionar_usuarios',
-                    'gestionar_docentes',
-                    'gestionar_estudiantes',
                     'gestionar_coordinadores',
-                    'gestionar_acudientes',
                     'ver_reportes_generales',
-                    'configurar_sistema',
-                    'gestionar_roles',
-                    'aprobar_matrículas'
+                    'aprobar_desiciones_académicas',
+                    "consultar_info_institucional",
                 ]
             ],
             [
-                'nombre' => 'Coordinador',
+                'nombre' => 'Coordinador Académico',
                 'descripcion' => 'Encargado de coordinar actividades académicas y disciplinarias',
                 'permisos' => [
-                    'gestionar_estudiantes',
-                    'gestionar_docentes',
-                    'ver_reportes_académicos',
-                    'gestionar_horarios',
-                    'gestionar_disciplina',
-                    'aprobar_permisos'
+                    'asignar_docentes',
+                    'consultar_reportes_academicos',
+                    'crear_horarios',
+                    'editar_horarios',
+                    'crear_cursos',
+                    'editar_cursos',
                 ]
             ],
             [
@@ -47,9 +42,7 @@ class RolesSeeder extends Seeder
                 'permisos' => [
                     'ver_estudiantes_asignados',
                     'registrar_notas',
-                    'crear_actividades',
                     'ver_horarios',
-                    'comunicarse_acudientes',
                     'generar_reportes_materia'
                 ]
             ],
@@ -60,23 +53,72 @@ class RolesSeeder extends Seeder
                     'ver_notas',
                     'ver_horarios',
                     'ver_actividades',
-                    'ver_comunicados',
-                    'actualizar_perfil_básico'
+                    'consultar_calificaciones',
+                    'consultar_reporte_disciplinarios',
+                    'consultar_reporte_academicos',
+                    'consultar_pensiones_deudas',
+                    'exportar_reportes_financieros',
+                    'solicitar_cita_orientacion'
+
                 ]
             ],
             [
                 'nombre' => 'Acudiente',
                 'descripcion' => 'Padre, madre o acudiente responsable del estudiante',
                 'permisos' => [
-                    'ver_notas_estudiante',
+                   
+                    'consultar_reporte_disciplinarios',
+                    'consultar_reporte_academicos',
                     'ver_horarios_estudiante',
-                    'comunicarse_docentes',
-                    'ver_reportes_estudiante',
                     'actualizar_datos_contacto',
-                    'justificar_inasistencias'
+                    'justificar_inasistencias',
+                    'solicitar_cita_orientacion'
                 ]
-            ]
+
+                ],
+            [
+                'nombre' => 'orientador',
+                'descripcion' => 'Profesional encargado de brindar apoyo emocional y orientación a los estudiantes',
+                'permisos' => [
+                    'ver_estudiantes_asignados',
+                    'registrar_sesiones_orientacion',
+                    'ver_horarios',
+                    'generar_reportes_orientacion',
+                    'consultar_circulares_institucionales'
+                ]
+
+
+
+                ],
+                [
+                    'nombre' => 'tesorero',
+                    'descripcion' => 'Profesional encargado de la gestión financiera y contable del colegio',
+                    'permisos' => [
+                        'generar_estados_financieros', // Balance, estado de resultados, etc.
+                        'registrar_pagos',
+                        'generar_reportes_financieros', // Reportes de ingresos, egresos, deudas, etc.
+                         'consultar_circulares_institucionales'
+                ]
+
+             ],
+             [
+                'nombre' => 'Administrador_sistema',
+                'descripcion' => 'Responsable de la gestión técnica y mantenimiento del sistema',
+                'permisos' => [
+                    'gestionar_usuarios', // Crear, editar, eliminar usuarios del sistema
+                    'asignar_roles', // Asignar y modificar roles y permisos
+                    'realizar_backup', // Realizar copias de seguridad de la base de datos
+                    'restaurar_backup', // Restaurar la base de datos desde una copia de seguridad
+                    'monitorizar_sistema', // Supervisar el rendimiento y estado del sistema
+                    'actualizar_sistema', // Aplicar actualizaciones y parches al sistema
+                    'configurar_parametros', // Configurar parámetros generales del sistema
+                    'actualizar_datos_institucionales' // Actualizar información institucional como nombre, dirección, contacto, etc.
+
+                ]
+
+                ]
         ];
+
 
         foreach ($roles as $rol) {
             RolesModel::updateOrCreate(
