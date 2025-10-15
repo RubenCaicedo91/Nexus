@@ -37,6 +37,17 @@ class RolesSeeder extends Seeder
                 ]
             ],
             [
+                'nombre' => 'Coordinador de Disciplina',
+                'descripcion' => 'Encargado de supervisar el comportamiento estudiantil y gestionar reportes disciplinarios',
+                'permisos' => [
+                    'registrar_reporte_disciplinario',
+                    'asignar_sanciones',
+                    'consultar_informes_disciplinarios',
+                    'generar_estadisticas_disciplina',
+                    'ver_estudiantes_asignados'
+                ]
+            ],
+            [
                 'nombre' => 'Docente',
                 'descripcion' => 'Profesor encargado de impartir clases y evaluar estudiantes',
                 'permisos' => [

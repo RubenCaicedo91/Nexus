@@ -12,6 +12,15 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
+
+        /* 👇 Nueva parte: Fondo general con imagen */
+        body {
+            background: url("{{ asset('images/basecolegio.png') }}") no-repeat center center fixed;
+            background-size: cover;
+            background-attachment: fixed;
+        }
+        /* 👆 Hasta aquí */
+
         .login-container {
             min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

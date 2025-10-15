@@ -17,6 +17,15 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolesSeeder::class,      // Primero crear los roles
             RectorSeeder::class,     // Luego crear el usuario rector
+            CoordinadorAcademicoSeeder::class,        
+            CoordinadorDisciplinaSeeder::class,
+            DocenteSeeder::class,
+            EstudianteSeeder::class,
+            AcudienteSeeder::class,
+            OrientadorSeeder::class,
+            TesoreroSeeder::class,
+            AdministradorSistemaSeeder::class,
+            
         ]);
         
         // Comentado el usuario de prueba para evitar conflictos
