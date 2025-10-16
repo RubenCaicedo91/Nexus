@@ -21,7 +21,7 @@ class OrientadorSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'orientador@colegio.edu.co'],
             [
-                'name' => 'Orientador Ejemplo',
+                'name' => 'Orientador del Colegio ',
                 'email' => 'orientador@colegio.edu.co',
                 'password' => Hash::make('orientador123'),
                 'roles_id' => $rol->id,

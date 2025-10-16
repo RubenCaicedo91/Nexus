@@ -21,7 +21,7 @@ class EstudianteSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'estudiante@colegio.edu.co'],
             [
-                'name' => 'Estudiante Ejemplo',
+                'name' => 'Estudiante',
                 'email' => 'estudiante@colegio.edu.co',
                 'password' => Hash::make('estudiante123'),
                 'roles_id' => $rol->id,

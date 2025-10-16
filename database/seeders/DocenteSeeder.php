@@ -21,7 +21,7 @@ class DocenteSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'docente@colegio.edu.co'],
             [
-                'name' => 'Docente Ejemplo',
+                'name' => 'Docente',
                 'email' => 'docente@colegio.edu.co',
                 'password' => Hash::make('docente123'),
                 'roles_id' => $rol->id,

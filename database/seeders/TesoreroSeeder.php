@@ -21,7 +21,7 @@ class TesoreroSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'tesorero@colegio.edu.co'],
             [
-                'name' => 'Tesorero Ejemplo',
+                'name' => 'Tesorero del Colegio',
                 'email' => 'tesorero@colegio.edu.co',
                 'password' => Hash::make('tesorero123'),
                 'roles_id' => $rol->id,
