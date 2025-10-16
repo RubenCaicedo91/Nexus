@@ -75,6 +75,11 @@
                     <a class="nav-link" href="#">
                         <i class="fas fa-cog me-2"></i>Configuración
                     </a>
+
+                    <!-- Acceso a Roles -->
+                    <a class="nav-link" href="{{ route('roles.index') }}">
+                        <i class="fas fa-users-cog me-2"></i>Roles
+                    </a>
                 </nav>
             </div>
         </div>
@@ -168,10 +173,12 @@
                                             Agregar Cliente
                                         </a>
                                     </div>
+
+                                    <!-- Botón rápido para Roles -->
                                     <div class="col-md-4 mb-3">
-                                        <a href="#" class="btn btn-outline-primary btn-lg w-100">
-                                            <i class="fas fa-chart-line me-2"></i>
-                                            Ver Reportes
+                                        <a href="{{ route('roles.index') }}" class="btn btn-outline-primary btn-lg w-100">
+                                            <i class="fas fa-users-cog me-2"></i>
+                                            Gestionar Roles
                                         </a>
                                     </div>
                                 </div>
