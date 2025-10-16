@@ -15,7 +15,7 @@
 
         /* 👇 Nueva parte: Fondo general con imagen */
         body {
-            background: url("{{ asset('images/basecolegio.png') }}") no-repeat center center fixed;
+            
             background-size: cover;
             background-attachment: fixed;
         }
@@ -23,7 +23,8 @@
 
         .login-container {
             min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: url("{{ asset('images/basecolegio.png') }}") no-repeat center center fixed;
+            /*background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
         }
         
         .login-card {
