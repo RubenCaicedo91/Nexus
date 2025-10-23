@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Matricula;
 use App\Models\User; // Assuming students are users
+use App\Models\RolesModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,7 +24,15 @@ class MatriculaController extends Controller
      */
     public function create()
     {
-        $students = User::where('roles_id', 4)->get(); // Assuming roles_id 4 is for students
+        // Obtener dinámicamente el id del rol 'Estudiante' en lugar de usar un id fijo
+        $studentRole = RolesModel::where('nombre', 'Estudiante')->first();
+        if ($studentRole) {
+            $students = User::where('roles_id', $studentRole->id)->get();
+        } else {
+            // Si no existe el rol, devolver colección vacía para evitar errores en la vista
+            $students = collect();
+        }
+
         return view('matriculas.create', compact('students'));
     }
 
@@ -57,7 +66,14 @@ class MatriculaController extends Controller
      */
     public function edit(Matricula $matricula)
     {
-        $students = User::where('roles_id', 4)->get(); // Assuming roles_id 4 is for students
+        // Obtener dinámicamente el id del rol 'Estudiante'
+        $studentRole = RolesModel::where('nombre', 'Estudiante')->first();
+        if ($studentRole) {
+            $students = User::where('roles_id', $studentRole->id)->get();
+        } else {
+            $students = collect();
+        }
+
         return view('matriculas.edit', compact('matricula', 'students'));
     }
 

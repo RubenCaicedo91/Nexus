@@ -50,9 +50,19 @@
             margin: 2px 0;
         }
         
+        /* Transición y efecto hover para los enlaces del sidebar */
+        .sidebar .nav-link {
+            color: #ecf0f1;
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin: 2px 0;
+            transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
+        }
+        
         .sidebar .nav-link:hover {
             background: #34495e;
             color: #fff;
+            transform: translateX(4px);
         }
         
         .sidebar .nav-link.active {
@@ -63,6 +73,29 @@
         .main-content {
             background: #f8f9fa;
             min-height: calc(100vh - 56px);
+        }
+        
+        /* Efecto hover para botones (cards y botones rápidos) */
+        .btn {
+            transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+
+        /* Estilos específicos para botones outline para que cambien fondo al pasar */
+        .btn-outline-primary:hover {
+            background-color: #0d6efd;
+            color: #fff;
+            border-color: #0d6efd;
+        }
+
+        .btn-outline-info:hover {
+            background-color: #0dcaf0;
+            color: #fff;
+            border-color: #0dcaf0;
         }
     </style>
     
