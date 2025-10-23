@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CrearUsuario;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\InstitucionController; // 👈 Importa el nuevo controlador
+use App\Http\Controllers\MatriculaController; // Importa el controlador de Matrículas
 
 // Ruta raíz redirige al login
 Route::get('/', function () {
@@ -36,5 +37,6 @@ Route::middleware(['auth'])->group(function () {
     // Vista para gestionar la institución
     Route::view('/institucion/gestion', 'institucion')->name('institucion.gestion');
 
-
+    // Rutas para administrar matrículas
+    Route::resource('matriculas', MatriculaController::class);
 });

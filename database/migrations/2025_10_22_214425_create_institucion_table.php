@@ -19,9 +19,6 @@ return new class extends Migration
             $table->string('telefono')->nullable();
             $table->string('correo')->nullable();
             $table->string('rector')->nullable();
-            $table->text('mision')->nullable();
-            $table->text('vision')->nullable();
-            $table->text('valores')->nullable();
             $table->timestamps();
         });
     }

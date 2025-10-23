@@ -181,6 +181,13 @@
                                             Gestionar Roles
                                         </a>
                                     </div>
+                                    <!-- Botón rápido para Matriculas -->
+                                    <div class="col-md-4 mb-3">
+                                        <a href="{{ route('matriculas.index') }}" class="btn btn-outline-info btn-lg w-100">
+                                            <i class="fas fa-user-graduate me-2"></i>
+                                            Gestionar Matrículas
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
