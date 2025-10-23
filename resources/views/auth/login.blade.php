@@ -1,8 +1,13 @@
 @extends('layouts.app')
+@php($hideSidebar = true)
+@section('sidebar')
+    {{-- Sidebar deshabilitado en login --}}
+@endsection
 
 @section('title', 'Iniciar Sesión - CuentasCobro')
 
 @section('content')
+
 <div class="login-container d-flex align-items-center justify-content-center">
     <div class="container">
         <div class="row justify-content-center">
