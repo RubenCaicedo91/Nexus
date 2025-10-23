@@ -1,35 +1,28 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
-    <div class="row">
-        <div class="col-lg-12 margin-tb">
-            <div class="pull-left">
-                <h2> Mostrar Matrícula</h2>
-            </div>
-            <div class="pull-right">
-                <a class="btn btn-primary" href="{{ route('matriculas.index') }}"> Volver</a>
-            </div>
+<div class="container-fluid py-4">
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">Mostrar Matrícula</h2>
+            <a class="btn btn-primary" href="{{ route('matriculas.index') }}">
+                <i class="fas fa-arrow-left me-2"></i>Volver
+            </a>
         </div>
     </div>
-
-    <div class="row">
-        <div class="col-xs-12 col-sm-12 col-md-12">
-            <div class="form-group">
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="mb-3">
                 <strong>Estudiante:</strong>
-                {{ $matricula->user->name }}
+                <div>{{ $matricula->user->name }}</div>
             </div>
-        </div>
-        <div class="col-xs-12 col-sm-12 col-md-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <strong>Fecha de Matrícula:</strong>
-                {{ $matricula->fecha_matricula }}
+                <div>{{ $matricula->fecha_matricula }}</div>
             </div>
-        </div>
-        <div class="col-xs-12 col-sm-12 col-md-12">
-            <div class="form-group">
+            <div class="mb-3">
                 <strong>Estado:</strong>
-                {{ $matricula->estado }}
+                <div>{{ $matricula->estado }}</div>
             </div>
         </div>
     </div>

@@ -102,8 +102,17 @@
     @stack('styles')
 </head>
 <body>
-    @yield('content')
-    
+    @include('partials.navbar')
+    <div class="container-fluid">
+        <div class="row">
+            @include('partials.sidebar')
+            <div class="col-md-9 col-lg-10">
+                <div class="main-content p-4">
+                    @yield('content')
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     

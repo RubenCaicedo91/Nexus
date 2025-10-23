@@ -1,0 +1,46 @@
+<div class="col-md-3 col-lg-2 p-0">
+    <div class="sidebar">
+        <div class="p-3">
+            <h6 class="text-white-50 text-uppercase">Menú Principal</h6>
+        </div>
+        <nav class="nav flex-column px-3">
+            <a class="nav-link active" href="{{ route('dashboard') }}">
+                <i class="fas fa-book me-2"></i>Gestion Institucional
+            </a>
+            <!-- Submenú expandible para Gestion Academica -->
+            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuAcademica" role="button" aria-expanded="false" aria-controls="submenuAcademica">
+                <span><i class="fas fa-chalkboard-teacher me-2"></i>Gestion Academica</span>
+                <i class="fas fa-chevron-down small"></i>
+            </a>
+            <div class="collapse ps-4" id="submenuAcademica">
+                <a class="nav-link" href="{{ route('gestion.index') }}">Gestión de Horarios</a>
+                <a class="nav-link" href="{{ route('matriculas.index') }}">Gestión de Matrículas</a>
+            </div>
+            <a class="nav-link" href="#">
+                <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria
+            </a>
+            <a class="nav-link" href="#">
+                <i class="fas fa-chart-line me-2"></i>Gestion Financiera
+            </a>
+            <a class="nav-link" href="#">
+                <i class="fas fa-comment-dots me-2"></i>Orientacion
+            </a>
+            <a class="nav-link" href="#">
+                <i class="fas fa-comments me-2"></i>Modulo de Comunicación
+            </a>
+            <!-- Submenú expandible para Configuración -->
+            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuConfig" role="button" aria-expanded="false" aria-controls="submenuConfig">
+                <span><i class="fas fa-cog me-2"></i>Configuración</span>
+                <i class="fas fa-chevron-down small"></i>
+            </a>
+            <div class="collapse ps-4" id="submenuConfig">
+                <a class="nav-link" href="#">Ajustes Generales</a>
+                <a class="nav-link" href="#">Usuarios</a>
+            </div>
+            <!-- Acceso a Roles -->
+            <a class="nav-link" href="{{ route('roles.index') }}">
+                <i class="fas fa-users-cog me-2"></i>Roles
+            </a>
+        </nav>
+    </div>
+</div>
