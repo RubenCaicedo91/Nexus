@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CrearUsuario;
 use App\Http\Controllers\RolController;
+use App\Http\Controllers\GestionAcademicaController;
 use App\Http\Controllers\InstitucionController; // 👈 Importa el nuevo controlador
 
 // Ruta raíz redirige al login
@@ -27,6 +28,11 @@ Route::middleware(['auth'])->group(function () {
     // Rutas para administrar roles
     Route::resource('roles', RolController::class);
     Route::get('roles-permisos', [RolController::class, 'permisosDisponibles'])->name('roles.permisos');
+    // Gestión académica (páginas básicas)
+    Route::get('gestion-academica', [GestionAcademicaController::class, 'index'])->name('gestion.index');
+    Route::get('gestion-academica/crear-curso', [GestionAcademicaController::class, 'crearCurso'])->name('gestion.crearCurso');
+    Route::get('gestion-academica/editar-curso', [GestionAcademicaController::class, 'editarCurso'])->name('gestion.editarCurso');
+    Route::get('gestion-academica/horarios', [GestionAcademicaController::class, 'horarios'])->name('gestion.horarios');
 
     // 👇 NUEVAS RUTAS DE GESTIÓN INSTITUCIONAL
     Route::get('/institucion', [InstitucionController::class, 'index'])->name('institucion.index');

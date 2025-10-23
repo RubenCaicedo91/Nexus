@@ -57,7 +57,7 @@
                     <a class="nav-link active" href="{{ route('dashboard') }}">
                         <i class="fas fa-book me-2"></i>Gestion Institucional
                     </a>
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="{{ route('gestion.index') }}">
                         <i class="fas fa-chalkboard-teacher me-2"></i>Gestion Academica
                     </a>
                     <a class="nav-link" href="#">
@@ -91,7 +91,7 @@
                 <div class="row mb-4">
                     <div class="col-12">
                         <h1 class="h3 text-dark">¡Bienvenido, {{ Auth::user()->name }}!</h1>
-                        <p class="text-muted">Gestiona tus cuentas de cobro de manera eficiente</p>
+                        <p class="text-muted">SuperUsuario</p>
                     </div>
                 </div>
 
@@ -103,9 +103,9 @@
                                 <div class="text-primary mb-2">
                                     <i class="fas fa-file-invoice fa-2x"></i>
                                 </div>
-                                <h5 class="card-title">Total Cuentas</h5>
-                                <h3 class="text-primary">0</h3>
-                                <small class="text-muted">Cuentas registradas</small>
+                                <h5 class="card-title">Asignar Coordinadores</h5>
+                               
+                                <small class="text-muted">Lista Coordinadores</small>
                             </div>
                         </div>
                     </div>
@@ -116,9 +116,9 @@
                                 <div class="text-success mb-2">
                                     <i class="fas fa-check-circle fa-2x"></i>
                                 </div>
-                                <h5 class="card-title">Pagadas</h5>
-                                <h3 class="text-success">0</h3>
-                                <small class="text-muted">Cuentas pagadas</small>
+                                <h5 class="card-title">Informe General</h5>
+                                
+                                <small class="text-muted">Detallado</small>
                             </div>
                         </div>
                     </div>
@@ -130,8 +130,8 @@
                                     <i class="fas fa-clock fa-2x"></i>
                                 </div>
                                 <h5 class="card-title">Pendientes</h5>
-                                <h3 class="text-warning">0</h3>
-                                <small class="text-muted">Por cobrar</small>
+                                
+                                <small class="text-muted">Por Aprobar</small>
                             </div>
                         </div>
                     </div>
@@ -142,9 +142,9 @@
                                 <div class="text-info mb-2">
                                     <i class="fas fa-dollar-sign fa-2x"></i>
                                 </div>
-                                <h5 class="card-title">Total Facturado</h5>
-                                <h3 class="text-info">$0</h3>
-                                <small class="text-muted">Este mes</small>
+                                <h5 class="card-title">Informacion Institucional</h5>
+                                
+                                <small class="text-muted">Datos</small>
                             </div>
                         </div>
                     </div>
@@ -164,13 +164,13 @@
                                     <div class="col-md-4 mb-3">
                                         <a href="#" class="btn btn-primary btn-lg w-100">
                                             <i class="fas fa-plus-circle me-2"></i>
-                                            Nueva Cuenta de Cobro
+                                            Nueva Coordinador
                                         </a>
                                     </div>
                                     <div class="col-md-4 mb-3">
                                         <a href="#" class="btn btn-outline-primary btn-lg w-100">
                                             <i class="fas fa-user-plus me-2"></i>
-                                            Agregar Cliente
+                                            Agregar Estudiante
                                         </a>
                                     </div>
 
