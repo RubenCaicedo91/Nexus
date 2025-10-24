@@ -1,4 +1,8 @@
 @extends('layouts.app')
+@php($hideSidebar = true)
+@section('sidebar')
+    {{-- Sidebar deshabilitado en registro --}}
+@endsection
 
 @section('title', 'Iniciar Sesión - CuentasCobro')
 

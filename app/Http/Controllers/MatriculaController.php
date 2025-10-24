@@ -17,7 +17,8 @@ class MatriculaController extends Controller
      */
     public function index()
     {
-        $matriculas = Matricula::with('user')->get();
+        // Usar paginación por defecto para la lista (mejor experiencia y compatibilidad con ->links())
+        $matriculas = Matricula::with('user')->orderBy('created_at', 'desc')->paginate(10);
         return view('matriculas.index', compact('matriculas'));
     }
 
@@ -39,10 +40,17 @@ class MatriculaController extends Controller
     }
 
     // Helpers nuevos para rutas ESTABLES
+    /**
+     * Genera un identificador único legible para la carpeta del estudiante.
+     * Ahora devuelve "{slug}_{id}" para evitar colisiones cuando dos estudiantes
+     * tienen el mismo nombre (ej: "juan_perez_123").
+     */
     private function studentSlugFromId(int $userId): string
     {
-        $name = optional(\App\Models\User::find($userId))->name ?? 'desconocido';
-        return Str::slug(trim($name), '_'); // ejemplo: "Juan Pérez" -> "juan_perez"
+        $user = \App\Models\User::find($userId);
+        $name = $user->name ?? 'desconocido';
+        $slug = Str::slug(trim($name), '_'); // ejemplo: "Juan Pérez" -> "juan_perez"
+        return $slug . '_' . $userId; // ejemplo: "juan_perez_123"
     }
 
     private function subfolderMap(): array
@@ -55,18 +63,50 @@ class MatriculaController extends Controller
         ];
     }
 
+    /**
+     * Construye la carpeta destino en el disco FTP.
+     * Siempre devuelve: estudiante/{slug_unico}
+     * Normaliza la entrada para evitar que se acumulen prefijos repetidos
+     * Ejemplo: si accidentalmente se pasa "estudiante/juan" o "estudiante/estudiante/juan",
+     * se extrae el último segmento y se genera "estudiante/juan".
+     */
     private function buildTargetFolder(string $studentSlug, string $campo): string
     {
-        $map = $this->subfolderMap();
-        $sub = $map[$campo] ?? $campo;
-        $base = trim($studentSlug, '/');        // "juan_perez"
-        $path = $base . '/' . trim($sub, '/');  // "juan_perez/documento"
+        // Extraer último segmento por si ya viene con prefijos
+        $trimmed = trim($studentSlug, '/');
+        $parts = preg_split('#/+#', $trimmed);
+        $last = end($parts) ?: $trimmed;
 
-        // Normalizar por si el slug se repite accidentalmente
-        $pattern = '#(?:^|/)(' . preg_quote($base, '#') . ')(?:/\1)+(?=/|$)#i';
-        $path = preg_replace($pattern, '$1', $path);
+        // Sanitizar el slug para que sea seguro como nombre de carpeta
+        $safe = Str::slug($last, '_');
 
-        return $path;
+        // Devolver solo el identificador seguro del estudiante (sin prefijo)
+        return $safe;
+    }
+
+    /**
+     * Normaliza cualquier ruta objetivo para colapsar ramificaciones repetidas.
+     * Extrae el último segmento que parezca un identificador de estudiante
+     * (por ejemplo: 'estudiante' o 'estudiante_14') y devuelve siempre
+     * 'estudiante/{segmento}'. Esto evita rutas como
+     * 'estudiante/estudiante/estudiante_14/estudiante/estudiante_14...'
+     */
+    private function normalizeTargetFolder(string $folder): string
+    {
+        $trimmed = trim($folder, '/');
+
+        // Buscar coincidencias del patrón 'estudiante' o 'estudiante_{id}'
+            if (preg_match_all('/estudiante(?:_[0-9]+)?/i', $trimmed, $matches) && !empty($matches[0])) {
+            $last = end($matches[0]);
+            $safe = Str::slug($last, '_');
+            return $safe;
+        }
+
+        // Si no hay coincidencias, tomar el último segmento cualquiera
+        $parts = preg_split('#/+#', $trimmed);
+        $last = end($parts) ?: $trimmed;
+        $safe = Str::slug($last, '_');
+        return $safe;
     }
 
     /**
@@ -84,9 +124,10 @@ class MatriculaController extends Controller
             'certificado_notas' => 'nullable|file|max:20480',
         ]);
 
-        $slugEstudiante = $this->studentSlugFromId((int)$request->user_id);
-        // Carpeta base para el estudiante (no modificar dentro del bucle)
-        $carpeta_base = $slugEstudiante;
+    $slugEstudiante = $this->studentSlugFromId((int)$request->user_id);
+    // Carpeta base para el estudiante (sera `estudiante/{slug}`)
+    $safeStudentSegment = $this->normalizeTargetFolder($slugEstudiante);
+    $carpeta_base = 'estudiante/' . $safeStudentSegment;
 
         $documentos = [
             'documento_identidad' => $request->file('documento_identidad'),
@@ -103,14 +144,31 @@ class MatriculaController extends Controller
         $rutas = [];
 
         foreach ($documentos as $campo => $archivo) {
-            $carpeta_documento = $this->buildTargetFolder($slugEstudiante, $campo); // "juan_perez/documento"
+            // Destino final: estudiante/{slug}
+            $dir = $carpeta_base;
+
             if ($archivo) {
-                // Crear subcarpeta solo si no existe
-                if (!Storage::disk('ftp_matriculas')->exists($carpeta_documento)) {
-                    Storage::disk('ftp_matriculas')->makeDirectory($carpeta_documento);
+                // Crear carpeta si no existe
+                if (! Storage::disk('ftp_matriculas')->exists($dir)) {
+                    Storage::disk('ftp_matriculas')->makeDirectory($dir);
                 }
-                $ruta = $archivo->store($carpeta_documento, 'ftp_matriculas');
-                $rutas[$campo] = $ruta;
+
+                // Sanear el nombre original y evitar caracteres inválidos
+                $origName = $archivo->getClientOriginalName();
+                $ext = $archivo->getClientOriginalExtension();
+                $base = pathinfo($origName, PATHINFO_FILENAME);
+                $safeBase = Str::slug($base, '_') ?: 'file';
+                $filename = $safeBase . '.' . ($ext ?: $archivo->extension());
+
+                // Usar putFileAs para controlar el nombre remoto (evita caracteres/formatos inválidos)
+                $stored = Storage::disk('ftp_matriculas')->putFileAs($dir, $archivo, $filename);
+                // putFileAs retorna la ruta relativa en el disco o false si falla
+                if ($stored === false) {
+                    // Guardar error y continuar; marcar que faltan archivos para estado
+                    $faltan = true;
+                } else {
+                    $rutas[$campo] = $stored;
+                }
             } else {
                 $faltan = true;
             }
@@ -184,7 +242,8 @@ class MatriculaController extends Controller
         ];
 
         foreach ($documentos as $campo) {
-            $carpeta_documento = $this->buildTargetFolder($slugEstudiante, $campo); // "juan_perez/registro_de_notas"
+            // Usar la misma carpeta base: estudiante/{slug}
+            $dir = 'estudiante/' . $this->normalizeTargetFolder($slugEstudiante);
 
             if ($request->has("delete_$campo")) {
                 if ($matricula->$campo) {
@@ -197,13 +256,25 @@ class MatriculaController extends Controller
                 if ($matricula->$campo) {
                     Storage::disk('ftp_matriculas')->delete($matricula->$campo);
                 }
-                // Crear subcarpeta solo si no existe
-                if (!Storage::disk('ftp_matriculas')->exists($carpeta_documento)) {
-                    Storage::disk('ftp_matriculas')->makeDirectory($carpeta_documento);
+
+                // Crear carpeta si no existe
+                if (! Storage::disk('ftp_matriculas')->exists($dir)) {
+                    Storage::disk('ftp_matriculas')->makeDirectory($dir);
                 }
+
                 $archivo = $request->file($campo);
-                $ruta = $archivo->store($carpeta_documento, 'ftp_matriculas');
-                $matricula->$campo = $ruta;
+
+                // Sanear y construir nombre seguro
+                $origName = $archivo->getClientOriginalName();
+                $ext = $archivo->getClientOriginalExtension();
+                $base = pathinfo($origName, PATHINFO_FILENAME);
+                $safeBase = Str::slug($base, '_') ?: 'file';
+                $filename = $safeBase . '.' . ($ext ?: $archivo->extension());
+
+                $stored = Storage::disk('ftp_matriculas')->putFileAs($dir, $archivo, $filename);
+                if ($stored !== false) {
+                    $matricula->$campo = $stored;
+                }
             }
         }
 
@@ -231,9 +302,78 @@ class MatriculaController extends Controller
      */
     public function destroy(Matricula $matricula)
     {
+        $userId = $matricula->user_id;
+
+        // Borrar archivos referenciados en el modelo si existen
+        $campos = ['documento_identidad', 'rh', 'certificado_medico', 'certificado_notas'];
+        foreach ($campos as $campo) {
+            if ($matricula->$campo) {
+                Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+            }
+        }
+
+        // Si no hay otras matrículas para este usuario, eliminar la carpeta del estudiante
+        $existenOtras = Matricula::where('user_id', $userId)->where('id', '!=', $matricula->id)->exists();
+        if (! $existenOtras) {
+            $slug = $this->studentSlugFromId($userId);
+            $folder = 'estudiante/' . $slug;
+            if (Storage::disk('ftp_matriculas')->exists($folder)) {
+                Storage::disk('ftp_matriculas')->deleteDirectory($folder);
+            }
+        }
+
         $matricula->delete();
 
         return redirect()->route('matriculas.index')
                          ->with('success', 'Matrícula eliminada exitosamente.');
+    }
+
+    /**
+     * Servir (visualizar/descargar inline) un archivo asociado a una matrícula.
+     * Se espera que $campo sea uno de los campos: documento_identidad, rh, certificado_medico, certificado_notas
+     */
+    public function archivo(Matricula $matricula, $campo)
+    {
+        $allowed = ['documento_identidad', 'rh', 'certificado_medico', 'certificado_notas'];
+        if (! in_array($campo, $allowed)) {
+            abort(404);
+        }
+
+        $path = $matricula->$campo;
+        if (! $path) {
+            abort(404);
+        }
+
+        $disk = Storage::disk('ftp_matriculas');
+
+        // Intentar abrir un stream desde el disco configurado
+        if (! $disk->exists($path)) {
+            abort(404);
+        }
+
+        $stream = $disk->readStream($path);
+        if (! $stream) {
+            abort(500, 'No se pudo leer el archivo.');
+        }
+
+        // Determinar mime por la extensión como fallback (evita llamadas específicas del adapter)
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $map = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+        ];
+        $mime = $map[$ext] ?? 'application/octet-stream';
+
+        $filename = basename($path);
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+        }, 200, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => "inline; filename=\"{$filename}\"",
+        ]);
     }
 }

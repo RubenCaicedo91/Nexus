@@ -1,65 +1,89 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-12 d-flex justify-content-between align-items-center">
-            <div>
-                <h1 class="h3 mb-0">Gestión de Matrículas</h1>
-                <p class="text-muted mb-0">Acciones rápidas para gestionar matrículas.</p>
-            </div>
-            <a class="btn btn-success" href="{{ route('matriculas.create') }}">
-                <i class="fas fa-plus me-2"></i>Crear Nueva Matrícula
-            </a>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">Mis Matrículas</h2>
+            <small class="text-muted">Listado de matrículas registradas en tu cuenta.</small>
         </div>
+        <a class="btn btn-primary" href="{{ route('matriculas.create') }}">Nueva Matrícula</a>
     </div>
-    <div class="my-3"></div>
+
     @if ($message = Session::get('success'))
-        <div class="alert alert-success">
-            <p class="mb-0">{{ $message }}</p>
-        </div>
+        <div class="alert alert-success">{{ $message }}</div>
     @endif
 
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>No</th>
-                        <th>Estudiante</th>
-                        <th>Fecha de Matrícula</th>
-                        <th>Estado</th>
-                        <th width="280px">Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @php($i = 0)
-                    @foreach ($matriculas as $matricula)
-                    <tr>
-                        <td>{{ ++$i }}</td>
-                        <td>{{ $matricula->user->name }}</td>
-                        <td>{{ $matricula->fecha_matricula }}</td>
-                        <td>{{ $matricula->estado }}</td>
-                        <td>
-                            <form action="{{ route('matriculas.destroy',$matricula->id) }}" method="POST" class="d-inline">
-                                <a class="btn btn-info btn-sm" href="{{ route('matriculas.show',$matricula->id) }}">
-                                    <i class="fas fa-eye"></i> Mostrar
-                                </a>
-                                <a class="btn btn-primary btn-sm" href="{{ route('matriculas.edit',$matricula->id) }}">
-                                    <i class="fas fa-edit"></i> Editar
-                                </a>
+    @if ($matriculas->count() === 0)
+        <div class="alert alert-info">Aún no has registrado matrículas.</div>
+    @else
+        <div class="list-group">
+            @foreach ($matriculas as $m)
+                <div class="list-group-item list-group-item-action mb-2">
+                    <div class="d-flex w-100 justify-content-between align-items-start">
+                        <div class="me-3 flex-grow-1">
+                            <h5 class="mb-1">
+                                {{-- Preferir datos del usuario relacionado, si existen --}}
+                                @if(optional($m->user)->name)
+                                    {{ optional($m->user)->name }}
+                                @else
+                                    {{ ($m->nombres ?? '') . ' ' . ($m->apellidos ?? '') }}
+                                @endif
+                                @if(optional($m->curso)->nombre)
+                                    <small class="text-muted">— {{ optional($m->curso)->nombre }}</small>
+                                @endif
+                            </h5>
+                            <p class="mb-1">Estado: 
+                                @php
+                                    $estado = strtolower($m->estado ?? 'desconocido');
+                                @endphp
+                                @if($estado === 'activo')
+                                    <span class="badge bg-success">Activo</span>
+                                @elseif(str_contains($estado, 'falta'))
+                                    <span class="badge bg-warning text-dark">Falta documentación</span>
+                                @else
+                                    <span class="badge bg-secondary">{{ ucfirst($estado) }}</span>
+                                @endif
+                            </p>
+
+                            <small class="text-muted">Registrada: {{ $m->created_at ? $m->created_at->format('Y-m-d H:i') : ($m->fecha_matricula ?? '') }}</small>
+
+                            {{-- Enlaces a documentos si existen --}}
+                            <div class="mt-2">
+                                @if($m->documento_identidad_url)
+                                    <a class="btn btn-outline-primary btn-sm me-1" href="{{ $m->documento_identidad_url }}" target="_blank">Documento de identidad</a>
+                                @endif
+                                @if($m->rh_url)
+                                    <a class="btn btn-outline-secondary btn-sm me-1" href="{{ $m->rh_url }}" target="_blank">RH</a>
+                                @endif
+                                @if($m->certificado_medico_url)
+                                    <a class="btn btn-outline-info btn-sm me-1" href="{{ $m->certificado_medico_url }}" target="_blank">Certificado médico</a>
+                                @endif
+                                @if($m->certificado_notas_url)
+                                    <a class="btn btn-outline-warning btn-sm me-1" href="{{ $m->certificado_notas_url }}" target="_blank">Registro de notas</a>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="text-end">
+                            <a class="btn btn-sm btn-info mb-1 d-block" href="{{ route('matriculas.show', $m->id) }}">Ver</a>
+                            <a class="btn btn-sm btn-primary mb-1 d-block" href="{{ route('matriculas.edit', $m->id) }}">Editar</a>
+                            <form action="{{ route('matriculas.destroy', $m->id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar esta matrícula?');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-danger btn-sm">
-                                    <i class="fas fa-trash"></i> Eliminar
-                                </button>
+                                <button class="btn btn-sm btn-danger d-block">Eliminar</button>
                             </form>
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
         </div>
-    </div>
+
+        <div class="mt-3">
+            @if (method_exists($matriculas, 'links'))
+                {{ $matriculas->links() }}
+            @endif
+        </div>
+    @endif
 </div>
 @endsection

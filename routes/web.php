@@ -45,4 +45,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Rutas para administrar matrículas
     Route::resource('matriculas', MatriculaController::class);
+    // Servir archivos de matrículas (visualización/descarga) desde el disco configurado
+    Route::get('matriculas/{matricula}/archivo/{campo}', [MatriculaController::class, 'archivo'])
+        ->name('matriculas.archivo');
 });
