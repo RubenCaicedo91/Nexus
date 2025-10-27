@@ -1,6 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\RolesModel;
+use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CrearUsuario;
 use App\Http\Controllers\RolController;
@@ -25,6 +30,83 @@ Route::post('/registro', [CrearUsuario::class, 'register']);
 // Rutas protegidas por autenticación
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
+
+    // Perfil del usuario autenticado (cargando relaciones necesarias)
+    Route::get('/perfil', function () {
+        $user = User::findOrFail(Auth::id())->load(['role', 'acudientes', 'acudiente']);
+        return view('profile', ['user' => $user]);
+    })->name('perfil');
+
+    // Editar perfil (formulario) — cargamos relaciones por si es necesario
+    Route::get('/perfil/editar', function () {
+        $user = User::findOrFail(Auth::id())->load(['role', 'acudientes', 'acudiente']);
+        return view('profile_edit', ['user' => $user]);
+    })->name('perfil.editar');
+
+    // Actualizar perfil
+    Route::put('/perfil', function (Request $request) {
+        // Aseguramos obtener el modelo User desde la BD para evitar null o tipos inesperados
+        $user = User::findOrFail(Auth::id());
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email,' . $user->id],
+            'password' => ['nullable', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        $user->name = $validated['name'];
+        $user->email = $validated['email'];
+
+        if (!empty($validated['password'])) {
+            // El casteo 'password' => 'hashed' en el modelo User hará el hash automáticamente.
+            $user->password = $validated['password'];
+        }
+
+        $user->save();
+
+        return redirect()->route('perfil')->with('success', 'Perfil actualizado correctamente.');
+    })->name('perfil.update');
+
+    // Crear estudiante — solo para acudientes
+    Route::get('/perfil/crear-estudiante', function () {
+        $user = User::findOrFail(Auth::id());
+        // solo permitir si el usuario es Acudiente
+        if (optional($user->role)->nombre !== 'Acudiente') {
+            abort(403, 'Acceso no autorizado');
+        }
+        return view('profile_create_student');
+    })->name('perfil.crear_estudiante');
+
+    Route::post('/perfil/crear-estudiante', function (Request $request) {
+        $user = User::findOrFail(Auth::id());
+        if (optional($user->role)->nombre !== 'Acudiente') {
+            abort(403, 'Acceso no autorizado');
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        // Obtener id del rol Estudiante
+        $rolEstudiante = RolesModel::where('nombre', 'Estudiante')->first();
+        $rolId = $rolEstudiante ? $rolEstudiante->id : null;
+
+        $newUser = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'roles_id' => $rolId,
+            // acudiente_id lo asignamos explícitamente después para evitar problemas de mass-assignment
+        ]);
+
+        // Forzar asignación y guardado del acudiente_id
+        $newUser->acudiente_id = $user->id;
+        $newUser->save();
+
+        return redirect()->route('perfil')->with('success', 'Estudiante creado correctamente.');
+    })->name('perfil.crear_estudiante.post');
 
     // Rutas para administrar roles
     Route::resource('roles', RolController::class);

@@ -15,7 +15,7 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" data-bs-offset="-10,0">
                             <li>
-                                <a class="dropdown-item" href="#">
+                                <a class="dropdown-item" href="{{ route('perfil') }}">
                                     <i class="fas fa-user-cog me-1"></i>Perfil
                                 </a>
                             </li>

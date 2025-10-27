@@ -6,6 +6,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\RolesModel;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -22,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'roles_id',
+        'acudiente_id',
     ];
 
     /**
@@ -45,5 +49,32 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Relación al rol del usuario.
+     * @return BelongsTo
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(RolesModel::class, 'roles_id');
+    }
+
+    /**
+     * Si el usuario es un acudiente, esta relación devuelve los estudiantes que creó/asoció.
+     * @return HasMany
+     */
+    public function acudientes(): HasMany
+    {
+        return $this->hasMany(self::class, 'acudiente_id');
+    }
+
+    /**
+     * Para usuarios tipo estudiante: devuelve su acudiente (si existe)
+     * @return BelongsTo
+     */
+    public function acudiente(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'acudiente_id');
     }
 }
