@@ -133,6 +133,8 @@ Route::middleware(['auth'])->group(function () {
     
     Route::post('gestion-academica/cursos', [GestionAcademicaController::class, 'guardarCurso'])->name('guardarCurso');
     Route::get('gestion-academica/cursos/{id}/editar', [GestionAcademicaController::class, 'editarCurso'])->name('editarCurso');
+    // Ruta para actualizar un curso (PUT)
+    Route::put('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'actualizarCurso'])->name('actualizarCurso');
     Route::delete('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'eliminarCurso'])->name('eliminarCurso');
 
 

@@ -52,6 +52,9 @@
     <div class="card">
         <div class="card-body">
             <h5 class="card-title">📚 Cursos registrados</h5>
+            @if(!empty($errorMessage))
+                <div class="alert alert-warning">{{ $errorMessage }}</div>
+            @endif
             <table class="table table-bordered table-hover">
                 <thead class="table-light">
                     <tr>

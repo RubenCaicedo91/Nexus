@@ -58,7 +58,8 @@ class GestionAcademicaController extends Controller
         $curso = Curso::findOrFail($id);
         $curso->update($request->only(['nombre', 'descripcion']));
 
-        return redirect()->route('gestion.index')->with('success', 'Curso actualizado correctamente.');
+        // Redirigimos al panel de cursos para mantener consistencia con crear/guardar/eliminar
+        return redirect()->route('cursos.panel')->with('success', 'Curso actualizado correctamente.');
     }
 
     public function eliminarCurso($id)
@@ -66,13 +67,22 @@ class GestionAcademicaController extends Controller
         $curso = Curso::findOrFail($id);
         $curso->delete();
 
-        return redirect()->route('gestion.index')->with('success', 'Curso eliminado correctamente.');
+        return redirect()->route('cursos.panel')->with('success', 'Curso eliminado correctamente.');
     }
 
     public function panelCursos()
     {
-        $cursos = Curso::all();
-        return view('gestion.panel_cursos', compact('cursos'));
+        try {
+            $cursos = Curso::all();
+            $errorMessage = null;
+        } catch (\Throwable $e) {
+            // Registro en log para depuración y devolvemos una lista vacía con mensaje de error
+            logger()->error('Error al cargar cursos: ' . $e->getMessage());
+            $cursos = collect();
+            $errorMessage = 'Error: la tabla de cursos no existe o la conexión a la base de datos falló. Ejecuta las migraciones (php artisan migrate) o revisa la configuración de la BD.';
+        }
+
+        return view('gestion.panel_cursos', compact('cursos', 'errorMessage'));
     }
 
     // 🕒 HORARIOS
