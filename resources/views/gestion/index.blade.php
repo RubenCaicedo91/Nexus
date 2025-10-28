@@ -1,13 +1,22 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid py-4">
-    <div class="row">
-        <div class="col-12">
-            <h1 class="h3 mb-3">Gestión de Horarios</h1>
-            <p class="text-muted mb-4">Acciones rápidas para gestionar cursos y horarios.</p>
-        </div>
+<div class="container-fluid py-5 d-flex justify-content-center">
+  <div class="card shadow-lg border-0 text-center text-white"
+       style="background: linear-gradient(135deg, #210e64ff, #220b4bff);
+              border-radius: 20px;
+              width: 95%;
+              max-width: 1300px;
+              padding: 25px 80px;">
+    <div class="card-body p-0">
+      <h1 class="fw-bold mb-2" style="font-size: 2.2rem;">🎓 Gestión de Cursos y Matrículas</h1>
+      <p class="text-light mb-0" style="font-size: 1.1rem;">
+        Acciones rápidas para gestionar cursos y horarios.
+      </p>
     </div>
+  </div>
+</div>
+
     <div class="row">
         <div class="col-md-4 mb-4">
             <div class="card border-0 shadow-sm h-100">
