@@ -49,6 +49,7 @@
                         <th>Curso</th>
                         <th>Día</th>
                         <th>Hora</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -57,10 +58,19 @@
                             <td>{{ $horario->curso }}</td>
                             <td>{{ $horario->dia }}</td>
                             <td>{{ $horario->hora }}</td>
+                            <td>
+                                <a href="{{ route('horarios.editar', $horario->id) }}" class="btn btn-sm btn-warning">✏️ Editar</a>
+
+                                <form action="{{ route('horarios.eliminar', $horario->id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás segura de eliminar este horario?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger">🗑️ Eliminar</button>
+                                </form>
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="3">No hay horarios registrados.</td>
+                            <td colspan="4" class="text-center text-muted">No hay horarios registrados.</td>
                         </tr>
                     @endforelse
                 </tbody>

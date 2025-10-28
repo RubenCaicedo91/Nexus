@@ -123,6 +123,18 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/institucion', [InstitucionController::class, 'index'])->name('institucion.index');
     Route::post('/institucion', [InstitucionController::class, 'store'])->name('institucion.store');
     Route::put('/institucion/{id}', [InstitucionController::class, 'update'])->name('institucion.update');
+    Route::get('gestion-academica/horarios/{id}/editar', [GestionAcademicaController::class, 'editarHorario'])->name('horarios.editar');
+    Route::put('gestion-academica/horarios/{id}', [GestionAcademicaController::class, 'actualizarHorario'])->name('horarios.actualizar');
+    Route::delete('gestion-academica/horarios/{id}', [GestionAcademicaController::class, 'eliminarHorario'])->name('horarios.eliminar');
+
+
+    // 📘 CURSOS
+    Route::get('gestion-academica/cursos', [GestionAcademicaController::class, 'panelCursos'])->name('cursos.panel');
+    
+    Route::post('gestion-academica/cursos', [GestionAcademicaController::class, 'guardarCurso'])->name('guardarCurso');
+    Route::get('gestion-academica/cursos/{id}/editar', [GestionAcademicaController::class, 'editarCurso'])->name('editarCurso');
+    Route::delete('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'eliminarCurso'])->name('eliminarCurso');
+
 
     // Vista para gestionar la institución
     Route::view('/institucion/gestion', 'institucion')->name('institucion.gestion');
