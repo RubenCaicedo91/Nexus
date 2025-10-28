@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 
+use App\Models\Horario;
+
 class GestionAcademicaController extends Controller
 {
     public function index()
@@ -23,6 +25,7 @@ class GestionAcademicaController extends Controller
 
     public function horarios()
     {
-        return view('gestion.horarios');
+        $horarios = Horario::all();
+        return view('gestion.horarios', compact('horarios'));
     }
 }

@@ -116,7 +116,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('gestion-academica/crear-curso', [GestionAcademicaController::class, 'crearCurso'])->name('gestion.crearCurso');
     Route::get('gestion-academica/editar-curso', [GestionAcademicaController::class, 'editarCurso'])->name('gestion.editarCurso');
     Route::get('gestion-academica/horarios', [GestionAcademicaController::class, 'horarios'])->name('gestion.horarios');
+    Route::post('gestion-academica/horarios', [GestionAcademicaController::class, 'guardarHorario'])->name('horarios.guardar');
 
+    
     // 👇 NUEVAS RUTAS DE GESTIÓN INSTITUCIONAL
     Route::get('/institucion', [InstitucionController::class, 'index'])->name('institucion.index');
     Route::post('/institucion', [InstitucionController::class, 'store'])->name('institucion.store');
