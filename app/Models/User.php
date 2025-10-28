@@ -77,4 +77,46 @@ class User extends Authenticatable
     {
         return $this->belongsTo(self::class, 'acudiente_id');
     }
+
+    /**
+     * Comprobar si el usuario tiene un permiso dado en su rol.
+     * Maneja roles que son instancias de RolesModel o arrays/objetos (fallback file).
+     * @param string $permiso
+     * @return bool
+     */
+    public function hasPermission(string $permiso): bool
+    {
+        $role = $this->role;
+        if (! $role) return false;
+
+        // Si el rol tiene nombre con 'admin' o 'administrador', conceder todos los permisos (fallback)
+        $roleNombre = null;
+        if (is_object($role) && isset($role->nombre)) $roleNombre = $role->nombre;
+        if (is_array($role) && isset($role['nombre'])) $roleNombre = $role['nombre'];
+        if ($roleNombre && (stripos($roleNombre, 'admin') !== false || stripos($roleNombre, 'administrador') !== false)) {
+            return true;
+        }
+
+        // Fallback legacy: si el usuario tiene roles_id == 1 conceder permiso
+        if (isset($this->roles_id) && (int)$this->roles_id === 1) {
+            return true;
+        }
+
+        // RolesModel tiene el método tienePermiso
+        if (is_object($role) && method_exists($role, 'tienePermiso')) {
+            return (bool) $role->tienePermiso($permiso);
+        }
+
+        // Si el role es un objeto o array con 'permisos'
+        $permisos = null;
+        if (is_object($role) && isset($role->permisos)) $permisos = $role->permisos;
+        if (is_array($role) && isset($role['permisos'])) $permisos = $role['permisos'];
+
+        if (is_string($permisos)) {
+            $permisos = array_map('trim', explode(',', $permisos));
+        }
+
+        if (! is_array($permisos)) return false;
+        return in_array($permiso, $permisos);
+    }
 }

@@ -8,7 +8,9 @@
             <small class="text-muted">Administrar permisos y funciones del personal y estudiantes</small>
         </div>
         <div>
-            <a href="{{ route('roles.create') }}" class="btn btn-primary">Crear Rol</a>
+            @if(auth()->check() && auth()->user()->hasPermission('editar_roles'))
+                <a href="{{ route('roles.create') }}" class="btn btn-primary">Crear Rol</a>
+            @endif
         </div>
     </div>
 
@@ -37,12 +39,14 @@
                         <td>{{ implode(', ', $rol->permisos ?? []) }}</td>
                         <td>
                             <a href="{{ route('roles.show', $rol->id) }}" class="btn btn-sm btn-info">Ver</a>
-                            <a href="{{ route('roles.edit', $rol->id) }}" class="btn btn-sm btn-warning">Editar</a>
-                            <form action="{{ route('roles.destroy', $rol->id) }}" method="POST" style="display:inline-block">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar rol?')">Eliminar</button>
-                            </form>
+                            @if(auth()->check() && auth()->user()->hasPermission('editar_roles'))
+                                <a href="{{ route('roles.edit', $rol->id) }}" class="btn btn-sm btn-warning">Editar</a>
+                                <form action="{{ route('roles.destroy', $rol->id) }}" method="POST" style="display:inline-block">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-sm btn-danger" onclick="return confirm('¿Eliminar rol?')">Eliminar</button>
+                                </form>
+                            @endif
                         </td>
                     </tr>
                 @empty

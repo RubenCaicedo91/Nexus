@@ -36,11 +36,19 @@
             <div class="collapse ps-4" id="submenuConfig">
                 <a class="nav-link" href="#">Ajustes Generales</a>
                 <a class="nav-link" href="#">Usuarios</a>
+                @if(auth()->check() && (
+                    auth()->user()->hasPermission('ver_roles') ||
+                    (optional(auth()->user()->role)->nombre && (
+                        stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false
+                    )) || auth()->user()->roles_id == 1
+                ))
+                    <a class="nav-link" href="{{ route('roles.index') }}">
+                        <i class="fas fa-users-cog me-2"></i>Roles
+                    </a>
+                @endif
             </div>
-            <!-- Acceso a Roles -->
-            <a class="nav-link" href="{{ route('roles.index') }}">
-                <i class="fas fa-users-cog me-2"></i>Roles
-            </a>
+            <!-- Acceso a Roles movido dentro de Configuración -->
         </nav>
     </div>
 </div>
