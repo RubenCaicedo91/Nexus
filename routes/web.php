@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CrearUsuario;
 use App\Http\Controllers\RolController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\GestionAcademicaController;
 use App\Http\Controllers\InstitucionController; // 👈 Importa el nuevo controlador
 use App\Http\Controllers\MatriculaController; // Importa el controlador de Matrículas
@@ -111,6 +112,8 @@ Route::middleware(['auth'])->group(function () {
     // Rutas para administrar roles
     Route::resource('roles', RolController::class);
     Route::get('roles-permisos', [RolController::class, 'permisosDisponibles'])->name('roles.permisos');
+    // Rutas para administrar usuarios (listar, crear, editar, asignar roles, eliminar)
+    Route::resource('usuarios', UserController::class)->except(['show']);
     // Gestión académica (páginas básicas)
     Route::get('gestion-academica', [GestionAcademicaController::class, 'index'])->name('gestion.index');
     Route::get('gestion-academica/crear-curso', [GestionAcademicaController::class, 'crearCurso'])->name('gestion.crearCurso');

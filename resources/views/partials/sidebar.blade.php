@@ -35,7 +35,19 @@
             </a>
             <div class="collapse ps-4" id="submenuConfig">
                 <a class="nav-link" href="#">Ajustes Generales</a>
-                <a class="nav-link" href="#">Usuarios</a>
+                @if(auth()->check() && (
+                    auth()->user()->hasPermission('gestionar_usuarios') ||
+                    (optional(auth()->user()->role)->nombre && (
+                        stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false
+                    )) || auth()->user()->roles_id == 1
+                ))
+                    <a class="nav-link" href="{{ route('usuarios.index') }}">
+                        <i class="fas fa-users me-2"></i>Usuarios
+                    </a>
+                @else
+                    <a class="nav-link text-muted" href="#">Usuarios</a>
+                @endif
                 @if(auth()->check() && (
                     auth()->user()->hasPermission('ver_roles') ||
                     (optional(auth()->user()->role)->nombre && (
