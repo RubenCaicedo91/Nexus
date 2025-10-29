@@ -1,0 +1,74 @@
+[
+    {
+        "matricula_id": 1,
+        "campo": "documento_identidad",
+        "status": "FOUND_BY_BASENAME",
+        "path": "estudiante\/estudiante_5\/captura_de_pantalla_2025_10_28_190805.png",
+        "found_paths": [
+            "estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/captura_de_pantalla_2025_10_28_190805.png"
+        ]
+    },
+    {
+        "matricula_id": 1,
+        "campo": "rh",
+        "status": "FOUND_BY_BASENAME",
+        "path": "estudiante\/estudiante_5\/captura_de_pantalla_2025_04_17_152611.png",
+        "found_paths": [
+            "estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/captura_de_pantalla_2025_04_17_152611.png"
+        ]
+    },
+    {
+        "matricula_id": 1,
+        "campo": "certificado_medico",
+        "status": "FOUND_BY_BASENAME",
+        "path": "estudiante\/estudiante_5\/captura_de_pantalla_2025_04_17_145157.png",
+        "found_paths": [
+            "estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/captura_de_pantalla_2025_04_17_145157.png"
+        ]
+    },
+    {
+        "matricula_id": 2,
+        "campo": "documento_identidad",
+        "status": "EXISTS",
+        "path": "estudiante\/estudiante_5\/estudiante\/estudiante_5\/captura_de_pantalla_2025_09_21_143138.png"
+    },
+    {
+        "matricula_id": 2,
+        "campo": "rh",
+        "status": "EXISTS",
+        "path": "estudiante\/estudiante_5\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/captura_de_pantalla_2025_10_26_184841.png"
+    },
+    {
+        "matricula_id": 2,
+        "campo": "certificado_medico",
+        "status": "EXISTS",
+        "path": "estudiante\/estudiante_5\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/captura_de_pantalla_2025_03_16_192552.png"
+    },
+    {
+        "matricula_id": 3,
+        "campo": "documento_identidad",
+        "status": "FOUND_BY_BASENAME",
+        "path": "estudiante\/estudiante_5\/captura_de_pantalla_2025_05_09_205014.png",
+        "found_paths": [
+            "estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/captura_de_pantalla_2025_05_09_205014.png"
+        ]
+    },
+    {
+        "matricula_id": 3,
+        "campo": "rh",
+        "status": "FOUND_BY_BASENAME",
+        "path": "estudiante\/estudiante_5\/captura_de_pantalla_2025_09_29_202055.png",
+        "found_paths": [
+            "estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/captura_de_pantalla_2025_09_29_202055.png"
+        ]
+    },
+    {
+        "matricula_id": 3,
+        "campo": "certificado_medico",
+        "status": "FOUND_BY_BASENAME",
+        "path": "estudiante\/estudiante_5\/captura_de_pantalla_2025_10_22_203804.png",
+        "found_paths": [
+            "estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/estudiante\/estudiante\/estudiante_5\/estudiante\/estudiante_5\/captura_de_pantalla_2025_10_22_203804.png"
+        ]
+    }
+]

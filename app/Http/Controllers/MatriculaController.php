@@ -8,6 +8,7 @@ use App\Models\RolesModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class MatriculaController extends Controller
@@ -348,11 +349,36 @@ class MatriculaController extends Controller
 
         // Intentar abrir un stream desde el disco configurado
         if (! $disk->exists($path)) {
-            abort(404);
+            // Fallback: buscar por nombre de archivo dentro del disco (caso de carpetas anidadas)
+            $basename = basename($path);
+            try {
+                Log::info('Matricula archivo(): ruta no existe, intentando fallback por basename', ['matricula_id' => $matricula->id, 'campo' => $campo, 'ruta_bd' => $path]);
+                $all = $disk->allFiles('estudiante');
+            } catch (\Exception $e) {
+                Log::error('Matricula archivo(): error listando archivos FTP en fallback', ['error' => $e->getMessage(), 'matricula_id' => $matricula->id, 'campo' => $campo]);
+                abort(404);
+            }
+
+            $found = null;
+            foreach ($all as $candidate) {
+                if (strtolower(basename($candidate)) === strtolower($basename)) {
+                    $found = $candidate;
+                    break;
+                }
+            }
+
+            if (! $found) {
+                Log::warning('Matricula archivo(): fallback no encontró coincidencias', ['matricula_id' => $matricula->id, 'campo' => $campo, 'basename' => $basename]);
+                abort(404);
+            }
+
+            Log::info('Matricula archivo(): fallback encontró archivo', ['matricula_id' => $matricula->id, 'campo' => $campo, 'ruta_encontrada' => $found]);
+            $path = $found;
         }
 
         $stream = $disk->readStream($path);
         if (! $stream) {
+            Log::error('Matricula archivo(): readStream devolvió false', ['matricula_id' => $matricula->id, 'campo' => $campo, 'path' => $path]);
             abort(500, 'No se pudo leer el archivo.');
         }
 
