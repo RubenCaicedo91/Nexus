@@ -79,6 +79,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Cursos asignados cuando el usuario es docente (many-to-many)
+     */
+    public function cursosAsignados()
+    {
+        return $this->belongsToMany(Curso::class, 'curso_docente', 'docente_id', 'curso_id')->withTimestamps();
+    }
+
+    /**
      * Comprobar si el usuario tiene un permiso dado en su rol.
      * Maneja roles que son instancias de RolesModel o arrays/objetos (fallback file).
      * @param string $permiso

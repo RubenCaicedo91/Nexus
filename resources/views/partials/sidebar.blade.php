@@ -13,8 +13,13 @@
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuAcademica">
-                <a class="nav-link" href="{{ route('gestion.index') }}">Gestión de Horarios</a>
-                <a class="nav-link" href="{{ route('matriculas.index') }}">Gestión de Matrículas</a>
+                    <a class="nav-link" href="{{ route('gestion.index') }}">
+                        <i class="fas fa-clock me-2"></i>Gestión de Horarios
+                    </a>
+                    <a class="nav-link" href="{{ route('matriculas.index') }}">
+                        <i class="fas fa-clipboard-list me-2"></i>Gestión de Matrículas
+                    </a>
+                    
             </div>
             <a class="nav-link" href="#">
                 <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria

@@ -10,7 +10,28 @@ class GestionAcademicaController extends Controller
 {
     public function index()
     {
-        return view('gestion.index');
+        // Cargamos cursos y docentes para permitir la asignación desde la tarjeta/modal
+        try {
+            $cursos = Curso::all();
+        } catch (\Throwable $e) {
+            logger()->warning('No se pudieron cargar cursos en index: ' . $e->getMessage());
+            $cursos = collect();
+        }
+
+        // Obtener docentes (por rol 'Docente' o fallback por nombre)
+        try {
+            $docenteRole = \App\Models\RolesModel::where('nombre', 'Docente')->first();
+            if ($docenteRole) {
+                $docentes = \App\Models\User::where('roles_id', $docenteRole->id)->get();
+            } else {
+                $docentes = \App\Models\User::whereHas('role', function($q){ $q->where('nombre', 'LIKE', '%Docente%'); })->get();
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('No se pudieron cargar docentes en index: ' . $e->getMessage());
+            $docentes = collect();
+        }
+
+        return view('gestion.index', compact('cursos', 'docentes'));
     }
 
     // 📘 CURSOS
@@ -90,7 +111,15 @@ class GestionAcademicaController extends Controller
     public function horarios()
     {
         $horarios = Horario::all();
-        return view('gestion.horarios', compact('horarios'));
+        // Enviamos también la lista de cursos para permitir accesos relacionados (ej. asignar docentes)
+        try {
+            $cursos = Curso::all();
+        } catch (\Throwable $e) {
+            logger()->warning('No se pudieron cargar cursos al mostrar horarios: ' . $e->getMessage());
+            $cursos = collect();
+        }
+
+        return view('gestion.horarios', compact('horarios', 'cursos'));
     }
 
     public function editarHorario($id)

@@ -12,9 +12,10 @@ class UserController extends Controller
 {
     protected function authorizeManager()
     {
-    $user = Auth::user();
+        $user = Auth::user();
         // Permitir si tiene permiso gestionar_usuarios o es admin por fallback
-        if ($user && method_exists($user, 'hasPermission') && $user->hasPermission('gestionar_usuarios')) {
+        // Usamos instanceof User para que el analizador de tipos reconozca el método hasPermission
+        if ($user instanceof User && $user->hasPermission('gestionar_usuarios')) {
             return true;
         }
         // Fallback legacy

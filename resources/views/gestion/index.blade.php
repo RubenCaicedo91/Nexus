@@ -48,19 +48,68 @@
         </div>
     </div>
 
-    {{-- Tarjeta: Matrículas (opcional si tienes módulo activo) --}}
+    {{-- Tarjeta: Asignar Docentes (botón al mismo nivel) --}}
     <div class="col-md-4 mb-4">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body text-center">
-                <div class="text-success mb-3">
-                    <i class="fas fa-user-graduate fa-2x"></i>
+                <div class="text-warning mb-3">
+                    <i class="fas fa-chalkboard-teacher fa-2x"></i>
                 </div>
-                <h5 class="card-title mb-3">Matrículas</h5>
-                <a href="{{ route('matriculas.index') }}" class="btn btn-success w-100">
-                    <i class="fas fa-user-plus me-2"></i>Gestionar Matrículas
-                </a>
+                <h5 class="card-title mb-3">Asignar Docentes</h5>
+                @if(auth()->check() && (
+                    auth()->user()->hasPermission('asignar_docentes') ||
+                    (optional(auth()->user()->role)->nombre && (
+                        stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false
+                    )) || auth()->user()->roles_id == 1
+                ))
+                        <a href="{{ route('docentes.index') }}" class="btn btn-outline-warning w-100">
+                        <i class="fas fa-chalkboard-teacher me-2"></i>Ir a Asignar Docentes
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled>Asignar Docentes (sin permiso)</button>
+                @endif
             </div>
         </div>
     </div>
-</div>
+        </div> <!-- .row -->
+
+        <!-- Modal: Asignar Docentes -->
+        <div class="modal fade" id="asignarDocentesModal" tabindex="-1" aria-labelledby="asignarDocentesModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="asignarDocentesModalLabel">Asignar cursos a docente</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    </div>
+                    <form action="{{ route('docentes.asignar') }}" method="POST">
+                        @csrf
+                        <div class="modal-body">
+                                <div class="mb-3">
+                                        <label class="form-label">Docente</label>
+                                        <select name="docente_id" class="form-select" required>
+                                                <option value="">-- Selecciona un docente --</option>
+                                                @foreach($docentes as $d)
+                                                        <option value="{{ $d->id }}">{{ $d->name }} ({{ $d->email }})</option>
+                                                @endforeach
+                                        </select>
+                                </div>
+                                <div class="mb-3">
+                                        <label class="form-label">Cursos (mantén Ctrl/Cmd para seleccionar varios)</label>
+                                        <select name="cursos[]" class="form-select" multiple size="8">
+                                                @foreach($cursos as $curso)
+                                                        <option value="{{ $curso->id }}">{{ $curso->nombre }}</option>
+                                                @endforeach
+                                        </select>
+                                </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar asignaciones</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
 @endsection

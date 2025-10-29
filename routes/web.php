@@ -11,6 +11,8 @@ use App\Http\Controllers\CrearUsuario;
 use App\Http\Controllers\RolController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\GestionAcademicaController;
+use App\Http\Controllers\MateriaController;
+use App\Http\Controllers\DocenteCursoController;
 use App\Http\Controllers\InstitucionController; // 👈 Importa el nuevo controlador
 use App\Http\Controllers\MatriculaController; // Importa el controlador de Matrículas
 
@@ -139,6 +141,18 @@ Route::middleware(['auth'])->group(function () {
     // Ruta para actualizar un curso (PUT)
     Route::put('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'actualizarCurso'])->name('actualizarCurso');
     Route::delete('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'eliminarCurso'])->name('eliminarCurso');
+
+    // Rutas para materias (asignar/modificar docentes)
+    Route::get('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'index'])->name('cursos.materias');
+    Route::post('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'store'])->name('materias.store');
+    Route::get('gestion-academica/materias/{id}/editar', [MateriaController::class, 'edit'])->name('materias.editar');
+    Route::put('gestion-academica/materias/{id}', [MateriaController::class, 'update'])->name('materias.actualizar');
+
+    // Rutas para asignar cursos a docentes
+    Route::get('gestion-academica/docentes', [DocenteCursoController::class, 'index'])->name('docentes.index');
+    Route::get('gestion-academica/docentes/{id}/cursos', [DocenteCursoController::class, 'edit'])->name('docentes.edit');
+    Route::put('gestion-academica/docentes/{id}/cursos', [DocenteCursoController::class, 'update'])->name('docentes.update');
+    Route::post('gestion-academica/docentes/asignar', [DocenteCursoController::class, 'assign'])->name('docentes.asignar');
 
 
     // Vista para gestionar la institución

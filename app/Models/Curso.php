@@ -10,4 +10,9 @@ class Curso extends Model
     use HasFactory;
 
     protected $fillable = ['nombre', 'descripcion'];
+
+    public function docentes()
+    {
+        return $this->belongsToMany(User::class, 'curso_docente', 'curso_id', 'docente_id')->withTimestamps();
+    }
 }

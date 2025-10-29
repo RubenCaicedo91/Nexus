@@ -9,6 +9,8 @@
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
+    {{-- La funcionalidad de asignar docentes no pertenece al módulo Horarios; se gestiona desde el panel de Gestión Académica. --}}
+
     {{-- Formulario para crear horario --}}
     <div class="card mb-4">
         <div class="card-body">
@@ -79,3 +81,18 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.getElementById('btnIrAsignar')?.addEventListener('click', function(){
+    const sel = document.getElementById('selectCursoParaAsignar');
+    const id = sel?.value;
+    if (!id) {
+        alert('Selecciona un curso para continuar');
+        return;
+    }
+    // Redirigimos a la ruta de materias para el curso seleccionado
+    window.location.href = '/gestion-academica/cursos/' + encodeURIComponent(id) + '/materias';
+});
+</script>
+@endpush
