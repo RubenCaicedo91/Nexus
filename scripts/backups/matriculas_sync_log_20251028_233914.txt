@@ -1,0 +1,4 @@
+Iniciando sincronización de matrículas con FTP - 20251028_233914
+Obteniendo lista de archivos desde FTP (estudiante/) ...
+Cantidad de archivos en FTP bajo 'estudiante': 6
+Sincronización finalizada. Registradas: 3 campos, actualizados: 0

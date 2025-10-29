@@ -1,0 +1,7 @@
+Iniciando sincronización de matrículas con FTP - 20251028_233601
+Obteniendo lista de archivos desde FTP (estudiante/) ...
+Cantidad de archivos en FTP bajo 'estudiante': 6
+UPDATED matricula 2 campo documento_identidad: estudiante/estudiante_5/captura_de_pantalla_2025_09_21_143138.png => estudiante/estudiante_5/estudiante/estudiante_5/captura_de_pantalla_2025_09_21_143138.png
+UPDATED matricula 2 campo rh: estudiante/estudiante_5/captura_de_pantalla_2025_10_26_184841.png => estudiante/estudiante_5/estudiante/estudiante_5/estudiante/estudiante_5/captura_de_pantalla_2025_10_26_184841.png
+UPDATED matricula 2 campo certificado_medico: estudiante/estudiante_5/captura_de_pantalla_2025_03_16_192552.png => estudiante/estudiante_5/estudiante/estudiante_5/estudiante/estudiante_5/estudiante/estudiante_5/captura_de_pantalla_2025_03_16_192552.png
+Sincronización finalizada. Registradas: 3 campos, actualizados: 3
