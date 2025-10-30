@@ -13,19 +13,14 @@
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuAcademica">
-                    <a class="nav-link" href="{{ route('gestion.index') }}">
-                        <i class="fas fa-clock me-2"></i>Gestión de Horarios
-                    </a>
-                    <a class="nav-link" href="{{ route('matriculas.index') }}">
-                        <i class="fas fa-clipboard-list me-2"></i>Gestión de Matrículas
-                    </a>
-                    
+                <a class="nav-link" href="{{ route('gestion.index') }}">Gestión de Horarios</a>
+                <a class="nav-link" href="{{ route('matriculas.index') }}">Gestión de Matrículas</a>
             </div>
             <a class="nav-link" href="#">
                 <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria
             </a>
-            <a class="nav-link" href="#">
-                <i class="fas fa-chart-line me-2"></i>Gestion Financiera
+            <a class="nav-link {{ request()->is('gestion-financiera*') ? 'active' : '' }}" href="{{ route('financiera.index') }}">
+                <i class="fas fa-chart-line me-2"></i>Gestión Financiera
             </a>
             <a class="nav-link" href="#">
                 <i class="fas fa-comment-dots me-2"></i>Orientacion
@@ -66,6 +61,6 @@
                 @endif
             </div>
             <!-- Acceso a Roles movido dentro de Configuración -->
-        </nav>
+             </nav>
     </div>
 </div>
