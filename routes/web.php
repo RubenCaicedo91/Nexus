@@ -147,6 +147,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'store'])->name('materias.store');
     Route::get('gestion-academica/materias/{id}/editar', [MateriaController::class, 'edit'])->name('materias.editar');
     Route::put('gestion-academica/materias/{id}', [MateriaController::class, 'update'])->name('materias.actualizar');
+    Route::post('gestion-academica/materias/crear', [MateriaController::class, 'storeFromModal'])->name('materias.crear');
+
+    // Endpoint JSON para obtener materias de un curso (usado por modal AJAX)
+    Route::get('gestion-academica/cursos/{id}/materias-json', [MateriaController::class, 'materiasJson'])->name('cursos.materias.json');
+    // Endpoint JSON para obtener una materia concreta
+    Route::get('gestion-academica/materias/{id}/json', [MateriaController::class, 'materiaJson'])->name('materias.json');
 
     // Rutas para asignar cursos a docentes
     Route::get('gestion-academica/docentes', [DocenteCursoController::class, 'index'])->name('docentes.index');

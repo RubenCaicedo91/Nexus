@@ -43,6 +43,36 @@ class MateriaController extends Controller
         return view('gestion.materias_index', compact('curso', 'materias', 'docentes'));
     }
 
+    // Endpoint JSON para usos AJAX: devuelve materias simples para un curso
+    public function materiasJson($cursoId)
+    {
+        $this->authorizeAssign();
+
+        $curso = Curso::findOrFail($cursoId);
+
+        $materias = Materia::where('curso_id', $curso->id)
+            ->select('id', 'nombre', 'docente_id')
+            ->get();
+
+        return response()->json($materias);
+    }
+
+    // Devuelve una materia específica en JSON (usado por modal AJAX)
+    public function materiaJson($id)
+    {
+        $this->authorizeAssign();
+
+        $materia = Materia::findOrFail($id);
+
+        return response()->json([
+            'id' => $materia->id,
+            'nombre' => $materia->nombre,
+            'descripcion' => $materia->descripcion,
+            'docente_id' => $materia->docente_id,
+            'curso_id' => $materia->curso_id,
+        ]);
+    }
+
     // Guardar nueva materia para un curso
     public function store(Request $request, $cursoId)
     {
@@ -63,6 +93,28 @@ class MateriaController extends Controller
         ]);
 
         return redirect()->route('cursos.materias', $curso->id)->with('success', 'Materia creada correctamente.');
+    }
+
+    // Crear materia desde modal o formulario general (recibe curso_id)
+    public function storeFromModal(Request $request)
+    {
+        $this->authorizeAssign();
+
+        $validated = $request->validate([
+            'curso_id' => 'required|exists:cursos,id',
+            'nombre' => 'required|string|max:255',
+            'descripcion' => 'nullable|string',
+            'docente_id' => 'nullable|exists:users,id',
+        ]);
+
+        $materia = Materia::create([
+            'nombre' => $validated['nombre'],
+            'descripcion' => $validated['descripcion'] ?? null,
+            'curso_id' => $validated['curso_id'],
+            'docente_id' => $validated['docente_id'] ?? null,
+        ]);
+
+        return redirect()->back()->with('success', 'Asignatura creada y asociada correctamente.');
     }
 
     // Formulario para editar asignación de docente
