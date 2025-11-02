@@ -32,6 +32,32 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/registro', [CrearUsuario::class, 'showRegistrationForm'])->name('register');
 Route::post('/registro', [CrearUsuario::class, 'register']);
 
+// Ruta temporal de debug (SIN autenticación)
+Route::get('/debug-estudiantes-temp', function() {
+    $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                  ->where('roles.nombre', '=', 'Estudiante')
+                  ->select('users.*', 'roles.nombre as rol_nombre')
+                  ->orderBy('users.name')
+                  ->get();
+    return response()->json([
+        'estudiantes' => $estudiantes->toArray(), 
+        'total' => $estudiantes->count(),
+        'query_sql' => 'SELECT users.*, roles.nombre as rol_nombre FROM users JOIN roles ON users.roles_id = roles.id WHERE roles.nombre = "Estudiante" ORDER BY users.name'
+    ]);
+});
+
+// Ruta temporal de debug HTML (SIN autenticación)
+Route::get('/debug-html-temp', function() {
+    $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                  ->where('roles.nombre', '=', 'Estudiante')
+                  ->select('users.*', 'roles.nombre as rol_nombre')
+                  ->orderBy('users.name')
+                  ->get();
+    $cursos = \App\Models\Curso::orderBy('nombre')->get();
+    
+    return view('asignaciones.test', compact('estudiantes', 'cursos'));
+});
+
 // Rutas protegidas por autenticación
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
@@ -146,10 +172,10 @@ Route::middleware(['auth'])->group(function () {
 
     // Rutas para materias (asignar/modificar docentes)
     Route::get('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'index'])->name('cursos.materias');
-    Route::post('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'store'])->name('materias.store');
-    Route::get('gestion-academica/materias/{id}/editar', [MateriaController::class, 'edit'])->name('materias.editar');
-    Route::put('gestion-academica/materias/{id}', [MateriaController::class, 'update'])->name('materias.actualizar');
-    Route::post('gestion-academica/materias/crear', [MateriaController::class, 'storeFromModal'])->name('materias.crear');
+    Route::post('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'store'])->name('cursos.materias.store');
+    Route::get('gestion-academica/materias/{id}/editar', [MateriaController::class, 'edit'])->name('gestion.materias.edit');
+    Route::put('gestion-academica/materias/{id}', [MateriaController::class, 'update'])->name('gestion.materias.update');
+    Route::post('gestion-academica/materias/crear', [MateriaController::class, 'storeFromModal'])->name('gestion.materias.create');
 
     // Endpoint JSON para obtener materias de un curso (usado por modal AJAX)
     Route::get('gestion-academica/cursos/{id}/materias-json', [MateriaController::class, 'materiasJson'])->name('cursos.materias.json');
@@ -198,6 +224,42 @@ Route::middleware(['auth'])->group(function () {
     Route::get('gestion-orientacion/seguimientos/crear', [GestionOrientacionController::class, 'crearSeguimiento'])->name('orientacion.seguimientos.create');
     Route::post('gestion-orientacion/seguimientos', [GestionOrientacionController::class, 'guardarSeguimiento'])->name('orientacion.seguimientos.store');
 
+    // Rutas resource para gestión completa de materias
+    Route::resource('materias', \App\Http\Controllers\MateriasController::class);
 
-
+    // 📋 RUTAS PARA MÓDULO DE ASIGNACIONES DE ESTUDIANTES Y HORARIOS
+    Route::prefix('asignaciones')->name('asignaciones.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AsignacionesController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\AsignacionesController::class, 'create'])->name('create');
+        Route::get('/debug-estudiantes', function() {
+            $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                          ->where('roles.nombre', '=', 'Estudiante')
+                          ->select('users.*', 'roles.nombre as rol_nombre')
+                          ->orderBy('users.name')
+                          ->get();
+            return response()->json(['estudiantes' => $estudiantes, 'total' => $estudiantes->count()]);
+        })->name('debug');
+        Route::post('/', [\App\Http\Controllers\AsignacionesController::class, 'store'])->name('store');
+        Route::get('/{asignacion}', [\App\Http\Controllers\AsignacionesController::class, 'show'])->name('show');
+        Route::get('/{asignacion}/editar', [\App\Http\Controllers\AsignacionesController::class, 'edit'])->name('edit');
+        Route::put('/{asignacion}', [\App\Http\Controllers\AsignacionesController::class, 'update'])->name('update');
+        Route::delete('/{asignacion}', [\App\Http\Controllers\AsignacionesController::class, 'destroy'])->name('destroy');
+        
+        // Endpoints JSON para AJAX
+        Route::get('/json/lista', [\App\Http\Controllers\AsignacionesController::class, 'getAsignacionesJson'])->name('json');
+        Route::get('/json/curso/{cursoId}/horarios', [\App\Http\Controllers\AsignacionesController::class, 'getCourseSchedule'])->name('curso.horarios');
+        Route::get('/json/curso/{cursoId}/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'getStudentsByCourse'])->name('curso.estudiantes');
+        Route::post('/{asignacion}/validar', [\App\Http\Controllers\AsignacionesController::class, 'validateAssignment'])->name('validar');
+    });
 });
+
+// 🧪 RUTA TEMPORAL DE PRUEBA PARA DEBUG DEL SELECT
+Route::get('/test-select-estudiantes', function() {
+    $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                  ->where('roles.nombre', '=', 'Estudiante')
+                  ->select('users.*', 'roles.nombre as rol_nombre')
+                  ->orderBy('users.name')
+                  ->get();
+    
+    return view('test-select', compact('estudiantes'));
+})->middleware('auth');

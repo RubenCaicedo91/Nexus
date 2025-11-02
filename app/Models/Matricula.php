@@ -12,6 +12,14 @@ class Matricula extends Model
         'curso_id',
         'fecha_matricula',
         'estado',
+        'documento_identidad',
+        'rh',
+        'certificado_medico',
+        'certificado_notas',
+        'comprobante_pago',
+        'monto_pago',
+        'fecha_pago',
+        'documentos_completos',
     ];
 
     // Agregar atributos virtuales para obtener URL de descarga/visualización
@@ -20,6 +28,7 @@ class Matricula extends Model
         'rh_url',
         'certificado_medico_url',
         'certificado_notas_url',
+        'comprobante_pago_url',
     ];
 
     public function user()
@@ -52,9 +61,39 @@ class Matricula extends Model
         return route('matriculas.archivo', ['matricula' => $this->id, 'campo' => 'certificado_notas']);
     }
 
-    // Assuming a Curso model will be created later
-    // public function curso()
-    // {
-    //     return $this->belongsTo(Curso::class);
-    // }
+    public function getComprobantePagoUrlAttribute()
+    {
+        if (empty($this->comprobante_pago)) return null;
+        return route('matriculas.archivo', ['matricula' => $this->id, 'campo' => 'comprobante_pago']);
+    }
+
+    // Relación con curso
+    public function curso()
+    {
+        return $this->belongsTo(Curso::class);
+    }
+
+    /**
+     * Verificar si todos los documentos están completos
+     */
+    public function tieneDocumentosCompletos()
+    {
+        return !empty($this->documento_identidad) &&
+               !empty($this->rh) &&
+               !empty($this->certificado_medico) &&
+               !empty($this->certificado_notas) &&
+               !empty($this->comprobante_pago) &&
+               !empty($this->monto_pago) &&
+               !empty($this->fecha_pago);
+    }
+
+    /**
+     * Actualizar estado de documentos completos
+     */
+    public function actualizarEstadoDocumentos()
+    {
+        $this->documentos_completos = $this->tieneDocumentosCompletos();
+        $this->save();
+        return $this->documentos_completos;
+    }
 }
