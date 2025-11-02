@@ -23,10 +23,11 @@
                 <i class="fas fa-chart-line me-2"></i>Gestión Financiera
             </a>
             <a class="nav-link" href="#">
-                <i class="fas fa-comment-dots me-2"></i>Orientacion
+                <i class="fas fa-comment-dots me-2"></i>Modulo de Comunicaciones
             </a>
-            <a class="nav-link" href="#">
-                <i class="fas fa-comments me-2"></i>Modulo de Comunicación
+           <a class="nav-link {{ request()->is('gestion-orientacion*') ? 'active' : '' }}"
+                href="{{ route('orientacion.index') }}">
+                <i class="fas fa-comments me-2"></i>Modulo de Orientacion
             </a>
             <!-- Submenú expandible para Configuración -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuConfig" role="button" aria-expanded="false" aria-controls="submenuConfig">

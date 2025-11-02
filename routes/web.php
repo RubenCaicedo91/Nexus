@@ -16,6 +16,7 @@ use App\Http\Controllers\DocenteCursoController;
 use App\Http\Controllers\InstitucionController; // 👈 Importa el nuevo controlador
 use App\Http\Controllers\MatriculaController; // Importa el controlador de Matrículas
 use App\Http\Controllers\GestionFinancieraController;// Importa el controlador de Gestión Financiera
+use App\Http\Controllers\GestionOrientacionController; // Importa el controlador de Gestión de Orientación
 
 // Ruta raíz redirige al login
 Route::get('/', function () {
@@ -177,6 +178,25 @@ Route::middleware(['auth'])->group(function () {
     Route::post('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'registrarPago'])->name('financiera.registrarPago');
     Route::get('gestion-financiera/estado-cuenta/{id}', [GestionFinancieraController::class, 'estadoCuenta'])->name('financiera.estadoCuenta');
     Route::get('gestion-financiera/reporte', [GestionFinancieraController::class, 'generarReporte'])->name('financiera.reporte');
+
+    // Rutas de Gestión de Orientación
+    Route::get('gestion-orientacion', [GestionOrientacionController::class, 'index'])->name('orientacion.index');
+
+    // Citas
+    Route::get('gestion-orientacion/citas', [GestionOrientacionController::class, 'listarCitas'])->name('orientacion.citas');
+    Route::get('gestion-orientacion/citas/crear', [GestionOrientacionController::class, 'crearCita'])->name('orientacion.citas.create');
+    Route::post('gestion-orientacion/citas', [GestionOrientacionController::class, 'guardarCita'])->name('orientacion.citas.store');
+    Route::patch('gestion-orientacion/citas/{id}/estado', [GestionOrientacionController::class, 'cambiarEstadoCita'])->name('orientacion.citas.estado');
+
+    // Informes
+    Route::get('gestion-orientacion/informes', [GestionOrientacionController::class, 'listarInformes'])->name('orientacion.informes');
+    Route::get('gestion-orientacion/informes/crear', [GestionOrientacionController::class, 'crearInforme'])->name('orientacion.informes.create');
+    Route::post('gestion-orientacion/informes', [GestionOrientacionController::class, 'guardarInforme'])->name('orientacion.informes.store');
+
+    // Seguimientos
+    Route::get('gestion-orientacion/seguimientos', [GestionOrientacionController::class, 'listarSeguimientos'])->name('orientacion.seguimientos');
+    Route::get('gestion-orientacion/seguimientos/crear', [GestionOrientacionController::class, 'crearSeguimiento'])->name('orientacion.seguimientos.create');
+    Route::post('gestion-orientacion/seguimientos', [GestionOrientacionController::class, 'guardarSeguimiento'])->name('orientacion.seguimientos.store');
 
 
 
