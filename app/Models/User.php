@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use App\Models\RolesModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Matricula;
 
 class User extends Authenticatable
 {
@@ -76,6 +77,15 @@ class User extends Authenticatable
     public function acudiente(): BelongsTo
     {
         return $this->belongsTo(self::class, 'acudiente_id');
+    }
+
+    /**
+     * Relación: un usuario (estudiante) puede tener muchas matrículas
+     * @return HasMany
+     */
+    public function matriculas(): HasMany
+    {
+        return $this->hasMany(Matricula::class, 'user_id');
     }
 
     /**
