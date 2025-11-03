@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class AsignarSancion extends Model
+class Sancion extends Model
 {
      protected $fillable = ['nombre','descripcion','duracion_dias','puntos'];
 

@@ -16,8 +16,8 @@
                 <a class="nav-link" href="{{ route('gestion.index') }}">Gestión de Horarios</a>
                 <a class="nav-link" href="{{ route('matriculas.index') }}">Gestión de Matrículas</a>
             </div>
-            <a class="nav-link" href="#">
-                <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria
+            <a class="nav-link {{ request()->is('gestion-disciplinaria*') ? 'active' : '' }}" href="{{ route('gestion-disciplinaria.index') }}">
+                <i class="fas fa-user-graduate me-2"></i>Gestión Disciplinaria
             </a>
             <a class="nav-link {{ request()->is('gestion-financiera*') ? 'active' : '' }}" href="{{ route('financiera.index') }}">
                 <i class="fas fa-chart-line me-2"></i>Gestión Financiera

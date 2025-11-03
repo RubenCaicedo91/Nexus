@@ -16,6 +16,7 @@ use App\Http\Controllers\DocenteCursoController;
 use App\Http\Controllers\InstitucionController; // 👈 Importa el nuevo controlador
 use App\Http\Controllers\MatriculaController; // Importa el controlador de Matrículas
 use App\Http\Controllers\GestionFinancieraController;// Importa el controlador de Gestión Financiera
+use App\Http\Controllers\GestionDisciplinariaController; //Importa el controlador de Gestión Disciplinaria
 
 // Ruta raíz redirige al login
 Route::get('/', function () {
@@ -172,6 +173,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('gestion-financiera/estado-cuenta/{id}', [GestionFinancieraController::class, 'estadoCuenta'])->name('financiera.estadoCuenta');
     Route::get('gestion-financiera/reporte', [GestionFinancieraController::class, 'generarReporte'])->name('financiera.reporte');
 
-
+    //Rutas de Gestión Disciplinaria
+    Route::get('gestion-disciplinaria', [GestionDisciplinariaController::class, 'index'])->name('gestion-disciplinaria.index');
+    Route::get('gestion-disciplinaria/registrar', [GestionDisciplinariaController::class, 'mostrarFormularioSancion'])->name('gestion-disciplinaria.registrar');
+    Route::post('gestion-disciplinaria/registrar', [GestionDisciplinariaController::class, 'registrarSancion'])->name('gestion-disciplinaria.store');
+    Route::get('gestion-disciplinaria/historial/{id}', [GestionDisciplinariaController::class, 'historialSanciones'])->name('historial.sanciones');
+    Route::get('gestion-disciplinaria/reporte', [GestionDisciplinariaController::class, 'generarReporte'])->name('gestion-disciplinaria.reporte');
 
 });

@@ -3,62 +3,57 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Sancion;
 
 class GestionDisciplinariaController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Mostrar formulario para crear Sanción.
      */
-    public function index()
+    public function mostrarFormularioSancion()
     {
-        //
+        return view('gestion-disciplinaria.registrar_sancion');
+    }
+    
+    /**
+     * Registrar Sanción.
+     */
+    public function registrarSancion(Request $request)
+    {
+        Sancion::create([
+            'usuario_id' => $request->usuario_id,
+            'descripcion' => $request->descripcion,
+            'tipo' => $request->tipo,
+            'fecha' => $request->fecha,
+        ]); 
+
+        return redirect()->route('historial.sanciones', ['id' => $request->usuario_id]);
+    }
+    /**
+     * Historial Sanciones.
+     */
+    public function historialSanciones($id)
+    {
+        $sanciones = Sancion::where('usuario_id', $id)->get();
+        return view('disciplinaria.historial_sanciones', compact('sanciones'));
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Reporte Sanciones.
      */
-    public function create()
+    public function generarReporte()
     {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
+        $reporte = Sancion::all();
+        return view('gestion-disciplinaria.reporte', compact('reporte'));
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function index()
     {
-        //
+        $sanciones = Sancion::all();
+        return view('gestion-disciplinaria.index', compact('sanciones'));
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
 }
