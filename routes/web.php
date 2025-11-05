@@ -34,12 +34,13 @@ Route::post('/registro', [CrearUsuario::class, 'register']);
 // Rutas protegidas por autenticación
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
+});
 
-    // Perfil del usuario autenticado (cargando relaciones necesarias)
-    Route::get('/perfil', function () {
-        $user = User::findOrFail(Auth::id())->load(['role', 'acudientes', 'acudiente']);
-        return view('profile', ['user' => $user]);
-    })->name('perfil');
+// Perfil del usuario autenticado (cargando relaciones necesarias)
+Route::get('/perfil', function () {
+    $user = User::findOrFail(Auth::id())->load(['role', 'acudientes', 'acudiente']);
+    return view('profile', ['user' => $user]);
+})->name('perfil');
 
     // Editar perfil (formulario) — cargamos relaciones por si es necesario
     Route::get('/perfil/editar', function () {
@@ -171,6 +172,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('matriculas/{matricula}/archivo/{campo}', [MatriculaController::class, 'archivo'])
         ->name('matriculas.archivo');
 
+<<<<<<< Updated upstream
     // Rutas de Gestión Financiera
     Route::get('gestion-financiera', [GestionFinancieraController::class, 'index'])->name('financiera.index');
     Route::get('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'mostrarFormularioPago'])->name('financiera.formularioPago');
@@ -181,3 +183,13 @@ Route::middleware(['auth'])->group(function () {
 
 
 });
+=======
+        //Rutas para Gestión de Sanciones
+        Route::middleware(['auth'])->group(function () {
+        Route::resource('disciplinaria', App\Http\Controllers\GestionDisciplinariaController::class);
+        Route::post('disciplinaria/{id}/asignar-sancion', [App\Http\Controllers\GestionDisciplinariaController::class, 'asignarSancion'])
+        ->name('disciplinaria.asignar_sancion');
+        Route::get('disciplinaria/estadisticas', [App\Http\Controllers\GestionDisciplinariaController::class, 'estadisticas'])
+        ->name('disciplinaria.estadisticas');
+});
+>>>>>>> Stashed changes

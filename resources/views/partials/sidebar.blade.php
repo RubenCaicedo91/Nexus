@@ -19,8 +19,8 @@
             <a class="nav-link" href="#">
                 <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria
             </a>
-            <a class="nav-link {{ request()->is('gestion-financiera*') ? 'active' : '' }}" href="{{ route('financiera.index') }}">
-                <i class="fas fa-chart-line me-2"></i>Gestión Financiera
+            <a class="nav-link" href="#">
+                <i class="fas fa-chart-line me-2"></i>Gestion Financiera
             </a>
             <a class="nav-link" href="#">
                 <i class="fas fa-comment-dots me-2"></i>Orientacion
