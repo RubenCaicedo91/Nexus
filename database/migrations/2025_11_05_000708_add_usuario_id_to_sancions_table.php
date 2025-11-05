@@ -12,8 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('sancions', function (Blueprint $table) {
-            $table->string('descripcion')->nullable();
-            $table->string('tipo')->nullable();
+            $table->unsignedBigInteger('usuario_id')->nullable();
+            // Si quieres agregar la relación con la tabla users, descomenta la siguiente línea:
+            // $table->foreign('usuario_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 
@@ -21,14 +22,9 @@ return new class extends Migration
      * Reverse the migrations.
      */
     public function down(): void
-{
-    Schema::table('sancions', function (Blueprint $table) {
-        if (Schema::hasColumn('sancions', 'descripcion')) {
-            $table->dropColumn('descripcion');
-        }
-        if (Schema::hasColumn('sancions', 'tipo')) {
-            $table->dropColumn('tipo');
-        }
-    });
-}
+    {
+        Schema::table('sancions', function (Blueprint $table) {
+            $table->dropColumn('usuario_id');
+        });
+    }
 };

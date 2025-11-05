@@ -27,15 +27,15 @@ class GestionDisciplinariaController extends Controller
             'fecha' => $request->fecha,
         ]); 
 
-        return redirect()->route('historial.sanciones', ['id' => $request->usuario_id]);
+        return redirect()->route('gestion-disciplinaria.index');
     }
     /**
      * Historial Sanciones.
      */
     public function historialSanciones($id)
     {
-        $sanciones = Sancion::where('usuario_id', $id)->get();
-        return view('disciplinaria.historial_sanciones', compact('sanciones'));
+        $sanciones = \App\Models\Sancion::where('usuario_id', $id)->get();
+        return view('gestion-disciplinaria.historial_sanciones', compact('sanciones'));
     }
 
     /**

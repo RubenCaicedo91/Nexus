@@ -12,8 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('sancions', function (Blueprint $table) {
-            $table->string('descripcion')->nullable();
-            $table->string('tipo')->nullable();
+        $table->date('fecha')->nullable();
         });
     }
 
@@ -21,14 +20,9 @@ return new class extends Migration
      * Reverse the migrations.
      */
     public function down(): void
-{
-    Schema::table('sancions', function (Blueprint $table) {
-        if (Schema::hasColumn('sancions', 'descripcion')) {
-            $table->dropColumn('descripcion');
-        }
-        if (Schema::hasColumn('sancions', 'tipo')) {
-            $table->dropColumn('tipo');
-        }
-    });
-}
+    {
+        Schema::table('sancions', function (Blueprint $table) {
+        $table->dropColumn('fecha');
+        });
+    }
 };
