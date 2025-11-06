@@ -225,7 +225,6 @@ Route::get('/perfil', function () {
     Route::get('matriculas/{matricula}/archivo/{campo}', [MatriculaController::class, 'archivo'])
         ->name('matriculas.archivo');
 
-<<<<<<< Updated upstream
     // Rutas de Gestión Financiera
     Route::get('gestion-financiera', [GestionFinancieraController::class, 'index'])->name('financiera.index');
     Route::get('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'mostrarFormularioPago'])->name('financiera.formularioPago');
@@ -279,104 +278,102 @@ Route::get('/perfil', function () {
         Route::get('/json/curso/{cursoId}/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'getStudentsByCourse'])->name('curso.estudiantes');
         Route::post('/{asignacion}/validar', [\App\Http\Controllers\AsignacionesController::class, 'validateAssignment'])->name('validar');
     });
-});
 
-// 🧪 RUTA TEMPORAL DE PRUEBA PARA DEBUG DEL SELECT
-Route::get('/test-select-estudiantes', function() {
-    $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
-                  ->where('roles.nombre', '=', 'Estudiante')
-                  ->select('users.*', 'roles.nombre as rol_nombre')
-                  ->orderBy('users.name')
-                  ->get();
+    // 🧪 RUTA TEMPORAL DE PRUEBA PARA DEBUG DEL SELECT
+    Route::get('/test-select-estudiantes', function() {
+        $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                      ->where('roles.nombre', '=', 'Estudiante')
+                      ->select('users.*', 'roles.nombre as rol_nombre')
+                      ->orderBy('users.name')
+                      ->get();
     
-    return view('test-select', compact('estudiantes'));
-})->middleware('auth');
+        return view('test-select', compact('estudiantes'));
+    })->middleware('auth');
 
-// 🏥 RUTAS PARA SISTEMA DE GESTIÓN DE CITAS
-Route::middleware('auth')->group(function () {
-    Route::prefix('citas')->name('citas.')->group(function () {
-        // Rutas básicas CRUD
-        Route::get('/', [\App\Http\Controllers\CitasController::class, 'index'])->name('index');
-        Route::get('/crear', [\App\Http\Controllers\CitasController::class, 'create'])->name('create');
-        Route::post('/', [\App\Http\Controllers\CitasController::class, 'store'])->name('store');
-        Route::get('/{cita}', [\App\Http\Controllers\CitasController::class, 'show'])->name('show');
-        Route::get('/{cita}/editar', [\App\Http\Controllers\CitasController::class, 'edit'])->name('edit');
-        Route::put('/{cita}', [\App\Http\Controllers\CitasController::class, 'update'])->name('update');
-        Route::delete('/{cita}', [\App\Http\Controllers\CitasController::class, 'destroy'])->name('destroy');
-        
-        // Rutas especiales para gestión de citas
-        Route::post('/{cita}/programar', [\App\Http\Controllers\CitasController::class, 'programar'])->name('programar');
-        Route::post('/{cita}/confirmar', [\App\Http\Controllers\CitasController::class, 'confirmar'])->name('confirmar');
-        Route::post('/{cita}/iniciar', [\App\Http\Controllers\CitasController::class, 'iniciar'])->name('iniciar');
-        Route::post('/{cita}/completar', [\App\Http\Controllers\CitasController::class, 'completar'])->name('completar');
-        Route::post('/{cita}/cancelar', [\App\Http\Controllers\CitasController::class, 'cancelar'])->name('cancelar');
-        Route::post('/{cita}/reprogramar', [\App\Http\Controllers\CitasController::class, 'reprogramar'])->name('reprogramar');
-        
-        // Vista de calendario
-        Route::get('/calendario/vista', [\App\Http\Controllers\CitasController::class, 'calendario'])->name('calendario');
-        Route::get('/calendario/eventos', [\App\Http\Controllers\CitasController::class, 'citasCalendario'])->name('calendario.eventos');
-    });
-});
-
-// 📊 RUTAS PARA SISTEMA DE SEGUIMIENTO DE ESTUDIANTES
-Route::middleware('auth')->group(function () {
-    Route::prefix('seguimientos')->name('seguimientos.')->group(function () {
-        // Dashboard y estadísticas
-        Route::get('/dashboard', [\App\Http\Controllers\SeguimientosController::class, 'dashboard'])->name('dashboard');
-        
-        // Rutas básicas CRUD
-        Route::get('/', [\App\Http\Controllers\SeguimientosController::class, 'index'])->name('index');
-        Route::get('/crear', [\App\Http\Controllers\SeguimientosController::class, 'create'])->name('create');
-        Route::post('/', [\App\Http\Controllers\SeguimientosController::class, 'store'])->name('store');
-        Route::get('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'show'])->name('show');
-        Route::get('/{seguimiento}/editar', [\App\Http\Controllers\SeguimientosController::class, 'edit'])->name('edit');
-        Route::put('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'update'])->name('update');
-        Route::delete('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'destroy'])->name('destroy');
-        
-        // Acciones específicas de seguimiento
-        Route::post('/{seguimiento}/sesion', [\App\Http\Controllers\SeguimientosController::class, 'registrarSesion'])->name('registrar-sesion');
-        Route::post('/{seguimiento}/estado', [\App\Http\Controllers\SeguimientosController::class, 'cambiarEstado'])->name('cambiar-estado');
-        Route::post('/{seguimiento}/padres', [\App\Http\Controllers\SeguimientosController::class, 'informarPadres'])->name('informar-padres');
-        
-        // Reportes
-        Route::get('/estudiante/{estudiante}/reporte', [\App\Http\Controllers\SeguimientosController::class, 'reporteEstudiante'])->name('reporte-estudiante');
-        
-        // API endpoints
-        Route::get('/api/seguimientos', [\App\Http\Controllers\SeguimientosController::class, 'apiSeguimientos'])->name('api');
+    // 🏥 RUTAS PARA SISTEMA DE GESTIÓN DE CITAS
+    Route::middleware('auth')->group(function () {
+        Route::prefix('citas')->name('citas.')->group(function () {
+            // Rutas básicas CRUD
+            Route::get('/', [\App\Http\Controllers\CitasController::class, 'index'])->name('index');
+            Route::get('/crear', [\App\Http\Controllers\CitasController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\CitasController::class, 'store'])->name('store');
+            Route::get('/{cita}', [\App\Http\Controllers\CitasController::class, 'show'])->name('show');
+            Route::get('/{cita}/editar', [\App\Http\Controllers\CitasController::class, 'edit'])->name('edit');
+            Route::put('/{cita}', [\App\Http\Controllers\CitasController::class, 'update'])->name('update');
+            Route::delete('/{cita}', [\App\Http\Controllers\CitasController::class, 'destroy'])->name('destroy');
+            
+            // Rutas especiales para gestión de citas
+            Route::post('/{cita}/programar', [\App\Http\Controllers\CitasController::class, 'programar'])->name('programar');
+            Route::post('/{cita}/confirmar', [\App\Http\Controllers\CitasController::class, 'confirmar'])->name('confirmar');
+            Route::post('/{cita}/iniciar', [\App\Http\Controllers\CitasController::class, 'iniciar'])->name('iniciar');
+            Route::post('/{cita}/completar', [\App\Http\Controllers\CitasController::class, 'completar'])->name('completar');
+            Route::post('/{cita}/cancelar', [\App\Http\Controllers\CitasController::class, 'cancelar'])->name('cancelar');
+            Route::post('/{cita}/reprogramar', [\App\Http\Controllers\CitasController::class, 'reprogramar'])->name('reprogramar');
+            
+            // Vista de calendario
+            Route::get('/calendario/vista', [\App\Http\Controllers\CitasController::class, 'calendario'])->name('calendario');
+            Route::get('/calendario/eventos', [\App\Http\Controllers\CitasController::class, 'citasCalendario'])->name('calendario.eventos');
+        });
     });
 
-    // Gestión de Pensiones
-    Route::prefix('pensiones')->name('pensiones.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\PensionesController::class, 'index'])->name('index');
-        Route::get('/create', [\App\Http\Controllers\PensionesController::class, 'create'])->name('create');
-        Route::post('/', [\App\Http\Controllers\PensionesController::class, 'store'])->name('store');
-        Route::get('/{pension}', [\App\Http\Controllers\PensionesController::class, 'show'])->name('show');
-        Route::get('/{pension}/edit', [\App\Http\Controllers\PensionesController::class, 'edit'])->name('edit');
-        Route::put('/{pension}', [\App\Http\Controllers\PensionesController::class, 'update'])->name('update');
-        
-        // Procesar pago
-        Route::post('/{pension}/pago', [\App\Http\Controllers\PensionesController::class, 'procesarPago'])->name('procesar-pago');
-        
-        // Anular pensión
-        Route::post('/{pension}/anular', [\App\Http\Controllers\PensionesController::class, 'anular'])->name('anular');
-        
-        // Generar pensiones masivas
-        Route::post('/generar-masivas', [\App\Http\Controllers\PensionesController::class, 'generarMasivas'])->name('generar-masivas');
-        
-        // Reportes
-        Route::get('/reportes/general', [\App\Http\Controllers\PensionesController::class, 'reporte'])->name('reporte');
-        
-        // API endpoints
-        Route::post('/actualizar-vencidas', [\App\Http\Controllers\PensionesController::class, 'actualizarVencidas'])->name('actualizar-vencidas');
+    // 📊 RUTAS PARA SISTEMA DE SEGUIMIENTO DE ESTUDIANTES
+    Route::middleware('auth')->group(function () {
+        Route::prefix('seguimientos')->name('seguimientos.')->group(function () {
+            // Dashboard y estadísticas
+            Route::get('/dashboard', [\App\Http\Controllers\SeguimientosController::class, 'dashboard'])->name('dashboard');
+            
+            // Rutas básicas CRUD
+            Route::get('/', [\App\Http\Controllers\SeguimientosController::class, 'index'])->name('index');
+            Route::get('/crear', [\App\Http\Controllers\SeguimientosController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\SeguimientosController::class, 'store'])->name('store');
+            Route::get('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'show'])->name('show');
+            Route::get('/{seguimiento}/editar', [\App\Http\Controllers\SeguimientosController::class, 'edit'])->name('edit');
+            Route::put('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'update'])->name('update');
+            Route::delete('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'destroy'])->name('destroy');
+            
+            // Acciones específicas de seguimiento
+            Route::post('/{seguimiento}/sesion', [\App\Http\Controllers\SeguimientosController::class, 'registrarSesion'])->name('registrar-sesion');
+            Route::post('/{seguimiento}/estado', [\App\Http\Controllers\SeguimientosController::class, 'cambiarEstado'])->name('cambiar-estado');
+            Route::post('/{seguimiento}/padres', [\App\Http\Controllers\SeguimientosController::class, 'informarPadres'])->name('informar-padres');
+            
+            // Reportes
+            Route::get('/estudiante/{estudiante}/reporte', [\App\Http\Controllers\SeguimientosController::class, 'reporteEstudiante'])->name('reporte-estudiante');
+            
+            // API endpoints
+            Route::get('/api/seguimientos', [\App\Http\Controllers\SeguimientosController::class, 'apiSeguimientos'])->name('api');
+        });
+
+        // Gestión de Pensiones
+        Route::prefix('pensiones')->name('pensiones.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\PensionesController::class, 'index'])->name('index');
+            Route::get('/create', [\App\Http\Controllers\PensionesController::class, 'create'])->name('create');
+            Route::post('/', [\App\Http\Controllers\PensionesController::class, 'store'])->name('store');
+            Route::get('/{pension}', [\App\Http\Controllers\PensionesController::class, 'show'])->name('show');
+            Route::get('/{pension}/edit', [\App\Http\Controllers\PensionesController::class, 'edit'])->name('edit');
+            Route::put('/{pension}', [\App\Http\Controllers\PensionesController::class, 'update'])->name('update');
+            
+            // Procesar pago
+            Route::post('/{pension}/pago', [\App\Http\Controllers\PensionesController::class, 'procesarPago'])->name('procesar-pago');
+            
+            // Anular pensión
+            Route::post('/{pension}/anular', [\App\Http\Controllers\PensionesController::class, 'anular'])->name('anular');
+            
+            // Generar pensiones masivas
+            Route::post('/generar-masivas', [\App\Http\Controllers\PensionesController::class, 'generarMasivas'])->name('generar-masivas');
+            
+            // Reportes
+            Route::get('/reportes/general', [\App\Http\Controllers\PensionesController::class, 'reporte'])->name('reporte');
+            
+            // API endpoints
+            Route::post('/actualizar-vencidas', [\App\Http\Controllers\PensionesController::class, 'actualizarVencidas'])->name('actualizar-vencidas');
+        });
     });
-});
-=======
-        //Rutas para Gestión de Sanciones
-        Route::middleware(['auth'])->group(function () {
+
+    //Rutas para Gestión de Sanciones
+    Route::middleware(['auth'])->group(function () {
         Route::resource('disciplinaria', App\Http\Controllers\GestionDisciplinariaController::class);
         Route::post('disciplinaria/{id}/asignar-sancion', [App\Http\Controllers\GestionDisciplinariaController::class, 'asignarSancion'])
-        ->name('disciplinaria.asignar_sancion');
+            ->name('disciplinaria.asignar_sancion');
         Route::get('disciplinaria/estadisticas', [App\Http\Controllers\GestionDisciplinariaController::class, 'estadisticas'])
-        ->name('disciplinaria.estadisticas');
-});
->>>>>>> Stashed changes
+            ->name('disciplinaria.estadisticas');
+    });
