@@ -164,6 +164,15 @@ Route::middleware(['auth'])->group(function () {
     Route::get('gestion-academica/horarios', [GestionAcademicaController::class, 'horarios'])->name('gestion.horarios');
     Route::post('gestion-academica/horarios', [GestionAcademicaController::class, 'guardarHorario'])->name('horarios.guardar');
 
+    // RUTAS PARA GESTIÓN DISCIPLINARIA
+    Route::prefix('gestion-disciplinaria')->name('gestion-disciplinaria.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'index'])->name('index');
+        Route::get('/registrar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'mostrarFormularioSancion'])->name('registrar');
+        Route::post('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'registrarSancion'])->name('store');
+        Route::get('/historial/{id}', [\App\Http\Controllers\GestionDisciplinariaController::class, 'historialSanciones'])->name('historial');
+        Route::get('/reporte', [\App\Http\Controllers\GestionDisciplinariaController::class, 'generarReporte'])->name('reporte');
+    });
+
     
     // 👇 NUEVAS RUTAS DE GESTIÓN INSTITUCIONAL
     Route::get('/institucion', [InstitucionController::class, 'index'])->name('institucion.index');
