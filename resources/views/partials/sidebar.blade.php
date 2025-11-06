@@ -39,7 +39,7 @@
                 </a>
             </div>
 
-            <a class="nav-link" href="#">
+            <a class="nav-link {{ request()->is('gestion-disciplinaria*') ? 'active' : '' }}" href="{{ route('gestion-disciplinaria.index') }}">
                 <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria
             </a>
             <!-- Submenú expandible para Gestión Financiera -->
