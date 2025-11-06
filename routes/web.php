@@ -23,6 +23,11 @@ Route::get('/', function () {
     return redirect('/login');
 });
 
+// Legacy route name used in views for historial sanciones (kept for compatibility)
+Route::get('gestion-disciplinaria/historial/{id}', [\App\Http\Controllers\GestionDisciplinariaController::class, 'historialSanciones'])
+    ->name('historial.sanciones')
+    ->middleware('auth');
+
 // Rutas de notas (auth)
 Route::middleware('auth')->group(function () {
     Route::prefix('notas')->name('notas.')->group(function () {
@@ -169,7 +174,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'index'])->name('index');
         Route::get('/registrar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'mostrarFormularioSancion'])->name('registrar');
         Route::post('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'registrarSancion'])->name('store');
-        Route::get('/historial/{id}', [\App\Http\Controllers\GestionDisciplinariaController::class, 'historialSanciones'])->name('historial');
         Route::get('/reporte', [\App\Http\Controllers\GestionDisciplinariaController::class, 'generarReporte'])->name('reporte');
     });
 
