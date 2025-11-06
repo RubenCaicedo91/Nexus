@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Modal Bootstrap 5</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Prueba de Modal de Eliminación</h2>
+        <button type="button" 
+                class="btn btn-danger btn-eliminar" 
+                data-materia-id="1"
+                data-materia-nombre="Matemáticas de Prueba">
+            <i class="fas fa-trash"></i> Eliminar Materia
+        </button>
+    </div>
+
+    <!-- Modal de confirmación -->
+    <div class="modal fade" id="modalEliminar" tabindex="-1" aria-labelledby="modalEliminarLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalEliminarLabel">
+                        <i class="fas fa-exclamation-triangle"></i> Confirmar Eliminación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de que deseas eliminar la materia <strong id="nombreMateria"></strong>?</p>
+                    <p class="text-danger">
+                        <i class="fas fa-warning"></i> Esta acción no se puede deshacer.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="formEliminar" method="POST" style="display: inline;" action="/materias/1">
+                        <button type="button" class="btn btn-danger" onclick="alert('Aquí se eliminaría la materia')">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM cargado - iniciando event listeners para materias');
+        
+        // Event delegation para botones de eliminar
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.btn-eliminar')) {
+                e.preventDefault();
+                const btn = e.target.closest('.btn-eliminar');
+                const id = btn.getAttribute('data-materia-id');
+                const nombre = btn.getAttribute('data-materia-nombre');
+                
+                console.log('Botón eliminar clickeado - ID:', id, 'Nombre:', nombre);
+                
+                document.getElementById('nombreMateria').textContent = nombre;
+                document.getElementById('formEliminar').action = '/materias/' + id;
+                
+                // Bootstrap 5 modal
+                const modalEl = document.getElementById('modalEliminar');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                    console.log('Modal mostrado correctamente');
+                } else {
+                    console.error('Modal no encontrado');
+                }
+            }
+        });
+    });
+    </script>
+</body>
+</html>
