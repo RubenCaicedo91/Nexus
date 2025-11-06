@@ -70,27 +70,11 @@
                 <i class="fas fa-comment-dots me-2"></i>Modulo de Comunicaciones
             </a>
             <!-- Submenú expandible para Módulo de Orientación -->
-            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuOrientacion" role="button" aria-expanded="false" aria-controls="submenuOrientacion">
-                <span><i class="fas fa-comments me-2"></i>Módulo de Orientación</span>
-                <i class="fas fa-chevron-down small"></i>
+            <a class="nav-link {{ request()->is('gestion-orientacion*') ? 'active' : '' }}" 
+                href="{{ route('orientacion.index') }}">
+                <i class="fas fa-comments me-2"></i> Orientación
             </a>
-            <div class="collapse ps-4" id="submenuOrientacion">
-                <a class="nav-link {{ request()->is('gestion-orientacion*') ? 'active' : '' }}" href="{{ route('orientacion.index') }}">
-                    <i class="fas fa-clipboard-list me-2"></i>Gestión Orientación
-                </a>
-                <a class="nav-link {{ request()->is('citas*') ? 'active' : '' }}" href="{{ route('citas.index') }}">
-                    <i class="fas fa-calendar-alt me-2"></i>Gestión de Citas
-                </a>
-                <a class="nav-link {{ request()->is('citas/calendario*') ? 'active' : '' }}" href="{{ route('citas.calendario') }}">
-                    <i class="fas fa-calendar me-2"></i>Calendario de Citas
-                </a>
-                <a class="nav-link {{ request()->is('seguimientos*') ? 'active' : '' }}" href="{{ route('seguimientos.index') }}">
-                    <i class="fas fa-user-check me-2"></i>Seguimiento Estudiantes
-                </a>
-                <a class="nav-link {{ request()->is('seguimientos/dashboard*') ? 'active' : '' }}" href="{{ route('seguimientos.dashboard') }}">
-                    <i class="fas fa-chart-bar me-2"></i>Dashboard Seguimientos
-                </a>
-            </div>
+            
             <!-- Submenú expandible para Configuración -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuConfig" role="button" aria-expanded="false" aria-controls="submenuConfig">
                 <span><i class="fas fa-cog me-2"></i>Configuración</span>
