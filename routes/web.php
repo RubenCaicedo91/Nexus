@@ -367,4 +367,21 @@ Route::middleware('auth')->group(function () {
         // API endpoints
         Route::post('/actualizar-vencidas', [\App\Http\Controllers\PensionesController::class, 'actualizarVencidas'])->name('actualizar-vencidas');
     });
+    // 📢 RUTAS DE COMUNICACIÓN
+    Route::prefix('comunicacion')->name('comunicacion.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ComunicacionController::class, 'index'])->name('index');
+
+    // Mensajes
+        Route::get('/mensajes', [\App\Http\Controllers\ComunicacionController::class, 'listarMensajes'])->name('mensajes');
+        Route::post('/mensajes', [\App\Http\Controllers\ComunicacionController::class, 'guardarMensaje'])->name('mensajes.store');
+
+    // Notificaciones
+        Route::get('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'listarNotificaciones'])->name('notificaciones');
+
+    // Circulares
+        Route::get('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'listarCirculares'])->name('circulares');
+        Route::get('/circulares/crear', [\App\Http\Controllers\ComunicacionController::class, 'crearCircular'])->name('circulares.create');
+        Route::post('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'guardarCircular'])->name('circulares.store');
+});
+
 });

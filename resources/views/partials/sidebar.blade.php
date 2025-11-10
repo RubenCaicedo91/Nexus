@@ -66,8 +66,9 @@
                     </a>
                 @endif
             </div>
-            <a class="nav-link" href="#">
-                <i class="fas fa-comment-dots me-2"></i>Modulo de Comunicaciones
+            <a class="nav-link {{ request()->is('comunicacion*') ? 'active' : '' }}" 
+                    href="{{ route('comunicacion.index') }}">
+                    <i class="fas fa-bullhorn me-2"></i> Comunicaciones
             </a>
             <!-- Submenú expandible para Módulo de Orientación -->
             <a class="nav-link {{ request()->is('gestion-orientacion*') ? 'active' : '' }}" 
