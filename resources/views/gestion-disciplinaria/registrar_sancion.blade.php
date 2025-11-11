@@ -16,9 +16,64 @@
 <form action="{{ route('gestion-disciplinaria.store') }}" method="POST">
     @csrf
     <div class="mb-3">
-        <label for="usuario_id" class="form-label">ID Usuario</label>
-        <input type="number" name="usuario_id" class="form-control" required>
+        <label for="buscador_estudiante_registrar" class="form-label">Estudiante</label>
+        {{-- Campo de texto con sugerencias; el id real se guarda en el input hidden usuario_id --}}
+        <input id="buscador_estudiante_registrar" list="lista_estudiantes_registrar" class="form-control" placeholder="Escribe un nombre..." autocomplete="off" required>
+        <datalist id="lista_estudiantes_registrar">
+            @if(isset($students) && count($students))
+                @foreach($students as $stu)
+                    @php $disp = $stu->name . ' (ID: ' . $stu->id . ')'; @endphp
+                    <option value="{{ $disp }}"></option>
+                @endforeach
+            @endif
+        </datalist>
+        <input type="hidden" name="usuario_id" id="usuario_id_hidden">
+        <small class="form-text text-muted">Selecciona un estudiante de la lista. Si no se selecciona, el formulario no enviará el id.</small>
     </div>
+
+
+<script>
+    (function(){
+        // Mapa nombre -> id para asignar el usuario_id al seleccionar
+        @php
+            $map = [];
+            if (isset($students) && count($students)) {
+                foreach ($students as $s) {
+                    $map[$s->name . ' (ID: ' . $s->id . ')'] = $s->id;
+                }
+            }
+        @endphp
+        const studentMap = @json($map);
+
+        const input = document.getElementById('buscador_estudiante_registrar');
+        const hidden = document.getElementById('usuario_id_hidden');
+        // Cuando el usuario escribe o selecciona, si el texto coincide exactamente con una clave, asignamos el id
+        if (input) {
+            input.addEventListener('input', function(e){
+                const v = (e.target.value || '').trim();
+                if (v === '') { hidden.value = ''; return; }
+                if (Object.prototype.hasOwnProperty.call(studentMap, v)) {
+                    hidden.value = studentMap[v];
+                } else {
+                    // intentar coincidencia por inicio (primera opción), útil si el datalist muestra nombres exactos
+                    hidden.value = '';
+                }
+            });
+
+            // Al enviar el formulario verificar que hidden tenga valor
+            const form = input.closest('form');
+            if (form) {
+                form.addEventListener('submit', function(ev){
+                    if (!hidden.value) {
+                        ev.preventDefault();
+                        alert('Por favor selecciona un estudiante válido de la lista.');
+                        input.focus();
+                    }
+                });
+            }
+        }
+    })();
+</script>
     <div class="mb-3">
         <label for="descripcion" class="form-label">Descripción</label>
         <input type="text" name="descripcion" class="form-control" required>

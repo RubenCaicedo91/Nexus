@@ -9,4 +9,12 @@ class Sancion extends Model
     protected $fillable = ['usuario_id', 'descripcion', 'tipo', 'fecha'];
 
     public function reportes() { return $this->hasMany(ReporteDisciplinario::class); }
+
+    /**
+     * Relación al usuario (estudiante) al que se le aplicó la sanción.
+     */
+    public function usuario()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'usuario_id');
+    }
 }
