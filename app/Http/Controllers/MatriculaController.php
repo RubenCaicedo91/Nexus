@@ -304,12 +304,25 @@ class MatriculaController extends Controller
     public function destroy(Matricula $matricula)
     {
         $userId = $matricula->user_id;
+        // Preparar verificación de configuración FTP para evitar excepciones cuando no está definido
+        $ftpConfig = config('filesystems.disks.ftp_matriculas') ?? null;
+        $ftpHost = is_array($ftpConfig) && array_key_exists('host', $ftpConfig) ? $ftpConfig['host'] : null;
+        $ftpConfigured = ! empty($ftpHost) && $ftpHost !== 'invalid://host-not-set';
 
         // Borrar archivos referenciados en el modelo si existen
         $campos = ['documento_identidad', 'rh', 'certificado_medico', 'certificado_notas'];
         foreach ($campos as $campo) {
             if ($matricula->$campo) {
-                Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                if ($ftpConfigured) {
+                    try {
+                        Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                    } catch (\Exception $e) {
+                        // Loguear pero continuar con el flujo de borrado de la matrícula
+                        Log::error('Error al borrar archivo en FTP al eliminar matrícula', ['error' => $e->getMessage(), 'matricula_id' => $matricula->id, 'campo' => $campo]);
+                    }
+                } else {
+                    Log::warning('FTP no configurado, no se intentó borrar archivo remoto', ['matricula_id' => $matricula->id, 'campo' => $campo]);
+                }
             }
         }
 
@@ -318,8 +331,16 @@ class MatriculaController extends Controller
         if (! $existenOtras) {
             $slug = $this->studentSlugFromId($userId);
             $folder = 'estudiante/' . $slug;
-            if (Storage::disk('ftp_matriculas')->exists($folder)) {
-                Storage::disk('ftp_matriculas')->deleteDirectory($folder);
+            if ($ftpConfigured) {
+                try {
+                    if (Storage::disk('ftp_matriculas')->exists($folder)) {
+                        Storage::disk('ftp_matriculas')->deleteDirectory($folder);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error al borrar carpeta de estudiante en FTP al eliminar matrícula', ['error' => $e->getMessage(), 'matricula_id' => $matricula->id, 'folder' => $folder]);
+                }
+            } else {
+                Log::warning('FTP no configurado, no se intentó borrar carpeta de estudiante', ['matricula_id' => $matricula->id, 'folder' => $folder]);
             }
         }
 
