@@ -52,6 +52,10 @@
             for (const s of studentList) {
                 if ((s.name || '').toLowerCase() === q) return s.id;
             }
+            // 2b) exact match on document number
+            for (const s of studentList) {
+                if (s.document_number && ('' + s.document_number).toLowerCase() === q) return s.id;
+            }
             // 3) startsWith on name
             for (const s of studentList) {
                 if ((s.name || '').toLowerCase().startsWith(q)) return s.id;
@@ -59,6 +63,10 @@
             // 4) includes on name
             for (const s of studentList) {
                 if ((s.name || '').toLowerCase().includes(q)) return s.id;
+            }
+            // 5) includes on document number (partial match)
+            for (const s of studentList) {
+                if (s.document_number && ('' + s.document_number).toLowerCase().includes(q)) return s.id;
             }
             return '';
         }

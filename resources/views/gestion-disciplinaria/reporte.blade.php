@@ -31,7 +31,8 @@
     <tbody>
         @php $total = 0; @endphp
         @foreach($reporte as $sancion)
-        <tr>
+        @php $doc = optional($sancion->usuario)->document_number ?? '' ; @endphp
+        <tr data-doc="{{ $doc }}">
             <td>{{ optional($sancion->usuario)->name ?? $sancion->usuario_id }}</td>
             <td>{{ $sancion->descripcion }}</td>
             <td>{{ $sancion->tipo }}</td>
@@ -60,7 +61,8 @@
             rows.forEach(r => {
                 const estudianteCell = r.querySelector('td'); // primera columna es estudiante
                 const text = estudianteCell ? estudianteCell.textContent.toLowerCase() : '';
-                if (text.indexOf(q) !== -1) {
+                const doc = (r.getAttribute('data-doc') || '').toLowerCase();
+                if (text.indexOf(q) !== -1 || (doc && doc.indexOf(q) !== -1)) {
                     r.style.display = '';
                 } else {
                     r.style.display = 'none';

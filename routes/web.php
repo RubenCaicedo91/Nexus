@@ -133,20 +133,45 @@ Route::middleware(['auth'])->group(function () {
         }
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'first_name' => ['required_without:name', 'string', 'max:255'],
+            'second_name' => ['nullable', 'string', 'max:255'],
+            'first_last' => ['required_without:name', 'string', 'max:255'],
+            'second_last' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'document_type' => ['nullable','regex:/^(R\\.?C|C\\.?C|T\\.?I)$/i'],
+            'document_number' => ['nullable','string','max:50'],
+            'celular' => ['nullable','string','max:30'],
         ]);
 
         // Obtener id del rol Estudiante
         $rolEstudiante = RolesModel::where('nombre', 'Estudiante')->first();
         $rolId = $rolEstudiante ? $rolEstudiante->id : null;
 
+        // construir nombre legacy si no se envía name
+        $fullName = $validated['name'] ?? null;
+        if (empty($fullName)) {
+            $parts = [];
+            if (!empty($validated['first_name'])) $parts[] = $validated['first_name'];
+            if (!empty($validated['second_name'])) $parts[] = $validated['second_name'];
+            if (!empty($validated['first_last'])) $parts[] = $validated['first_last'];
+            if (!empty($validated['second_last'])) $parts[] = $validated['second_last'];
+            $fullName = implode(' ', $parts);
+        }
+
         $newUser = User::create([
-            'name' => $validated['name'],
+            'name' => $fullName,
+            'first_name' => $validated['first_name'] ?? null,
+            'second_name' => $validated['second_name'] ?? null,
+            'first_last' => $validated['first_last'] ?? null,
+            'second_last' => $validated['second_last'] ?? null,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'roles_id' => $rolId,
+            'document_type' => $validated['document_type'] ?? null,
+            'document_number' => $validated['document_number'] ?? null,
+            'celular' => $validated['celular'] ?? null,
             // acudiente_id lo asignamos explícitamente después para evitar problemas de mass-assignment
         ]);
 
@@ -162,6 +187,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('roles-permisos', [RolController::class, 'permisosDisponibles'])->name('roles.permisos');
     // Rutas para administrar usuarios (listar, crear, editar, asignar roles, eliminar)
     Route::resource('usuarios', UserController::class)->except(['show']);
+    // Endpoint para búsqueda rápida de usuarios por nombre o documento
+    Route::get('usuarios/search', [UserController::class, 'search'])->name('usuarios.search');
     // Gestión académica (páginas básicas)
     Route::get('gestion-academica', [GestionAcademicaController::class, 'index'])->name('gestion.index');
     Route::get('gestion-academica/crear-curso', [GestionAcademicaController::class, 'crearCurso'])->name('gestion.crearCurso');

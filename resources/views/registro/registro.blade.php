@@ -26,29 +26,117 @@
                                 @endforeach
                             </ul>
                         </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="document_type" class="form-label">Tipo de documento</label>
+                                <select id="document_type" name="document_type" class="form-select @error('document_type') is-invalid @enderror" required>
+                                    <option value="" disabled {{ old('document_type') ? '' : 'selected' }}>Seleccione...</option>
+                                    <option value="R.C" {{ old('document_type') == 'R.C' ? 'selected' : '' }}>R.C</option>
+                                    <option value="C.C" {{ old('document_type') == 'C.C' ? 'selected' : '' }}>C.C</option>
+                                    <option value="T.I" {{ old('document_type') == 'T.I' ? 'selected' : '' }}>T.I</option>
+                                </select>
+                                @error('document_type')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label for="document_number" class="form-label">Número de documento</label>
+                                <input type="text" id="document_number" name="document_number" maxlength="30"
+                                       class="form-control @error('document_number') is-invalid @enderror"
+                                       value="{{ old('document_number') }}"
+                                       placeholder="Número de documento" required>
+                                @error('document_number')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-4 mb-3">
+                                <label for="celular" class="form-label">Celular</label>
+                                <input type="text" id="celular" name="celular" maxlength="20"
+                                       class="form-control @error('celular') is-invalid @enderror"
+                                       value="{{ old('celular') }}"
+                                       placeholder="Teléfono celular">
+                                @error('celular')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
                     @endif
 
                     <form method="POST" action="{{ route('register') }}">
                         @csrf
                         
-                        <div class="mb-3">
-                            <label for="name" class="form-label">
-                                <i class="fas fa-user me-1"></i>Nombre
-                            </label>
-                            <input type="text" 
-                                   class="form-control @error('name') is-invalid @enderror" 
-                                   id="name" 
-                                   name="name" 
-                                   value="{{ old('name') }}" 
-                                   required 
-                                   autocomplete="name" 
-                                   autofocus
-                                   placeholder="Ingresa tu nombre">
-                            @error('name')
-                                <div class="invalid-feedback">
-                                    {{ $message }}
-                                </div>
-                            @enderror
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="first_name" class="form-label">
+                                    <i class="fas fa-user me-1"></i>Primer nombre
+                                </label>
+                                <input type="text"
+                                       class="form-control @error('first_name') is-invalid @enderror"
+                                       id="first_name"
+                                       name="first_name"
+                                       value="{{ old('first_name') }}"
+                                       required
+                                       autocomplete="given-name"
+                                       autofocus
+                                       placeholder="Primer nombre">
+                                @error('first_name')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="second_name" class="form-label">Segundo nombre (opcional)</label>
+                                <input type="text"
+                                       class="form-control @error('second_name') is-invalid @enderror"
+                                       id="second_name"
+                                       name="second_name"
+                                       value="{{ old('second_name') }}"
+                                       autocomplete="additional-name"
+                                       placeholder="Segundo nombre">
+                                @error('second_name')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="first_last" class="form-label">Primer apellido</label>
+                                <input type="text"
+                                       class="form-control @error('first_last') is-invalid @enderror"
+                                       id="first_last"
+                                       name="first_last"
+                                       value="{{ old('first_last') }}"
+                                       required
+                                       autocomplete="family-name"
+                                       placeholder="Primer apellido">
+                                @error('first_last')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="second_last" class="form-label">Segundo apellido (opcional)</label>
+                                <input type="text"
+                                       class="form-control @error('second_last') is-invalid @enderror"
+                                       id="second_last"
+                                       name="second_last"
+                                       value="{{ old('second_last') }}"
+                                       autocomplete="family-name"
+                                       placeholder="Segundo apellido">
+                                @error('second_last')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
                         </div>
 
                         <div class="mb-3">

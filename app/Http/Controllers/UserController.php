@@ -52,17 +52,42 @@ class UserController extends Controller
         $this->authorizeManager();
 
         $data = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
+            'first_name' => 'required_without:name|string|max:255',
+            'second_name' => 'nullable|string|max:255',
+            'first_last' => 'required_without:name|string|max:255',
+            'second_last' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6|confirmed',
             'roles_id' => 'nullable',
+            'document_type' => ['nullable','regex:/^(R\\.?C|C\\.?C|T\\.?I)$/i'],
+            'document_number' => 'nullable|string|max:50',
+            'celular' => 'nullable|string|max:30',
         ]);
 
+        // Construir nombre completo si no se envía 'name'
+        $fullName = $data['name'] ?? null;
+        if (empty($fullName)) {
+            $parts = [];
+            if (!empty($data['first_name'])) $parts[] = $data['first_name'];
+            if (!empty($data['second_name'])) $parts[] = $data['second_name'];
+            if (!empty($data['first_last'])) $parts[] = $data['first_last'];
+            if (!empty($data['second_last'])) $parts[] = $data['second_last'];
+            $fullName = implode(' ', $parts);
+        }
+
         $user = User::create([
-            'name' => $data['name'],
+            'name' => $fullName,
+            'first_name' => $data['first_name'] ?? null,
+            'second_name' => $data['second_name'] ?? null,
+            'first_last' => $data['first_last'] ?? null,
+            'second_last' => $data['second_last'] ?? null,
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
             'roles_id' => $data['roles_id'] ?? null,
+            'document_type' => $data['document_type'] ?? null,
+            'document_number' => $data['document_number'] ?? null,
+            'celular' => $data['celular'] ?? null,
         ]);
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario creado correctamente.');
@@ -87,18 +112,43 @@ class UserController extends Controller
         $user = User::findOrFail($id);
 
         $data = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'nullable|string|max:255',
+            'first_name' => 'required_without:name|string|max:255',
+            'second_name' => 'nullable|string|max:255',
+            'first_last' => 'required_without:name|string|max:255',
+            'second_last' => 'nullable|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:6|confirmed',
             'roles_id' => 'nullable',
+            'document_type' => ['nullable','regex:/^(R\\.?C|C\\.?C|T\\.?I)$/i'],
+            'document_number' => 'nullable|string|max:50',
+            'celular' => 'nullable|string|max:30',
         ]);
 
-        $user->name = $data['name'];
+        // Construir nombre completo si no se envía 'name'
+        $fullName = $data['name'] ?? null;
+        if (empty($fullName)) {
+            $parts = [];
+            if (!empty($data['first_name'])) $parts[] = $data['first_name'];
+            if (!empty($data['second_name'])) $parts[] = $data['second_name'];
+            if (!empty($data['first_last'])) $parts[] = $data['first_last'];
+            if (!empty($data['second_last'])) $parts[] = $data['second_last'];
+            $fullName = implode(' ', $parts);
+        }
+
+        $user->name = $fullName;
+        $user->first_name = $data['first_name'] ?? null;
+        $user->second_name = $data['second_name'] ?? null;
+        $user->first_last = $data['first_last'] ?? null;
+        $user->second_last = $data['second_last'] ?? null;
         $user->email = $data['email'];
         if (!empty($data['password'])) {
             $user->password = Hash::make($data['password']);
         }
         $user->roles_id = $data['roles_id'] ?? null;
+        $user->document_type = $data['document_type'] ?? null;
+        $user->document_number = $data['document_number'] ?? null;
+        $user->celular = $data['celular'] ?? null;
         $user->save();
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado correctamente.');
@@ -110,5 +160,28 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $user->delete();
         return redirect()->route('usuarios.index')->with('success', 'Usuario eliminado correctamente.');
+    }
+
+    /**
+     * Endpoint JSON para buscar usuarios por nombre o número de documento.
+     * Parámetros: q (string)
+     */
+    public function search(Request $request)
+    {
+        $this->authorizeManager();
+        $q = trim($request->get('q', ''));
+        if ($q === '') return response()->json(['data' => []]);
+
+        $query = User::query();
+        $query->where(function($sub) use ($q) {
+            $sub->where('name', 'like', "%{$q}%")
+                ->orWhere('first_name', 'like', "%{$q}%")
+                ->orWhere('first_last', 'like', "%{$q}%")
+                ->orWhere('document_number', 'like', "%{$q}%");
+        });
+
+        $results = $query->select('id','name','first_name','first_last','document_number')->orderBy('name')->limit(50)->get();
+
+        return response()->json(['data' => $results]);
     }
 }

@@ -28,7 +28,8 @@ class GestionDisciplinariaController extends Controller
             return [
                 'id' => $s->id,
                 'name' => $s->name,
-                'display' => $s->name . ' (ID: ' . $s->id . ')'
+                'document_number' => $s->document_number ?? null,
+                'display' => trim($s->name . ' ' . ($s->document_number ? ' - ' . $s->document_number : '') . ' (ID: ' . $s->id . ')')
             ];
         })->values()->all();
 
