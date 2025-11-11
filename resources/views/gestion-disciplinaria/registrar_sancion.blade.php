@@ -34,30 +34,41 @@
 
 <script>
     (function(){
-        // Mapa nombre -> id para asignar el usuario_id al seleccionar
-        @php
-            $map = [];
-            if (isset($students) && count($students)) {
-                foreach ($students as $s) {
-                    $map[$s->name . ' (ID: ' . $s->id . ')'] = $s->id;
-                }
-            }
-        @endphp
-        const studentMap = @json($map);
+    // Mapa nombre -> id para asignar el usuario_id al seleccionar
+    // Usamos base64 para evitar que el editor/lingüeta JS interprete mal sintaxis Blade/JSON
+    const studentList = JSON.parse(atob('{{ base64_encode(json_encode($studentArray ?? [])) }}'));
 
         const input = document.getElementById('buscador_estudiante_registrar');
         const hidden = document.getElementById('usuario_id_hidden');
-        // Cuando el usuario escribe o selecciona, si el texto coincide exactamente con una clave, asignamos el id
+
+        function findStudentIdByInput(text) {
+            if (!text) return '';
+            const q = text.trim().toLowerCase();
+            // 1) exact match on display
+            for (const s of studentList) {
+                if ((s.display || '').toLowerCase() === q) return s.id;
+            }
+            // 2) exact match on name
+            for (const s of studentList) {
+                if ((s.name || '').toLowerCase() === q) return s.id;
+            }
+            // 3) startsWith on name
+            for (const s of studentList) {
+                if ((s.name || '').toLowerCase().startsWith(q)) return s.id;
+            }
+            // 4) includes on name
+            for (const s of studentList) {
+                if ((s.name || '').toLowerCase().includes(q)) return s.id;
+            }
+            return '';
+        }
+
         if (input) {
             input.addEventListener('input', function(e){
                 const v = (e.target.value || '').trim();
                 if (v === '') { hidden.value = ''; return; }
-                if (Object.prototype.hasOwnProperty.call(studentMap, v)) {
-                    hidden.value = studentMap[v];
-                } else {
-                    // intentar coincidencia por inicio (primera opción), útil si el datalist muestra nombres exactos
-                    hidden.value = '';
-                }
+                const id = findStudentIdByInput(v);
+                hidden.value = id || '';
             });
 
             // Al enviar el formulario verificar que hidden tenga valor

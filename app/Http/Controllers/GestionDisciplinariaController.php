@@ -23,7 +23,16 @@ class GestionDisciplinariaController extends Controller
             $students = User::orderBy('name')->get();
         }
 
-        return view('gestion-disciplinaria.registrar_sancion', compact('students'));
+        // Preparar arreglo simple para el cliente con id, name y display
+        $studentArray = $students->map(function($s){
+            return [
+                'id' => $s->id,
+                'name' => $s->name,
+                'display' => $s->name . ' (ID: ' . $s->id . ')'
+            ];
+        })->values()->all();
+
+        return view('gestion-disciplinaria.registrar_sancion', compact('students', 'studentArray'));
     }
     
     /**
