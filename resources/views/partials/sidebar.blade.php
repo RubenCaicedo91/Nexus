@@ -4,79 +4,78 @@
             <h6 class="text-white-50 text-uppercase">Menú Principal</h6>
         </div>
         <nav class="nav flex-column px-3">
+
+            <!-- Gestión Institucional -->
             <a class="nav-link active" href="{{ route('dashboard') }}">
-                <i class="fas fa-book me-2"></i>Gestion Institucional
+                <i class="fas fa-book me-2"></i>Gestión Institucional
             </a>
-            <!-- Submenú expandible para Gestion Academica -->
+
+            <!-- Gestión Académica -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuAcademica" role="button" aria-expanded="false" aria-controls="submenuAcademica">
-                <span><i class="fas fa-chalkboard-teacher me-2"></i>Gestion Academica</span>
+                <span><i class="fas fa-chalkboard-teacher me-2"></i>Gestión Académica</span>
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuAcademica">
-                <a class="nav-link" href="{{ route('gestion.index') }}">Gestión de Horarios</a>
-                <a class="nav-link" href="{{ route('matriculas.index') }}">Gestión de Matrículas</a>
-                <a class="nav-link {{ request()->is('asignaciones*') ? 'active' : '' }}" href="{{ route('asignaciones.index') }}">
-                    <i class="fas fa-tasks me-2"></i>Asignaciones
-                </a>
-                <a class="nav-link {{ request()->is('materias*') ? 'active' : '' }}" href="{{ route('materias.index') }}">
-                    <i class="fas fa-book-open me-2"></i>Materias
-                </a>
-                <a class="nav-link {{ request()->is('gestion-academica/docentes*') ? 'active' : '' }}" href="{{ route('docentes.index') }}">
-                    <i class="fas fa-chalkboard-teacher me-2"></i>Docentes
-                </a>
-                {{-- Gestión de Notas: moved to main menu level --}}
+                <a class="nav-link" href="{{ route('gestion.index') }}">Dashboard Horarios</a>
+                <a class="nav-link" href="{{ route('matriculas.index') }}">Dashboard Matrículas</a>
             </div>
+
+            <!-- Gestión de Notas -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuNotasMain" role="button" aria-expanded="false" aria-controls="submenuNotasMain">
                 <span><i class="fas fa-clipboard-list me-2"></i>Gestión de Notas</span>
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuNotasMain">
-                <a class="nav-link {{ request()->is('notas') ? 'active' : '' }}" href="{{ route('notas.index') }}">
-                    <i class="fas fa-edit me-2"></i>Administrar Notas
-                </a>
-                <a class="nav-link {{ request()->is('notas/create') ? 'active' : '' }}" href="{{ route('notas.create') }}">
-                    <i class="fas fa-plus-circle me-2"></i>Crear Nota
+                <a class="nav-link" href="{{ route('notas.index') }}">
+                    <i class="fas fa-edit me-2"></i>Dashboard Notas
                 </a>
             </div>
 
-            <a class="nav-link {{ request()->is('gestion-disciplinaria*') ? 'active' : '' }}" href="{{ route('gestion-disciplinaria.index') }}">
-                <i class="fas fa-user-graduate me-2"></i>Gestion Disciplinaria
+            <!-- Gestión Disciplinaria -->
+            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuDisciplinaria" role="button" aria-expanded="false" aria-controls="submenuDisciplinaria">
+                <span><i class="fas fa-user-graduate me-2"></i>Gestión Disciplinaria</span>
+                <i class="fas fa-chevron-down small"></i>
             </a>
-            <!-- Submenú expandible para Gestión Financiera -->
+            <div class="collapse ps-4" id="submenuDisciplinaria">
+                <a class="nav-link" href="{{ route('gestion-disciplinaria.index') }}">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard Disciplinario
+                </a>
+            </div>
+
+            <!-- Gestión Financiera -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuFinanciera" role="button" aria-expanded="false" aria-controls="submenuFinanciera">
                 <span><i class="fas fa-chart-line me-2"></i>Gestión Financiera</span>
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuFinanciera">
-                <a class="nav-link {{ request()->is('gestion-financiera*') ? 'active' : '' }}" href="{{ route('financiera.index') }}">
+                <a class="nav-link" href="{{ route('financiera.index') }}">
                     <i class="fas fa-chart-bar me-2"></i>Dashboard Financiero
                 </a>
-                <a class="nav-link {{ request()->is('gestion-financiera/registrar-pago*') ? 'active' : '' }}" href="{{ route('financiera.formularioPago') }}">
-                    <i class="fas fa-credit-card me-2"></i>Registrar Pago
-                </a>
-                <a class="nav-link {{ request()->is('pensiones*') ? 'active' : '' }}" href="{{ route('pensiones.index') }}">
-                    <i class="fas fa-money-bill-wave me-2"></i>Gestión de Pensiones
-                </a>
-                <a class="nav-link {{ request()->is('pensiones/reportes*') ? 'active' : '' }}" href="{{ route('pensiones.reporte') }}">
-                    <i class="fas fa-chart-pie me-2"></i>Reportes de Pensiones
-                </a>
-                @if(auth()->user()->roles_id != 4)
-                    <a class="nav-link {{ request()->is('pensiones/create') ? 'active' : '' }}" href="{{ route('pensiones.create') }}">
-                        <i class="fas fa-plus-circle me-2"></i>Nueva Pensión
-                    </a>
-                @endif
             </div>
-            <a class="nav-link {{ request()->is('comunicacion*') ? 'active' : '' }}" 
-                    href="{{ route('comunicacion.index') }}">
-                    <i class="fas fa-bullhorn me-2"></i> Comunicaciones
+
+            <!-- Comunicaciones -->
+            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuComunicacion" role="button" aria-expanded="false" aria-controls="submenuComunicacion">
+                <span><i class="fas fa-bullhorn me-2"></i>Comunicaciones</span>
+                <i class="fas fa-chevron-down small"></i>
             </a>
-            <!-- Submenú expandible para Módulo de Orientación -->
-            <a class="nav-link {{ request()->is('gestion-orientacion*') ? 'active' : '' }}" 
-                href="{{ route('orientacion.index') }}">
-                <i class="fas fa-comments me-2"></i> Orientación
+            <div class="collapse ps-4" id="submenuComunicacion">
+                <a class="nav-link" href="{{ route('comunicacion.index') }}">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard Comunicación
+                </a>
+            </div>
+
+            <!-- Orientación -->
+            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuOrientacion" role="button" aria-expanded="false" aria-controls="submenuOrientacion">
+                <span><i class="fas fa-comments me-2"></i>Orientación</span>
+                <i class="fas fa-chevron-down small"></i>
             </a>
-            
-            <!-- Submenú expandible para Configuración -->
+            <div class="collapse ps-4" id="submenuOrientacion">
+                <a class="nav-link" href="{{ route('orientacion.index') }}">
+                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard Orientación
+                </a>
+            </div>
+
+            <!-- Configuración -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuConfig" role="button" aria-expanded="false" aria-controls="submenuConfig">
                 <span><i class="fas fa-cog me-2"></i>Configuración</span>
                 <i class="fas fa-chevron-down small"></i>
@@ -108,7 +107,6 @@
                     </a>
                 @endif
             </div>
-            <!-- Acceso a Roles movido dentro de Configuración -->
-             </nav>
+        </nav>
     </div>
 </div>
