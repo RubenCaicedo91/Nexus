@@ -20,14 +20,31 @@ class GestionDisciplinariaController extends Controller
      */
     public function registrarSancion(Request $request)
     {
+<<<<<<< Updated upstream
+        Sancion::create([
+=======
+        \Log::info('Datos recibidos para crear sanción:', [
+>>>>>>> Stashed changes
+            'usuario_id' => $request->usuario_id,
+            'descripcion' => $request->descripcion,
+            'tipo' => $request->tipo,
+            'fecha' => $request->fecha,
+<<<<<<< Updated upstream
+        ]); 
+
+        return redirect()->route('gestion-disciplinaria.index');
+=======
+        ]);
+
         Sancion::create([
             'usuario_id' => $request->usuario_id,
             'descripcion' => $request->descripcion,
             'tipo' => $request->tipo,
             'fecha' => $request->fecha,
-        ]); 
+        ]);
 
-        return redirect()->route('gestion-disciplinaria.index');
+        return redirect()->route('gestion-disciplinaria.index')->with('success', 'Sanción registrada correctamente.');
+>>>>>>> Stashed changes
     }
     /**
      * Historial Sanciones.
