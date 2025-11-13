@@ -59,10 +59,10 @@
         }
 
         body[data-module="gestion-disciplinaria"] {
-            --sidebar-bg: #3a2714;
-            --sidebar-text: #fff8f1;
+            --sidebar-bg: #3e215cff;
+            --sidebar-text: #f1fffcff;
             --sidebar-hover: #4b351c;
-            --sidebar-active: #f59e0b; /* ámbar/orange */
+            --sidebar-active: #4043e8ff; /* ámbar/orange */
             --main-bg: #fffbf7;
         }
 
