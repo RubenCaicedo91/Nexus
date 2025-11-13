@@ -240,6 +240,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('gestion-academica/docentes/{id}/cursos', [DocenteCursoController::class, 'edit'])->name('docentes.edit');
     Route::put('gestion-academica/docentes/{id}/cursos', [DocenteCursoController::class, 'update'])->name('docentes.update');
     Route::post('gestion-academica/docentes/asignar', [DocenteCursoController::class, 'assign'])->name('docentes.asignar');
+    // Ruta para quitar todas las asignaciones de cursos a un docente
+    Route::post('gestion-academica/docentes/{id}/quitar-todos', [DocenteCursoController::class, 'removeAll'])->name('docentes.quitarTodos');
 
 
     // Vista para gestionar la institución

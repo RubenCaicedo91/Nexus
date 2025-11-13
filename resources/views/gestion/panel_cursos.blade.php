@@ -71,7 +71,7 @@
                             <td>
                                 <a href="{{ route('editarCurso', $curso->id) }}" class="btn btn-sm btn-warning">✏️ Editar</a>
 
-                                <a href="{{ route('cursos.materias', $curso->id) }}" class="btn btn-sm btn-info">👩‍🏫 Asignar docentes</a>
+                                <a href="{{ route('docentes.index') }}" class="btn btn-sm btn-info">👩‍🏫 Asignar docentes</a>
 
                                 <form action="{{ route('eliminarCurso', $curso->id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás segura de eliminar este curso?')">
                                     @csrf
