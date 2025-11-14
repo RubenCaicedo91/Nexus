@@ -23,6 +23,24 @@ Route::get('/', function () {
     return redirect('/login');
 });
 
+// Legacy route name used in views for historial sanciones (kept for compatibility)
+Route::get('gestion-disciplinaria/historial/{id}', [\App\Http\Controllers\GestionDisciplinariaController::class, 'historialSanciones'])
+    ->name('historial.sanciones')
+    ->middleware('auth');
+
+// Rutas de notas (auth)
+Route::middleware('auth')->group(function () {
+    Route::prefix('notas')->name('notas.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\NotasController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\NotasController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\NotasController::class, 'store'])->name('store');
+        Route::get('/{nota}/editar', [\App\Http\Controllers\NotasController::class, 'edit'])->name('edit');
+        Route::put('/{nota}', [\App\Http\Controllers\NotasController::class, 'update'])->name('update');
+        Route::post('/{nota}/aprobar', [\App\Http\Controllers\NotasController::class, 'approve'])->name('approve');
+        Route::get('/reporte', [\App\Http\Controllers\NotasController::class, 'reporte'])->name('reporte');
+    });
+});
+
 // Rutas de autenticación
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);

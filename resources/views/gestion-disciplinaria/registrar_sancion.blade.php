@@ -21,26 +21,53 @@
     {{-- Campo de búsqueda de estudiante --}}
     <div class="mb-3">
         <label for="buscador_estudiante_registrar" class="form-label">Estudiante</label>
-        {{-- Campo de texto con sugerencias; el id real se guarda en el input hidden usuario_id --}}
-        <input id="buscador_estudiante_registrar" list="lista_estudiantes_registrar" class="form-control" placeholder="Escribe un nombre..." autocomplete="off" required>
+        <input id="buscador_estudiante_registrar"
+               list="lista_estudiantes_registrar"
+               class="form-control"
+               placeholder="Escribe un nombre..."
+               autocomplete="off"
+               required>
+
         <datalist id="lista_estudiantes_registrar">
             @if(isset($students) && count($students))
                 @foreach($students as $stu)
-                    @php $disp = $stu->name . ' (ID: ' . $stu->id . ')'; @endphp
-                    <option value="{{ $disp }}"></option>
+                    <option value="{{ $stu->name }} (ID: {{ $stu->id }})"></option>
                 @endforeach
             @endif
         </datalist>
+
         <input type="hidden" name="usuario_id" id="usuario_id_hidden">
-        <small class="form-text text-muted">Selecciona un estudiante de la lista. Si no se selecciona, el formulario no enviará el id.</small>
+
+        <small class="form-text text-muted">
+            Selecciona un estudiante de la lista. Si no se selecciona, el formulario no se enviará.
+        </small>
     </div>
 
+    {{-- Campos del formulario --}}
+    <div class="mb-3">
+        <label for="descripcion" class="form-label">Descripción</label>
+        <input type="text" name="descripcion" class="form-control" required>
+    </div>
 
+    <div class="mb-3">
+        <label for="tipo" class="form-label">Tipo</label>
+        <input type="text" name="tipo" class="form-control" required>
+    </div>
+
+    <div class="mb-3">
+        <label for="fecha" class="form-label">Fecha</label>
+        <input type="date" name="fecha" class="form-control" required>
+    </div>
+
+    <button type="submit" class="btn btn-success">Registrar</button>
+    <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+{{-- Script JS --}}
 <script>
     (function(){
-    // Mapa nombre -> id para asignar el usuario_id al seleccionar
-    // Usamos base64 para evitar que el editor/lingüeta JS interprete mal sintaxis Blade/JSON
-    const studentList = JSON.parse(atob('{{ base64_encode(json_encode($studentArray ?? [])) }}'));
+        // Si el backend no pasa $studentArray, se usa []
+        const studentList = JSON.parse(atob('{{ base64_encode(json_encode($studentArray ?? [])) }}'));
 
         const input = document.getElementById('buscador_estudiante_registrar');
         const hidden = document.getElementById('usuario_id_hidden');
@@ -48,29 +75,13 @@
         function findStudentIdByInput(text) {
             if (!text) return '';
             const q = text.trim().toLowerCase();
-            // 1) exact match on display
+
+            // Buscar coincidencias exactas o parciales
             for (const s of studentList) {
-                if ((s.display || '').toLowerCase() === q) return s.id;
-            }
-            // 2) exact match on name
-            for (const s of studentList) {
+                const display = `${s.name} (ID: ${s.id})`.toLowerCase();
+                if (display === q || display.includes(q)) return s.id;
                 if ((s.name || '').toLowerCase() === q) return s.id;
-            }
-            // 2b) exact match on document number
-            for (const s of studentList) {
                 if (s.document_number && ('' + s.document_number).toLowerCase() === q) return s.id;
-            }
-            // 3) startsWith on name
-            for (const s of studentList) {
-                if ((s.name || '').toLowerCase().startsWith(q)) return s.id;
-            }
-            // 4) includes on name
-            for (const s of studentList) {
-                if ((s.name || '').toLowerCase().includes(q)) return s.id;
-            }
-            // 5) includes on document number (partial match)
-            for (const s of studentList) {
-                if (s.document_number && ('' + s.document_number).toLowerCase().includes(q)) return s.id;
             }
             return '';
         }
@@ -78,12 +89,10 @@
         if (input) {
             input.addEventListener('input', function(e){
                 const v = (e.target.value || '').trim();
-                if (v === '') { hidden.value = ''; return; }
-                const id = findStudentIdByInput(v);
-                hidden.value = id || '';
+                hidden.value = findStudentIdByInput(v);
             });
 
-            // Al enviar el formulario verificar que hidden tenga valor
+            // Validar antes de enviar
             const form = input.closest('form');
             if (form) {
                 form.addEventListener('submit', function(ev){
@@ -97,24 +106,4 @@
         }
     })();
 </script>
-    <div class="mb-3">
-        <label for="descripcion" class="form-label">Descripción</label>
-        <input type="text" name="descripcion" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label for="tipo" class="form-label">Tipo</label>
-        <input type="text" name="tipo" class="form-control" required>
-    </div>
-    <div class="mb-3">
-        <label for="fecha" class="form-label">Fecha</label>
-        <input type="date" name="fecha" class="form-control" required>
-    </div>
-    <button type="submit" class="btn btn-success">Registrar</button>
-    <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">Cancelar</a>
-
-    <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">
-    Volver
-</a>
-</form>
-
 @endsection
