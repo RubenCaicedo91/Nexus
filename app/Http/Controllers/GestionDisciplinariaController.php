@@ -35,7 +35,6 @@ class GestionDisciplinariaController extends Controller
         ]);
 
         return redirect()->route('gestion-disciplinaria.index')->with('success', 'Sanción registrada correctamente.');
->>>>>>> Stashed changes
     }
     /**
      * Historial Sanciones.
