@@ -24,7 +24,7 @@
         */
         :root {
             /* Valores por defecto (fallback) */
-            --sidebar-bg: #2c3e50;
+            --sidebar-bg: #07315eff;
             --sidebar-text: #ecf0f1;
             --sidebar-hover: #34495e;
             --sidebar-active: #3498db;
@@ -35,7 +35,7 @@
 
         /* Mapear módulos a paletas: un color (primario) por módulo y submódulos lo heredan. */
         body[data-module="comunicacion"] {
-            --sidebar-bg: #1f2937; /* gris oscuro */
+            --sidebar-bg: #040f53ff; /* gris oscuro */
             --sidebar-text: #f8fafc;
             --sidebar-hover: #374151;
             --sidebar-active: #0ea5e9; /* azul claro característico de comunicaciones */
@@ -43,7 +43,7 @@
         }
 
         body[data-module="gestion-academica"] {
-            --sidebar-bg: #0f172a;
+            --sidebar-bg: #1f0535ff;
             --sidebar-text: #f1f5f9;
             --sidebar-hover: #111827;
             --sidebar-active: #16a34a; /* verde */
@@ -51,7 +51,7 @@
         }
 
         body[data-module="gestion-financiera"] {
-            --sidebar-bg: #2b0b3a;
+            --sidebar-bg: #3a0b3aff;
             --sidebar-text: #fff5f7;
             --sidebar-hover: #3a0f4c;
             --sidebar-active: #7c3aed; /* morado */
@@ -59,7 +59,7 @@
         }
 
         body[data-module="gestion-disciplinaria"] {
-            --sidebar-bg: #3e215cff;
+            --sidebar-bg: #2d1b3dff;
             --sidebar-text: #f1fffcff;
             --sidebar-hover: #4b351c;
             --sidebar-active: #4043e8ff; /* ámbar/orange */
@@ -67,7 +67,7 @@
         }
 
         body[data-module="orientacion"] {
-            --sidebar-bg: #083344;
+            --sidebar-bg: #042075ff;
             --sidebar-text: #e6f6fb;
             --sidebar-hover: #0b4f61;
             --sidebar-active: #06b6d4; /* teal */
@@ -75,7 +75,7 @@
         }
 
         body[data-module="configuracion"] {
-            --sidebar-bg: #2d2d2d;
+            --sidebar-bg: #023621ff;
             --sidebar-text: #e6e6e6;
             --sidebar-hover: #3b3b3b;
             --sidebar-active: #64748b; /* gris azulado */
@@ -98,6 +98,8 @@
             font-weight: bold;
             color: var(--brand-color) !important;
         }
+
+
 
         /* Sidebar usando variables */
         .sidebar {
@@ -151,6 +153,41 @@
             color: #fff;
             border-color: #0dcaf0;
         }
+
+        /* Navbar con degradado */
+        .navbar-gradient {
+            background: linear-gradient(90deg, #013f35ff, #471173ff); /* azul oscuro a azul medio */
+            color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .navbar-gradient .navbar-brand,
+        .navbar-gradient .nav-link,
+        .navbar-gradient .dropdown-item {
+            color: #ffffff !important;
+            font-weight: 500;
+            border-radius: 0.25rem;
+            padding: 0.5rem 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .navbar-gradient .nav-link:hover,
+        .navbar-gradient .dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .navbar-gradient .dropdown-menu {
+            background: #004080;
+            border: none;
+        }
+
+        .navbar-gradient .dropdown-divider {
+        border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+
+
+
     </style>
     
     @stack('styles')

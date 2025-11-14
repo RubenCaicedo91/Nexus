@@ -81,7 +81,7 @@
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuConfig">
-                <a class="nav-link" href="#">Ajustes Generales</a>
+                
                 @if(auth()->check() && (
                     auth()->user()->hasPermission('gestionar_usuarios') ||
                     (optional(auth()->user()->role)->nombre && (
