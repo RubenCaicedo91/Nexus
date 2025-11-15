@@ -10,7 +10,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-
 use Illuminate\Support\Str;
 
 class MatriculaController extends Controller
@@ -655,223 +654,128 @@ class MatriculaController extends Controller
 
     /**
      * Servir (visualizar/descargar inline) un archivo asociado a una matrícula.
-     * Se espera que $campo sea uno de los campos: documento_identidad, rh, certificado_medico, certificado_notas
+     * Adaptado para funcionar con archivos almacenados en la raíz del disco FTP
+     * con nombres prefijados (ej: ID_documento.pdf).
      */
     public function archivo(Matricula $matricula, $campo)
     {
+        // 1. Lista de campos permitidos (incluyendo el nuevo 'comprobante_pago')
         $allowed = ['documento_identidad', 'rh', 'certificado_medico', 'certificado_notas', 'comprobante_pago'];
-        if (! in_array($campo, $allowed)) {
+        if (!in_array($campo, $allowed)) {
             Log::warning('Matricula archivo(): campo no permitido', ['campo' => $campo, 'matricula_id' => $matricula->id]);
             abort(404);
         }
 
+        // 2. Obtener la ruta desde la base de datos
         $path = $matricula->$campo;
-        Log::info('Matricula archivo(): requested', ['matricula_id' => $matricula->id, 'campo' => $campo, 'ruta_bd' => $path]);
-        if (! $path) {
+        if (!$path) {
             Log::warning('Matricula archivo(): ruta vacía en BD', ['campo' => $campo, 'matricula_id' => $matricula->id]);
             abort(404);
         }
 
         $disk = Storage::disk('ftp_matriculas');
+        $basename = basename($path); // Nombre del archivo, ej: "ID_12345678.pdf"
 
-        // Comprobar existencia directa y capturar excepciones del adapter
-        try {
-            $exists = $disk->exists($path);
-        } catch (\Exception $e) {
-            $exists = false;
-            Log::error('Matricula archivo(): error calling exists()', ['error' => $e->getMessage(), 'matricula_id' => $matricula->id, 'path' => $path]);
+        // 3. ESTRATEGIA DE BÚSQUEDA OPTIMIZADA
+        // Dado que los archivos ahora se guardan en la raíz, la búsqueda debe ser directa.
+
+        // Intento A: Verificar si la ruta exacta de la BD existe.
+        if ($disk->exists($path)) {
+            Log::info('Matricula archivo(): encontrado por ruta exacta', ['matricula_id' => $matricula->id, 'path' => $path]);
+            return $this->serveFileFromDisk($disk, $path);
         }
 
-        // Si no existe exactamente, intentar varias estrategias de fallback
-        if (! $exists) {
-            // 1) Probar variaciones agregando prefijos repetidos 'estudiante/' (caso de rutas con duplicado)
-            $triedCandidates = [];
-            $normalized = ltrim($path, '/');
-            for ($i = 1; $i <= 3; $i++) {
-                $candidate = str_repeat('estudiante/', $i) . $normalized;
-                $triedCandidates[] = $candidate;
-                try {
-                    if ($disk->exists($candidate)) {
-                        Log::info('Matricula archivo(): found by prefix candidate', ['matricula_id' => $matricula->id, 'candidate' => $candidate]);
-                        $path = $candidate;
-                        $exists = true;
-                        break;
-                    }
-                } catch (\Exception $e) {
-                    Log::warning('Matricula archivo(): error checking candidate exists', ['candidate' => $candidate, 'error' => $e->getMessage()]);
-                }
-            }
+        // Intento B: La ruta de la BD podría ser incorrecta (ej: apunta a una carpeta vieja).
+        // Lo más probable es que el archivo esté en la raíz con el mismo nombre.
+        Log::info('Matricula archivo(): ruta exacta no encontrada, buscando en raíz por basename', [
+            'matricula_id' => $matricula->id,
+            'campo' => $campo,
+            'ruta_bd' => $path,
+            'basename' => $basename
+        ]);
 
-            // Si no lo encontramos por prefijos, continuar con búsqueda por basename
-            if (! $exists) {
-            $basename = basename($path);
-            try {
-                $baseDir = $this->getStudentBaseDir((int)$matricula->user_id);
-                Log::info('Matricula archivo(): ruta no existe, intentando fallback', [
-                    'matricula_id' => $matricula->id,
-                    'campo' => $campo,
-                    'ruta_bd' => $path,
-                    'base_dir' => $baseDir,
-                ]);
-
-                // Listar dentro de la carpeta del estudiante y en el root 'estudiante' para cubrir prefijos repetidos
-                $all = [];
-                try {
-                    $all = $disk->allFiles($baseDir);
-                } catch (\Exception $e) {
-                    // ignore - intentaremos con el root abajo
-                    Log::warning('Matricula archivo(): no se pudo listar baseDir, se intentará root', ['baseDir' => $baseDir, 'error' => $e->getMessage()]);
-                }
-
-                try {
-                    $rootAll = $disk->allFiles('estudiante');
-                    // merge manteniendo valores
-                    $all = array_values(array_unique(array_merge($all, $rootAll)));
-                } catch (\Exception $e) {
-                    Log::warning('Matricula archivo(): no se pudo listar root estudiante', ['error' => $e->getMessage()]);
-                }
-
-                Log::info('Matricula archivo(): cantidad archivos escaneados en fallback', ['count' => count($all), 'matricula_id' => $matricula->id, 'tried_prefix_candidates' => $triedCandidates]);
-            } catch (\Exception $e) {
-                Log::error('Matricula archivo(): error en fallback listando FTP', [
-                    'error' => $e->getMessage(),
-                    'matricula_id' => $matricula->id,
-                    'campo' => $campo,
-                ]);
-                abort(404);
-            }
-
+        try {
+            // Listar archivos solo en la raíz ('') para mayor eficiencia.
+            $allRootFiles = $disk->allFiles('');
             $found = null;
-            foreach ($all as $candidate) {
+            foreach ($allRootFiles as $candidate) {
                 if (strtolower(basename($candidate)) === strtolower($basename)) {
                     $found = $candidate;
                     break;
                 }
             }
 
-            if (! $found) {
-                Log::warning('Matricula archivo(): fallback sin coincidencias en baseDir/root', [
-                    'matricula_id' => $matricula->id,
-                    'campo' => $campo,
-                    'basename' => $basename,
-                    'escaneados' => count($all),
-                ]);
-                abort(404);
+            if ($found) {
+                Log::info('Matricula archivo(): encontrado en raíz por basename', ['matricula_id' => $matricula->id, 'ruta_encontrada' => $found]);
+                return $this->serveFileFromDisk($disk, $found);
             }
-
-            Log::info('Matricula archivo(): fallback encontró archivo', [
-                'matricula_id' => $matricula->id,
-                'campo' => $campo,
-                'ruta_encontrada' => $found,
-            ]);
-            $path = $found;
-        }
-
-        try {
-            $stream = $disk->readStream($path);
         } catch (\Exception $e) {
-            Log::error('Matricula archivo(): excepción en readStream', [
-                'error' => $e->getMessage(),
-                'matricula_id' => $matricula->id,
-                'campo' => $campo,
-                'path' => $path,
-            ]);
-            $stream = false;
+            Log::error('Matricula archivo(): error listando archivos en raíz para fallback', ['error' => $e->getMessage()]);
         }
 
-        // Si no pudimos obtener un stream, intentamos un fallback leyendo el contenido completo.
-        if (! $stream) {
-            Log::warning('Matricula archivo(): readStream devolvió false, intentando fallback get()', [
-                'matricula_id' => $matricula->id,
-                'campo' => $campo,
-                'path' => $path,
-            ]);
-
-            try {
-                $content = $disk->get($path);
-            } catch (\Exception $e) {
-                Log::error('Matricula archivo(): fallback get() falló', [
-                    'error' => $e->getMessage(),
-                    'matricula_id' => $matricula->id,
-                    'campo' => $campo,
-                    'path' => $path,
-                ]);
-                abort(500, 'No se pudo leer el archivo.');
-            }
-
-            // Devolver contenido en memoria como fallback
-            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-            $map = [
-                'pdf'  => 'application/pdf',
-                'jpg'  => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-                'png'  => 'image/png',
-                'gif'  => 'image/gif',
-                'webp' => 'image/webp',
-                'bmp'  => 'image/bmp',
-            ];
-            $mime = $map[$ext] ?? 'application/octet-stream';
-
-            $filename = basename($path);
-
-            return response($content, 200, array_filter([
-                'Content-Type' => $mime,
-                'Content-Disposition' => "inline; filename=\"{$filename}\"",
-                'Cache-Control' => 'private, max-age=0, no-cache',
-            ], function($v) { return $v !== null; }));
-        }
-
-        // Determinar mime por extensión como fallback
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $map = [
-            'pdf'  => 'application/pdf',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png'  => 'image/png',
-            'gif'  => 'image/gif',
-            'webp' => 'image/webp',
-            'bmp'  => 'image/bmp',
-        ];
-        $mime = $map[$ext] ?? 'application/octet-stream';
-
-        $filename = basename($path);
-
-        // Intentar obtener tamaño (puede no estar soportado por algunos adaptadores FTP)
-        $length = null;
-        try {
-            $length = $disk->size($path);
-        } catch (\Throwable $t) {
-            $length = null;
-        }
-
-        // Cabeceras adicionales para permitir embebido en iframe local y evitar que el navegador fuerce descarga
-        $headers = array_filter([
-            'Content-Type' => $mime,
-            'Content-Disposition' => "inline; filename=\"{$filename}\"",
-            'Content-Length' => $length,
-            'Cache-Control' => 'private, max-age=0, no-cache',
-            // Permitir embebido en iframe para desarrollo local
-            'X-Frame-Options' => 'ALLOWALL',
-            // CSP permitiendo el mismo origen y localhost
-            'Content-Security-Policy' => "frame-ancestors 'self' http://127.0.0.1:8000 http://localhost:8000",
-        ], function($v) { return $v !== null; });
-
-        Log::info('Matricula archivo(): enviando stream con headers', ['matricula_id' => $matricula->id, 'campo' => $campo, 'headers' => $headers]);
-
-        return response()->stream(function () use ($stream) {
-            fpassthru($stream);
-            if (is_resource($stream)) {
-                @fclose($stream);
-            }
-        }, 200, $headers);
+        // Si no se encuentra en ningún lugar, registrar el error y abortar.
+        Log::error('Matricula archivo(): archivo no encontrado después de todos los intentos', [
+            'matricula_id' => $matricula->id,
+            'campo' => $campo,
+            'ruta_bd' => $path,
+            'basename' => $basename
+        ]);
+        abort(404);
     }
 
+    /**
+     * Función auxiliar para servir el archivo una vez encontrada su ruta.
+     * Encapsula la lógica de streaming, MIME types y cabeceras.
+     */
+    private function serveFileFromDisk($disk, string $path)
+    {
+        $filename = basename($path);
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+        ];
+        $mime = $mimeTypes[$ext] ?? 'application/octet-stream';
+
+        // Intentar obtener un stream para una entrega eficiente de archivos grandes
+        try {
+            $stream = $disk->readStream($path);
+            if ($stream) {
+                $headers = [
+                    'Content-Type' => $mime,
+                    'Content-Disposition' => 'inline; filename="' . $filename . '"',
+                    'Cache-Control' => 'private, max-age=0, no-cache',
+                ];
+                return response()->stream(function () use ($stream) {
+                    fpassthru($stream);
+                    if (is_resource($stream)) {
+                        @fclose($stream);
+                    }
+                }, 200, $headers);
+            }
+        } catch (\Exception $e) {
+            Log::warning('serveFileFromDisk: readStream falló, intentando fallback get()', ['path' => $path, 'error' => $e->getMessage()]);
+        }
+
+        // Fallback: Si el stream falla, leer el archivo completo en memoria.
+        // Menos eficiente para archivos grandes, pero más robusto.
+        try {
+            $content = $disk->get($path);
+            $headers = [
+                'Content-Type' => $mime,
+                'Content-Disposition' => 'inline; filename="' . $filename . '"',
+                'Cache-Control' => 'private, max-age=0, no-cache',
+            ];
+            return response($content, 200, $headers);
+        } catch (\Exception $e) {
+            Log::error('serveFileFromDisk: fallback get() también falló', ['path' => $path, 'error' => $e->getMessage()]);
+        }
+
+        // Si todo falla, devolver un error 500
+        abort(500, 'No se pudo leer el archivo desde el almacenamiento.');
+    }
 }
-
-}
-
-
-
-
-
-
