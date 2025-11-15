@@ -66,13 +66,7 @@ class MatriculaController extends Controller
         ];
     }
 
-    /**
-     * Construye la carpeta destino en el disco FTP.
-     * Siempre devuelve: estudiante/{slug_unico}
-     * Normaliza la entrada para evitar que se acumulen prefijos repetidos
-     * Ejemplo: si accidentalmente se pasa "estudiante/juan" o "estudiante/estudiante/juan",
-     * se extrae el último segmento y se genera "estudiante/juan".
-     */
+   
     private function buildTargetFolder(string $studentSlug, string $campo): string
     {
         // Extraer último segmento por si ya viene con prefijos
@@ -87,13 +81,7 @@ class MatriculaController extends Controller
         return $safe;
     }
 
-    /**
-     * Normaliza cualquier ruta objetivo para colapsar ramificaciones repetidas.
-     * Extrae el último segmento que parezca un identificador de estudiante
-     * (por ejemplo: 'estudiante' o 'estudiante_14') y devuelve siempre
-     * 'estudiante/{segmento}'. Esto evita rutas como
-     * 'estudiante/estudiante/estudiante_14/estudiante/estudiante_14...'
-     */
+   
     private function normalizeTargetFolder(string $folder): string
     {
         $trimmed = trim($folder, '/');
@@ -123,16 +111,11 @@ class MatriculaController extends Controller
         return 'estudiante/' . $safeStudentSegment;
     }
 
-    private function ensureDir(string $dir): void
-    {
-        if (! Storage::disk('ftp_matriculas')->exists($dir)) {
-            Storage::disk('ftp_matriculas')->makeDirectory($dir);
-        }
-    }
-
+    
     private function safeFilename(UploadedFile $file, string $prefix): string
     {
-        $origName = $file->getClientOriginalName();
+        // Devuelve un nombre seguro pero no realiza ninguna operación de subida.
+        $origName = basename($file->getClientOriginalName());
         $ext = $file->getClientOriginalExtension() ?: $file->extension();
         $base = pathinfo($origName, PATHINFO_FILENAME);
         $safeBase = Str::slug($base, '_') ?: 'file';
@@ -141,55 +124,350 @@ class MatriculaController extends Controller
 
     private function uploadToFtp(string $dir, UploadedFile $file, string $filename): ?string
     {
+        $dir = trim(str_replace('\\', '/', $dir), '/');
         $this->ensureDir($dir);
-        $stored = Storage::disk('ftp_matriculas')->putFileAs($dir, $file, $filename);
+
+        // Sanitizar filename
+        $filename = basename($filename);
+
+        $disk = Storage::disk('ftp_matriculas');
+        $candidate = $dir === '' ? $filename : ($dir . '/' . $filename);
+
+        \Log::info('uploadToFtp: intentando subir archivo', ['dir' => $dir, 'candidate' => $candidate, 'filename' => $filename]);
+
+        // Si el archivo ya existe, eliminarlo para reemplazar
+        try {
+            if ($disk->exists($candidate)) {
+                \Log::info('uploadToFtp: archivo existe, intentando borrar', ['candidate' => $candidate]);
+                $disk->delete($candidate);
+            }
+        } catch (\Exception $e) {
+            \Log::warning('uploadToFtp: error al intentar borrar archivo existente', ['error' => $e->getMessage(), 'candidate' => $candidate]);
+        }
+
+        try {
+            $stored = $disk->putFileAs($dir, $file, $filename);
+        } catch (\Exception $e) {
+            \Log::error('uploadToFtp: excepción al subir', ['error' => $e->getMessage(), 'dir' => $dir, 'filename' => $filename]);
+            return null;
+        }
+
+        \Log::info('uploadToFtp: resultado de putFileAs', ['stored' => $stored]);
         return $stored === false ? null : $stored;
+    }
+
+    /**
+     * Igual a uploadToFtp pero NO crea directorios. Intenta subir y reemplazar
+     * el archivo si ya existe. Si la ruta de destino no existe, fallará y
+     * devolverá null sin crear carpetas.
+     */
+    private function uploadToFtpNoCreate(string $dir, UploadedFile $file, string $filename): ?string
+    {
+        $dir = trim(str_replace('\\', '/', $dir), '/');
+
+        // Sanitizar filename
+        $filename = basename($filename);
+
+        $disk = Storage::disk('ftp_matriculas');
+        // Comprobar si la carpeta de destino existe en el disco.
+        $dirExists = true;
+        if ($dir !== '') {
+            try {
+                // Intentar listar archivos de la carpeta; si lanza excepción, asumimos que no existe
+                $disk->allFiles($dir);
+                $dirExists = true;
+            } catch (\Exception $e) {
+                $dirExists = false;
+            }
+        }
+
+        // Si la carpeta no existe, haremos fallback a la raíz (no crear carpetas).
+        if ($dirExists) {
+            $candidate = $dir . '/' . $filename;
+        } else {
+            $candidate = $filename; // almacenar en root
+            \Log::info('uploadToFtpNoCreate: carpeta destino no existe, guardando en root (no se crearán carpetas)', ['dir' => $dir, 'candidate' => $candidate]);
+        }
+
+        \Log::info('uploadToFtpNoCreate: intentando subir archivo (sin crear dirs)', ['dir' => $dir, 'candidate' => $candidate, 'filename' => $filename, 'dirExists' => $dirExists]);
+
+        try {
+            if ($disk->exists($candidate)) {
+                \Log::info('uploadToFtpNoCreate: archivo existe, intentando borrar', ['candidate' => $candidate]);
+                $disk->delete($candidate);
+            }
+        } catch (\Exception $e) {
+            \Log::warning('uploadToFtpNoCreate: error al intentar borrar archivo existente', ['error' => $e->getMessage(), 'candidate' => $candidate]);
+        }
+
+        try {
+            if ($dirExists) {
+                $stored = $disk->putFileAs($dir, $file, $filename);
+            } else {
+                // Guardar en la raíz usando putFileAs con path vacío
+                $stored = $disk->putFileAs('', $file, $filename);
+            }
+        } catch (\Exception $e) {
+            \Log::error('uploadToFtpNoCreate: excepción al subir', ['error' => $e->getMessage(), 'dir' => $dir, 'filename' => $filename, 'dirExists' => $dirExists]);
+            return null;
+        }
+
+        \Log::info('uploadToFtpNoCreate: resultado de putFileAs', ['stored' => $stored]);
+        return $stored === false ? null : $stored;
+    }
+
+    /**
+     * Fuerza la subida del archivo en la raíz del disco FTP sin crear carpetas.
+     * Elimina el archivo existente si ya está presente y escribe el nuevo.
+     */
+    private function uploadToFtpRoot(UploadedFile $file, string $filename): ?string
+    {
+        $filename = basename($filename);
+        $disk = Storage::disk('ftp_matriculas');
+
+        $candidate = $filename;
+        \Log::info('uploadToFtpRoot: intentando subir archivo al root', ['candidate' => $candidate, 'filename' => $filename]);
+
+        // Antes de subir, eliminar cualquier archivo con el mismo basename en el disco
+        try {
+            $basename = strtolower($filename);
+            $candidates = [];
+            try {
+                $allRoot = $disk->allFiles('');
+                $candidates = array_merge($candidates, $allRoot);
+            } catch (\Exception $e) {
+                \Log::warning('uploadToFtpRoot: no se pudo listar root al buscar duplicados', ['error' => $e->getMessage()]);
+            }
+
+            try {
+                $allEst = $disk->allFiles('estudiante');
+                $candidates = array_merge($candidates, $allEst);
+            } catch (\Exception $e) {
+                // puede que no exista la carpeta 'estudiante' o no sea accesible
+            }
+
+            $candidates = array_values(array_unique($candidates));
+            foreach ($candidates as $c) {
+                if (strtolower(basename($c)) === $basename) {
+                    try {
+                        \Log::info('uploadToFtpRoot: borrando duplicado previo encontrado', ['path' => $c]);
+                        $disk->delete($c);
+                    } catch (\Exception $e) {
+                        \Log::warning('uploadToFtpRoot: no se pudo borrar duplicado', ['path' => $c, 'error' => $e->getMessage()]);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::warning('uploadToFtpRoot: error buscando/borrando duplicados', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            // putFileAs con directorio vacío escribe en root
+            $stored = $disk->putFileAs('', $file, $filename);
+        } catch (\Exception $e) {
+            \Log::error('uploadToFtpRoot: excepción al subir', ['error' => $e->getMessage(), 'filename' => $filename]);
+            return null;
+        }
+
+        \Log::info('uploadToFtpRoot: resultado de putFileAs', ['stored' => $stored]);
+        return $stored === false ? null : $stored;
+    }
+
+    /**
+     * Normaliza una ruta para el disco FTP: convierte separadores,
+     * elimina duplicados consecutivos y colapsa repeticiones completas.
+     */
+    private function normalizeDirPath(string $dir): string
+    {
+        // Normalizar separadores
+        $dir = str_replace('\\', '/', $dir);
+        $dir = trim($dir, '/');
+
+        if ($dir === '') return '';
+
+        $parts = preg_split('#/+#', $dir);
+
+        // Eliminar duplicados consecutivos
+        $clean = [];
+        foreach ($parts as $p) {
+            if ($p === '') continue;
+            if (empty($clean) || end($clean) !== $p) {
+                $clean[] = $p;
+            }
+        }
+
+        $n = count($clean);
+        // Si la ruta está compuesta por una repetición del mismo bloque, colapsarla
+        for ($len = 1; $len <= intdiv($n, 2); $len++) {
+            if ($n % $len !== 0) continue;
+            $chunks = array_chunk($clean, $len);
+            $allSame = true;
+            foreach ($chunks as $chunk) {
+                if ($chunk !== $chunks[0]) { $allSame = false; break; }
+            }
+            if ($allSame) {
+                $clean = $chunks[0];
+                break;
+            }
+        }
+
+        return implode('/', $clean);
     }
 
     private function uploadDocumentoIdentidad(int $userId, UploadedFile $file): ?string
     {
-        $dir = $this->getStudentBaseDir($userId);
-        $filename = $this->safeFilename($file, 'documento_identidad');
-        return $this->uploadToFtp($dir, $file, $filename);
+        // Construir carpeta principal basada en el número de documento del usuario
+        $user = \App\Models\User::find($userId);
+        if (! $user) {
+            \Log::warning('uploadDocumentoIdentidad: usuario no encontrado', ['userId' => $userId]);
+            $docNumber = null;
+        } else {
+            $docNumber = $user->document_number ?? null;
+            \Log::info('uploadDocumentoIdentidad: usuario encontrado', ['userId' => $userId, 'user_document_number' => $docNumber]);
+        }
+
+        // Normalizar el número de documento para usar como nombre de carpeta
+        if (empty($docNumber)) {
+            // fallback: usar id del usuario si no hay número de documento
+            $docSegment = 'id_' . $userId;
+            \Log::warning('uploadDocumentoIdentidad: document_number vacío, usando fallback id', ['userId' => $userId, 'docSegment' => $docSegment]);
+        } else {
+            $docSegment = preg_replace('/[^A-Za-z0-9_\-]/', '_', trim((string)$docNumber));
+        }
+
+        // Nombre de archivo: ID_<numero de documento>.<ext>
+        $ext = $file->getClientOriginalExtension() ?: $file->extension();
+        $safeDoc = $docSegment ?: 'sin_documento';
+        $filename = 'ID_' . $safeDoc . '.' . $ext;
+
+        // Guardar siempre en la raíz del disco para evitar cualquier creación de carpetas
+        $stored = $this->uploadToFtpRoot($file, $filename);
+        return $stored;
+    }
+
+    /**
+     * Subida genérica para otros documentos: coloca el archivo dentro de la carpeta
+     * base del estudiante y, si corresponde, en una subcarpeta por tipo.
+     */
+    private function uploadOtherDocument(int $userId, string $campo, UploadedFile $file): ?string
+    {
+        // Subida deshabilitada temporalmente.
+        return null;
     }
 
     private function uploadRh(int $userId, UploadedFile $file): ?string
     {
-        $dir = $this->getStudentBaseDir($userId);
-        $filename = $this->safeFilename($file, 'rh');
-        return $this->uploadToFtp($dir, $file, $filename);
+        // Construir carpeta principal basada en el número de documento del usuario
+        $user = \App\Models\User::find($userId);
+        if (! $user) {
+            \Log::warning('uploadRh: usuario no encontrado', ['userId' => $userId]);
+            $docNumber = null;
+        } else {
+            $docNumber = $user->document_number ?? null;
+            \Log::info('uploadRh: usuario encontrado', ['userId' => $userId, 'user_document_number' => $docNumber]);
+        }
+
+        if (empty($docNumber)) {
+            // fallback: usar id del usuario si no hay número de documento
+            $docSegment = 'id_' . $userId;
+            \Log::warning('uploadRh: document_number vacío, usando fallback id', ['userId' => $userId, 'docSegment' => $docSegment]);
+        } else {
+            $docSegment = preg_replace('/[^A-Za-z0-9_\-]/', '_', trim((string)$docNumber));
+        }
+
+        // Nombre de archivo: RH_<numero de documento>.<ext>
+        $ext = $file->getClientOriginalExtension() ?: $file->extension();
+        $safeDoc = $docSegment ?: 'sin_documento';
+        $filename = 'RH_' . $safeDoc . '.' . $ext;
+
+        // Guardar siempre en la raíz del disco para evitar cualquier creación de carpetas
+        $stored = $this->uploadToFtpRoot($file, $filename);
+        return $stored;
     }
 
     private function uploadCertificadoMedico(int $userId, UploadedFile $file): ?string
     {
-        $dir = $this->getStudentBaseDir($userId);
-        $filename = $this->safeFilename($file, 'certificado_medico');
-        return $this->uploadToFtp($dir, $file, $filename);
+        $user = \App\Models\User::find($userId);
+        $docNumber = $user->document_number ?? null;
+        if (empty($docNumber)) {
+            $docSegment = 'id_' . $userId;
+            \Log::warning('uploadCertificadoMedico: document_number vacío, usando fallback id', ['userId' => $userId, 'docSegment' => $docSegment]);
+        } else {
+            $docSegment = preg_replace('/[^A-Za-z0-9_\-]/', '_', trim((string)$docNumber));
+        }
+
+        $ext = $file->getClientOriginalExtension() ?: $file->extension();
+        $safeDoc = $docSegment ?: 'sin_documento';
+        $filename = 'CM_' . $safeDoc . '.' . $ext;
+
+        // Guardar siempre en la raíz del disco
+        return $this->uploadToFtpRoot($file, $filename);
     }
 
     private function uploadCertificadoNotas(int $userId, UploadedFile $file): ?string
     {
-        $dir = $this->getStudentBaseDir($userId);
-        $filename = $this->safeFilename($file, 'certificado_notas');
-        return $this->uploadToFtp($dir, $file, $filename);
+        $user = \App\Models\User::find($userId);
+        $docNumber = $user->document_number ?? null;
+        if (empty($docNumber)) {
+            $docSegment = 'id_' . $userId;
+            \Log::warning('uploadCertificadoNotas: document_number vacío, usando fallback id', ['userId' => $userId, 'docSegment' => $docSegment]);
+        } else {
+            $docSegment = preg_replace('/[^A-Za-z0-9_\-]/', '_', trim((string)$docNumber));
+        }
+
+        $ext = $file->getClientOriginalExtension() ?: $file->extension();
+        $safeDoc = $docSegment ?: 'sin_documento';
+        $filename = 'CN_' . $safeDoc . '.' . $ext;
+
+        // Guardar siempre en la raíz del disco
+        return $this->uploadToFtpRoot($file, $filename);
+    }
+
+    private function uploadPagoMatricula(int $userId, UploadedFile $file): ?string
+    {
+        $user = \App\Models\User::find($userId);
+        $docNumber = $user->document_number ?? null;
+        if (empty($docNumber)) {
+            $docSegment = 'id_' . $userId;
+            \Log::warning('uploadPagoMatricula: document_number vacío, usando fallback id', ['userId' => $userId, 'docSegment' => $docSegment]);
+        } else {
+            $docSegment = preg_replace('/[^A-Za-z0-9_\-]/', '_', trim((string)$docNumber));
+        }
+
+        $ext = $file->getClientOriginalExtension() ?: $file->extension();
+        $safeDoc = $docSegment ?: 'sin_documento';
+        $filename = 'PM_' . $safeDoc . '.' . $ext;
+
+        // Guardar siempre en la raíz del disco
+        return $this->uploadToFtpRoot($file, $filename);
     }
     /**
      * Sube un archivo según el nombre del campo del formulario.
      */
     private function uploadByFieldName(int $userId, string $campo, UploadedFile $file): ?string
     {
-        switch ($campo) {
-            case 'documento_identidad':
-                return $this->uploadDocumentoIdentidad($userId, $file);
-            case 'rh':
-                return $this->uploadRh($userId, $file);
-            case 'certificado_medico':
-                return $this->uploadCertificadoMedico($userId, $file);
-            case 'certificado_notas':
-                return $this->uploadCertificadoNotas($userId, $file);
-            default:
-                return null;
+        if ($campo === 'documento_identidad') {
+            return $this->uploadDocumentoIdentidad($userId, $file);
         }
+
+        if ($campo === 'rh') {
+            return $this->uploadRh($userId, $file);
+        }
+
+        if ($campo === 'certificado_medico') {
+            return $this->uploadCertificadoMedico($userId, $file);
+        }
+
+        if ($campo === 'certificado_notas') {
+            return $this->uploadCertificadoNotas($userId, $file);
+        }
+
+        // Nuevo: manejo de comprobante de pago (PM_<documento>)
+        if ($campo === 'comprobante_pago' || $campo === 'pago_matricula') {
+            return $this->uploadPagoMatricula($userId, $file);
+        }
+
+        return $this->uploadOtherDocument($userId, $campo, $file);
     }
     /**
      * Store a newly created resource in storage.
@@ -199,9 +477,10 @@ class MatriculaController extends Controller
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|string|max:255',
+            // 'estado' ahora se calcula automáticamente en el modelo
             'documento_identidad' => 'nullable|file|max:20480',
             'rh' => 'nullable|file|max:20480',
+            'comprobante_pago' => 'nullable|file|max:20480',
             'certificado_medico' => 'nullable|file|max:20480',
             'certificado_notas' => 'nullable|file|max:20480',
         ]);
@@ -209,7 +488,7 @@ class MatriculaController extends Controller
         $userId = (int) $request->user_id;
         $tipo_usuario = $request->input('tipo_usuario');
 
-        $campos = ['documento_identidad', 'rh', 'certificado_medico'];
+        $campos = ['documento_identidad', 'rh', 'comprobante_pago', 'certificado_medico'];
         if ($tipo_usuario === 'antiguo') {
             $campos[] = 'certificado_notas';
         }
@@ -230,15 +509,13 @@ class MatriculaController extends Controller
             }
         }
 
-        $estado = $faltan ? 'falta de documentacion' : $request->input('estado', 'activo');
-
         $matricula = new Matricula();
         $matricula->user_id = $userId;
         $matricula->fecha_matricula = $request->fecha_matricula;
-        $matricula->estado = $estado;
         $matricula->tipo_usuario = $tipo_usuario ?? null;
         $matricula->documento_identidad = $rutas['documento_identidad'] ?? null;
         $matricula->rh = $rutas['rh'] ?? null;
+        $matricula->comprobante_pago = $rutas['comprobante_pago'] ?? null;
         $matricula->certificado_medico = $rutas['certificado_medico'] ?? null;
         $matricula->certificado_notas = $rutas['certificado_notas'] ?? null;
         $matricula->save();
@@ -279,9 +556,10 @@ class MatriculaController extends Controller
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|string|max:255',
+            // 'estado' ahora se calcula automáticamente en el modelo
             'documento_identidad' => 'nullable|file|max:20480',
             'rh' => 'nullable|file|max:20480',
+            'comprobante_pago' => 'nullable|file|max:20480',
             'certificado_medico' => 'nullable|file|max:20480',
             'certificado_notas' => 'nullable|file|max:20480',
         ]);
@@ -289,21 +567,35 @@ class MatriculaController extends Controller
         $documentos = [
             'documento_identidad',
             'rh',
+            'comprobante_pago',
             'certificado_medico',
             'certificado_notas'
         ];
 
+        $deletedAny = false;
+        $deletedList = [];
+
         foreach ($documentos as $campo) {
             if ($request->has("delete_$campo")) {
                 if ($matricula->$campo) {
-                    Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                    try {
+                        Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                    } catch (\Exception $e) {
+                        \Log::warning('update(): error borrando archivo desde delete button', ['campo' => $campo, 'error' => $e->getMessage()]);
+                    }
                     $matricula->$campo = null;
+                    $deletedAny = true;
+                    $deletedList[] = $campo;
                 }
             }
 
             if ($request->hasFile($campo)) {
                 if ($matricula->$campo) {
-                    Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                    try {
+                        Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                    } catch (\Exception $e) {
+                        \Log::warning('update(): error borrando archivo previo antes de reemplazar', ['campo' => $campo, 'error' => $e->getMessage()]);
+                    }
                 }
 
                 $uploaded = $this->uploadByFieldName((int)$request->user_id, $campo, $request->file($campo));
@@ -317,17 +609,16 @@ class MatriculaController extends Controller
         $matricula->fecha_matricula = $request->fecha_matricula;
         $matricula->tipo_usuario = $request->tipo_usuario;
 
-        $faltan = false;
-        if (!$matricula->documento_identidad || !$matricula->rh || !$matricula->certificado_medico) {
-            $faltan = true;
-        }
-        if ($request->tipo_usuario === 'antiguo' && !$matricula->certificado_notas) {
-            $faltan = true;
-        }
-
-        $matricula->estado = $faltan ? 'falta de documentacion' : $request->estado;
-
         $matricula->save();
+
+        // Si borramos al menos un archivo, permanecer en la misma página de edición
+        if ($deletedAny) {
+            $msg = 'Documento eliminado correctamente.';
+            if (count($deletedList) > 1) {
+                $msg = 'Documentos eliminados correctamente.';
+            }
+            return redirect()->route('matriculas.edit', $matricula->id)->with('success', $msg);
+        }
 
         return redirect()->route('matriculas.index')->with('success', 'Matrícula actualizada correctamente.');
     }
@@ -339,7 +630,7 @@ class MatriculaController extends Controller
         $userId = $matricula->user_id;
 
         // Borrar archivos referenciados en el modelo si existen
-        $campos = ['documento_identidad', 'rh', 'certificado_medico', 'certificado_notas'];
+        $campos = ['documento_identidad', 'rh', 'comprobante_pago', 'certificado_medico', 'certificado_notas'];
         foreach ($campos as $campo) {
             if ($matricula->$campo) {
                 Storage::disk('ftp_matriculas')->delete($matricula->$campo);
@@ -485,16 +776,49 @@ class MatriculaController extends Controller
                 'campo' => $campo,
                 'path' => $path,
             ]);
-            abort(500, 'No se pudo leer el archivo.');
+            $stream = false;
         }
 
+        // Si no pudimos obtener un stream, intentamos un fallback leyendo el contenido completo.
         if (! $stream) {
-            Log::error('Matricula archivo(): readStream devolvió false', [
+            Log::warning('Matricula archivo(): readStream devolvió false, intentando fallback get()', [
                 'matricula_id' => $matricula->id,
                 'campo' => $campo,
                 'path' => $path,
             ]);
-            abort(500, 'No se pudo leer el archivo.');
+
+            try {
+                $content = $disk->get($path);
+            } catch (\Exception $e) {
+                Log::error('Matricula archivo(): fallback get() falló', [
+                    'error' => $e->getMessage(),
+                    'matricula_id' => $matricula->id,
+                    'campo' => $campo,
+                    'path' => $path,
+                ]);
+                abort(500, 'No se pudo leer el archivo.');
+            }
+
+            // Devolver contenido en memoria como fallback
+            $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+            $map = [
+                'pdf'  => 'application/pdf',
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png'  => 'image/png',
+                'gif'  => 'image/gif',
+                'webp' => 'image/webp',
+                'bmp'  => 'image/bmp',
+            ];
+            $mime = $map[$ext] ?? 'application/octet-stream';
+
+            $filename = basename($path);
+
+            return response($content, 200, array_filter([
+                'Content-Type' => $mime,
+                'Content-Disposition' => "inline; filename=\"{$filename}\"",
+                'Cache-Control' => 'private, max-age=0, no-cache',
+            ], function($v) { return $v !== null; }));
         }
 
         // Determinar mime por extensión como fallback
@@ -520,25 +844,29 @@ class MatriculaController extends Controller
             $length = null;
         }
 
+        // Cabeceras adicionales para permitir embebido en iframe local y evitar que el navegador fuerce descarga
+        $headers = array_filter([
+            'Content-Type' => $mime,
+            'Content-Disposition' => "inline; filename=\"{$filename}\"",
+            'Content-Length' => $length,
+            'Cache-Control' => 'private, max-age=0, no-cache',
+            // Permitir embebido en iframe para desarrollo local
+            'X-Frame-Options' => 'ALLOWALL',
+            // CSP permitiendo el mismo origen y localhost
+            'Content-Security-Policy' => "frame-ancestors 'self' http://127.0.0.1:8000 http://localhost:8000",
+        ], function($v) { return $v !== null; });
+
+        Log::info('Matricula archivo(): enviando stream con headers', ['matricula_id' => $matricula->id, 'campo' => $campo, 'headers' => $headers]);
+
         return response()->stream(function () use ($stream) {
             fpassthru($stream);
             if (is_resource($stream)) {
                 @fclose($stream);
             }
-        }, 200, array_filter([
-            'Content-Type' => $mime,
-            'Content-Disposition' => "inline; filename=\"{$filename}\"",
-            'Content-Length' => $length,
-            'Cache-Control' => 'private, max-age=0, no-cache',
-        ], function($v) { return $v !== null; }));
+        }, 200, $headers);
     }
 
 }
-
-
-
-
-
 
 }
 

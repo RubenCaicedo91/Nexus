@@ -57,7 +57,7 @@
                     <div>
                         @if($matricula->documento_identidad)
                             @php $name = basename($matricula->documento_identidad); @endphp
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'documento_identidad']) }}" target="_blank">{{ $name }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'documento_identidad']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'documento_identidad']) }}" target="_blank">{{ $name }}</a>
                         @else
                             —
                         @endif
@@ -68,7 +68,7 @@
                     <strong>RH:</strong>
                     <div>
                         @if($matricula->rh)
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'rh']) }}" target="_blank">{{ basename($matricula->rh) }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'rh']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'rh']) }}" target="_blank">{{ basename($matricula->rh) }}</a>
                         @else
                             —
                         @endif
@@ -79,7 +79,7 @@
                     <strong>Certificado médico:</strong>
                     <div>
                         @if($matricula->certificado_medico)
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_medico']) }}" target="_blank">{{ basename($matricula->certificado_medico) }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_medico']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_medico']) }}" target="_blank">{{ basename($matricula->certificado_medico) }}</a>
                         @else
                             —
                         @endif
@@ -90,7 +90,18 @@
                     <strong>Registro de notas:</strong>
                     <div>
                         @if($matricula->certificado_notas)
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_notas']) }}" target="_blank">{{ basename($matricula->certificado_notas) }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_notas']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_notas']) }}" target="_blank">{{ basename($matricula->certificado_notas) }}</a>
+                        @else
+                            —
+                        @endif
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <strong>Comprobante de pago (Matrícula):</strong>
+                    <div>
+                        @if($matricula->comprobante_pago)
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'comprobante_pago']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'comprobante_pago']) }}" target="_blank">{{ basename($matricula->comprobante_pago) }}</a>
                         @else
                             —
                         @endif
@@ -111,5 +122,7 @@
             </div>
         </div>
     </div>
+
 </div>
+@include('matriculas._file_preview_modal')
 @endsection

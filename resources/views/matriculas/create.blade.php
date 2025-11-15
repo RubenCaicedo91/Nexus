@@ -55,6 +55,10 @@
                     <input type="file" name="rh" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
                 </div>
                 <div class="mb-3">
+                    <label class="form-label"><strong>Comprobante de Pago (Matrícula):</strong></label>
+                    <input type="file" name="comprobante_pago" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                </div>
+                <div class="mb-3">
                     <label class="form-label"><strong>Certificado Médico:</strong></label>
                     <input type="file" name="certificado_medico" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
                 </div>

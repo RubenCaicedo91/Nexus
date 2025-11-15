@@ -78,13 +78,17 @@ class Matricula extends Model
      */
     public function tieneDocumentosCompletos()
     {
-        return !empty($this->documento_identidad) &&
-               !empty($this->rh) &&
-               !empty($this->certificado_medico) &&
-               !empty($this->certificado_notas) &&
-               !empty($this->comprobante_pago) &&
-               !empty($this->monto_pago) &&
-               !empty($this->fecha_pago);
+        // Este método ahora solo verifica los documentos (sin incluir el pago)
+        $complete = !empty($this->documento_identidad) &&
+                    !empty($this->rh) &&
+                    !empty($this->certificado_medico);
+
+        // Si el tipo de usuario es 'antiguo', se requiere certificado_notas
+        if (($this->tipo_usuario ?? null) === 'antiguo') {
+            $complete = $complete && !empty($this->certificado_notas);
+        }
+
+        return $complete;
     }
 
     /**
@@ -95,5 +99,52 @@ class Matricula extends Model
         $this->documentos_completos = $this->tieneDocumentosCompletos();
         $this->save();
         return $this->documentos_completos;
+    }
+
+    /**
+     * Determina si hay registro de pago en la matrícula.
+     */
+    public function hasPayment()
+    {
+        return !empty($this->comprobante_pago) || (!empty($this->monto_pago) && !empty($this->fecha_pago));
+    }
+
+    /**
+     * Comprueba si los documentos (sin incluir pago) están completos.
+     * Alias más explícito que `tieneDocumentosCompletos`.
+     */
+    public function documentsComplete()
+    {
+        return $this->tieneDocumentosCompletos();
+    }
+
+    /**
+     * Recalcula y asigna el `estado` según las reglas:
+     * - 'inactivo' si falta algún documento
+     * - si documentos completos: 'activo' si hay pago, 'completado' si falta solo el pago
+     */
+    public function recalcularEstado()
+    {
+        $docs = $this->documentsComplete();
+        $paid = $this->hasPayment();
+
+        if (! $docs) {
+            $this->estado = 'inactivo';
+        } else {
+            $this->estado = $paid ? 'activo' : 'completado';
+        }
+
+        // Mantener el flag `documentos_completos` sincronizado
+        $this->documentos_completos = $docs;
+    }
+
+    /**
+     * Registrar hook para recalcular el estado antes de guardar.
+     */
+    protected static function booted()
+    {
+        static::saving(function ($matricula) {
+            $matricula->recalcularEstado();
+        });
     }
 }
