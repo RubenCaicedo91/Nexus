@@ -27,11 +27,30 @@ class MatriculaController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(Request $request)
     {
         // Obtener dinámicamente el id del rol 'Estudiante' en lugar de usar un id fijo
         $studentRole = RolesModel::where('nombre', 'Estudiante')->first();
         if ($studentRole) {
+            // Si la petición incluye 'q' (búsqueda), responder JSON filtrando
+            // únicamente por número de documento (document_number).
+            $q = trim($request->get('q', ''));
+            if ($q !== '' || $request->ajax() || $request->wantsJson()) {
+                if ($q === '') {
+                    return response()->json(['data' => []]);
+                }
+
+
+                $students = User::where('roles_id', $studentRole->id)
+                    ->where('document_number', 'like', "%{$q}%")
+                    ->select('id','name','first_name','second_name','first_last','second_last','document_number','document_type','email','celular')
+                    ->orderBy('document_number')
+                    ->limit(50)
+                    ->get();
+
+                return response()->json(['data' => $students]);
+            }
+
             $students = User::where('roles_id', $studentRole->id)->get();
         } else {
             // Si no existe el rol, devolver colección vacía para evitar errores en la vista
@@ -532,11 +551,28 @@ class MatriculaController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Matricula $matricula)
+    public function edit(Request $request, Matricula $matricula)
     {
         // Obtener dinámicamente el id del rol 'Estudiante'
         $studentRole = RolesModel::where('nombre', 'Estudiante')->first();
         if ($studentRole) {
+            $q = trim($request->get('q', ''));
+            if ($q !== '' || $request->ajax() || $request->wantsJson()) {
+                if ($q === '') {
+                    return response()->json(['data' => []]);
+                }
+
+
+                $students = User::where('roles_id', $studentRole->id)
+                    ->where('document_number', 'like', "%{$q}%")
+                    ->select('id','name','first_name','second_name','first_last','second_last','document_number','document_type','email','celular')
+                    ->orderBy('document_number')
+                    ->limit(50)
+                    ->get();
+
+                return response()->json(['data' => $students]);
+            }
+
             $students = User::where('roles_id', $studentRole->id)->get();
         } else {
             $students = collect();

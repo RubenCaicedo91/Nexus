@@ -27,93 +27,161 @@
             <form action="{{ route('matriculas.update', $matricula->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
-                <div class="mb-3">
-                    <label class="form-label"><strong>Estudiante:</strong></label>
-                    <select name="user_id" class="form-control">
-                        @foreach ($students as $student)
-                            <option value="{{ $student->id }}" @if($student->id == $matricula->user_id) selected @endif>{{ $student->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label"><strong>Fecha de Matrícula:</strong></label>
-                    <input type="date" name="fecha_matricula" value="{{ $matricula->fecha_matricula }}" class="form-control" placeholder="Fecha de Matrícula">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label"><strong>Estado:</strong></label>
-                    <select name="estado" class="form-control">
-                        <option value="activo" @if($matricula->estado == 'activo') selected @endif>Activo</option>
-                        <option value="inactivo" @if($matricula->estado == 'inactivo') selected @endif>Inactivo</option>
-                        <option value="completado" @if($matricula->estado == 'completado') selected @endif>Completado</option>
-                        <option value="falta de documentacion" @if($matricula->estado == 'falta de documentacion') selected @endif>Falta de Documentación</option>
-                    </select>
-                </div>
+                <div class="row">
+                    <div class="col-lg-4 mb-3">
+                        <div class="card p-3 border-0 shadow-sm">
+                            <div class="mb-2">
+                                @if($matricula->user)
+                                    <div class="h6 mb-1">{{ $matricula->user->name }}</div>
+                                    @if(!empty($matricula->user->document_type) || !empty($matricula->user->document_number))
+                                        <div class="text-muted small">{{ $matricula->user->document_type ?? '' }} {{ $matricula->user->document_number ?? '' }}</div>
+                                    @endif
+                                    @if(!empty($matricula->user->email))<div class="mt-2"><i class="fas fa-envelope me-1"></i> {{ $matricula->user->email }}</div>@endif
+                                    @if(!empty($matricula->user->celular))<div><i class="fas fa-phone me-1"></i> {{ $matricula->user->celular }}</div>@endif
+                                @else
+                                    <div class="text-muted">No hay estudiante asignado.</div>
+                                @endif
+                            </div>
+                            <input type="hidden" name="user_id" id="user_id_input" value="{{ $matricula->user_id }}">
 
-                {{-- Documento de Identidad --}}
-                <div class="mb-3">
-                    <label class="form-label"><strong>Documento de Identidad:</strong></label>
-                    @if(!empty($matricula->documento_identidad))
-                        <div class="mb-2">
-                            <a href="{{ $matricula->documento_identidad_url }}" target="_blank" class="btn btn-link btn-sm">Ver documento</a>
-                            <button type="submit" name="delete_documento_identidad" value="1" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+                            <hr>
+                            <div>
+                                <label class="form-label"><strong>Estado de documentos</strong></label>
+                                <div class="d-flex flex-column gap-2">
+                                    <div>
+                                        Documento de Identidad:
+                                        @if(!empty($matricula->documento_identidad))
+                                            <span class="badge bg-success ms-2">Presente</span>
+                                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'documento_identidad']) }}" class="btn btn-link btn-sm ms-2" target="_blank">Ver</a>
+                                        @else
+                                            <span class="badge bg-danger ms-2">Faltante</span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        RH:
+                                        @if(!empty($matricula->rh))
+                                            <span class="badge bg-success ms-2">Presente</span>
+                                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'rh']) }}" class="btn btn-link btn-sm ms-2" target="_blank">Ver</a>
+                                        @else
+                                            <span class="badge bg-danger ms-2">Faltante</span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        Comprobante de Pago:
+                                        @if(!empty($matricula->comprobante_pago))
+                                            <span class="badge bg-success ms-2">Presente</span>
+                                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'comprobante_pago']) }}" class="btn btn-link btn-sm ms-2" target="_blank">Ver</a>
+                                        @else
+                                            <span class="badge bg-danger ms-2">Faltante</span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        Certificado Médico:
+                                        @if(!empty($matricula->certificado_medico))
+                                            <span class="badge bg-success ms-2">Presente</span>
+                                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_medico']) }}" class="btn btn-link btn-sm ms-2" target="_blank">Ver</a>
+                                        @else
+                                            <span class="badge bg-danger ms-2">Faltante</span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        Certificado de Notas:
+                                        @if(!empty($matricula->certificado_notas))
+                                            <span class="badge bg-success ms-2">Presente</span>
+                                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_notas']) }}" class="btn btn-link btn-sm ms-2" target="_blank">Ver</a>
+                                        @else
+                                            <span class="badge bg-danger ms-2">Faltante</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    @endif
-                    <input type="file" name="documento_identidad" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-                </div>
-                {{-- RH --}}
-                <div class="mb-3">
-                    <label class="form-label"><strong>RH:</strong></label>
-                    @if(!empty($matricula->rh))
-                        <div class="mb-2">
-                            <a href="{{ $matricula->rh_url }}" target="_blank" class="btn btn-link btn-sm">Ver documento</a>
-                            <button type="submit" name="delete_rh" value="1" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+                    </div>
+
+                    <div class="col-lg-8">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Fecha de Matrícula:</strong></label>
+                            <input type="date" name="fecha_matricula" value="{{ $matricula->fecha_matricula }}" class="form-control" placeholder="Fecha de Matrícula">
                         </div>
-                    @endif
-                    <input type="file" name="rh" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-                </div>
-                {{-- Comprobante de Pago (Matrícula) --}}
-                <div class="mb-3">
-                    <label class="form-label"><strong>Comprobante de Pago (Matrícula):</strong></label>
-                    @if(!empty($matricula->comprobante_pago))
-                        <div class="mb-2">
-                            <a href="{{ $matricula->comprobante_pago_url }}" target="_blank" class="btn btn-link btn-sm">Ver comprobante</a>
-                            <button type="submit" name="delete_comprobante_pago" value="1" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar comprobante actual?')">Eliminar</button>
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Estado:</strong></label>
+                            <select name="estado" class="form-control">
+                                <option value="activo" @if($matricula->estado == 'activo') selected @endif>Activo</option>
+                                <option value="inactivo" @if($matricula->estado == 'inactivo') selected @endif>Inactivo</option>
+                                <option value="completado" @if($matricula->estado == 'completado') selected @endif>Completado</option>
+                                <option value="falta de documentacion" @if($matricula->estado == 'falta de documentacion') selected @endif>Falta de Documentación</option>
+                            </select>
                         </div>
-                    @endif
-                    <input type="file" name="comprobante_pago" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-                </div>
-                {{-- Certificado Médico --}}
-                <div class="mb-3">
-                    <label class="form-label"><strong>Certificado Médico:</strong></label>
-                    @if(!empty($matricula->certificado_medico))
-                        <div class="mb-2">
-                            <a href="{{ $matricula->certificado_medico_url }}" target="_blank" class="btn btn-link btn-sm">Ver documento</a>
-                            <button type="submit" name="delete_certificado_medico" value="1" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><strong>Documento de Identidad:</strong></label>
+                                @if(!empty($matricula->documento_identidad))
+                                    <div class="mb-2">
+                                        <a href="{{ $matricula->documento_identidad_url }}" target="_blank" class="btn btn-outline-primary btn-sm">Ver documento</a>
+                                        <button type="submit" name="delete_documento_identidad" value="1" class="btn btn-outline-danger btn-sm ms-2" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+                                    </div>
+                                @endif
+                                <input type="file" name="documento_identidad" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><strong>RH:</strong></label>
+                                @if(!empty($matricula->rh))
+                                    <div class="mb-2">
+                                        <a href="{{ $matricula->rh_url }}" target="_blank" class="btn btn-outline-primary btn-sm">Ver documento</a>
+                                        <button type="submit" name="delete_rh" value="1" class="btn btn-outline-danger btn-sm ms-2" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+                                    </div>
+                                @endif
+                                <input type="file" name="rh" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                            </div>
                         </div>
-                    @endif
-                    <input type="file" name="certificado_medico" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-                </div>
-                {{-- Tipo de Usuario --}}
-                <div class="mb-3">
-                    <label class="form-label"><strong>Tipo de Usuario:</strong></label>
-                    <select name="tipo_usuario" class="form-control" id="tipo_usuario_select">
-                        <option value="nuevo" @if(old('tipo_usuario', $matricula->tipo_usuario ?? '') == 'nuevo') selected @endif>Nuevo</option>
-                        <option value="antiguo" @if(old('tipo_usuario', $matricula->tipo_usuario ?? '') == 'antiguo') selected @endif>Antiguo</option>
-                    </select>
-                </div>
-                {{-- Certificado de Notas (solo si es antiguo) --}}
-                <div class="mb-3" id="certificado_notas_group" style="display: none;">
-                    <label class="form-label"><strong>Certificado de Notas del Año Anterior:</strong></label>
-                    @if(!empty($matricula->certificado_notas))
-                        <div class="mb-2">
-                            <a href="{{ $matricula->certificado_notas_url }}" target="_blank" class="btn btn-link btn-sm">Ver documento</a>
-                            <button type="submit" name="delete_certificado_notas" value="1" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><strong>Comprobante de Pago (Matrícula):</strong></label>
+                                @if(!empty($matricula->comprobante_pago))
+                                    <div class="mb-2">
+                                        <a href="{{ $matricula->comprobante_pago_url }}" target="_blank" class="btn btn-outline-primary btn-sm">Ver comprobante</a>
+                                        <button type="submit" name="delete_comprobante_pago" value="1" class="btn btn-outline-danger btn-sm ms-2" onclick="return confirm('¿Eliminar comprobante actual?')">Eliminar</button>
+                                    </div>
+                                @endif
+                                <input type="file" name="comprobante_pago" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label"><strong>Certificado Médico:</strong></label>
+                                @if(!empty($matricula->certificado_medico))
+                                    <div class="mb-2">
+                                        <a href="{{ $matricula->certificado_medico_url }}" target="_blank" class="btn btn-outline-primary btn-sm">Ver documento</a>
+                                        <button type="submit" name="delete_certificado_medico" value="1" class="btn btn-outline-danger btn-sm ms-2" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+                                    </div>
+                                @endif
+                                <input type="file" name="certificado_medico" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                            </div>
                         </div>
-                    @endif
-                    <input type="file" name="certificado_notas" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
-                </div>
-                <div class="text-center">
-                    <button type="submit" class="btn btn-primary w-100">Enviar</button>
+
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Tipo de Usuario:</strong></label>
+                            <select name="tipo_usuario" class="form-control" id="tipo_usuario_select">
+                                <option value="nuevo" @if(old('tipo_usuario', $matricula->tipo_usuario ?? '') == 'nuevo') selected @endif>Nuevo</option>
+                                <option value="antiguo" @if(old('tipo_usuario', $matricula->tipo_usuario ?? '') == 'antiguo') selected @endif>Antiguo</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="certificado_notas_group" style="display: none;">
+                            <label class="form-label"><strong>Certificado de Notas del Año Anterior:</strong></label>
+                            @if(!empty($matricula->certificado_notas))
+                                <div class="mb-2">
+                                    <a href="{{ $matricula->certificado_notas_url }}" target="_blank" class="btn btn-outline-primary btn-sm">Ver documento</a>
+                                    <button type="submit" name="delete_certificado_notas" value="1" class="btn btn-outline-danger btn-sm ms-2" onclick="return confirm('¿Eliminar documento actual?')">Eliminar</button>
+                                </div>
+                            @endif
+                            <input type="file" name="certificado_notas" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                        </div>
+
+                        <div class="text-end mt-3">
+                            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>

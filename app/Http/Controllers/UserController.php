@@ -172,15 +172,12 @@ class UserController extends Controller
         $q = trim($request->get('q', ''));
         if ($q === '') return response()->json(['data' => []]);
 
-        $query = User::query();
-        $query->where(function($sub) use ($q) {
-            $sub->where('name', 'like', "%{$q}%")
-                ->orWhere('first_name', 'like', "%{$q}%")
-                ->orWhere('first_last', 'like', "%{$q}%")
-                ->orWhere('document_number', 'like', "%{$q}%");
-        });
-
-        $results = $query->select('id','name','first_name','first_last','document_number')->orderBy('name')->limit(50)->get();
+        // Buscar únicamente por número de documento (coincidencia parcial permitida).
+        $results = User::where('document_number', 'like', "%{$q}%")
+            ->select('id','name','first_name','first_last','document_number')
+            ->orderBy('document_number')
+            ->limit(50)
+            ->get();
 
         return response()->json(['data' => $results]);
     }
