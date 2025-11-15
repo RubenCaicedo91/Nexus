@@ -71,6 +71,17 @@
                     @endif
                     <input type="file" name="rh" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
                 </div>
+                {{-- Comprobante de Pago (Matrícula) --}}
+                <div class="mb-3">
+                    <label class="form-label"><strong>Comprobante de Pago (Matrícula):</strong></label>
+                    @if(!empty($matricula->comprobante_pago))
+                        <div class="mb-2">
+                            <a href="{{ $matricula->comprobante_pago_url }}" target="_blank" class="btn btn-link btn-sm">Ver comprobante</a>
+                            <button type="submit" name="delete_comprobante_pago" value="1" class="btn btn-danger btn-sm" onclick="return confirm('¿Eliminar comprobante actual?')">Eliminar</button>
+                        </div>
+                    @endif
+                    <input type="file" name="comprobante_pago" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                </div>
                 {{-- Certificado Médico --}}
                 <div class="mb-3">
                     <label class="form-label"><strong>Certificado Médico:</strong></label>

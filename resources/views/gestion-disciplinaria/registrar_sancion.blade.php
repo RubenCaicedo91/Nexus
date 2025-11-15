@@ -16,9 +16,83 @@
 <form action="{{ route('gestion-disciplinaria.store') }}" method="POST">
     @csrf
     <div class="mb-3">
-        <label for="usuario_id" class="form-label">ID Usuario</label>
-        <input type="number" name="usuario_id" class="form-control" required>
+        <label for="buscador_estudiante_registrar" class="form-label">Estudiante</label>
+        {{-- Campo de texto con sugerencias; el id real se guarda en el input hidden usuario_id --}}
+        <input id="buscador_estudiante_registrar" list="lista_estudiantes_registrar" class="form-control" placeholder="Escribe un nombre..." autocomplete="off" required>
+        <datalist id="lista_estudiantes_registrar">
+            @if(isset($students) && count($students))
+                @foreach($students as $stu)
+                    @php $disp = $stu->name . ' (ID: ' . $stu->id . ')'; @endphp
+                    <option value="{{ $disp }}"></option>
+                @endforeach
+            @endif
+        </datalist>
+        <input type="hidden" name="usuario_id" id="usuario_id_hidden">
+        <small class="form-text text-muted">Selecciona un estudiante de la lista. Si no se selecciona, el formulario no enviará el id.</small>
     </div>
+
+
+<script>
+    (function(){
+    // Mapa nombre -> id para asignar el usuario_id al seleccionar
+    // Usamos base64 para evitar que el editor/lingüeta JS interprete mal sintaxis Blade/JSON
+    const studentList = JSON.parse(atob('{{ base64_encode(json_encode($studentArray ?? [])) }}'));
+
+        const input = document.getElementById('buscador_estudiante_registrar');
+        const hidden = document.getElementById('usuario_id_hidden');
+
+        function findStudentIdByInput(text) {
+            if (!text) return '';
+            const q = text.trim().toLowerCase();
+            // 1) exact match on display
+            for (const s of studentList) {
+                if ((s.display || '').toLowerCase() === q) return s.id;
+            }
+            // 2) exact match on name
+            for (const s of studentList) {
+                if ((s.name || '').toLowerCase() === q) return s.id;
+            }
+            // 2b) exact match on document number
+            for (const s of studentList) {
+                if (s.document_number && ('' + s.document_number).toLowerCase() === q) return s.id;
+            }
+            // 3) startsWith on name
+            for (const s of studentList) {
+                if ((s.name || '').toLowerCase().startsWith(q)) return s.id;
+            }
+            // 4) includes on name
+            for (const s of studentList) {
+                if ((s.name || '').toLowerCase().includes(q)) return s.id;
+            }
+            // 5) includes on document number (partial match)
+            for (const s of studentList) {
+                if (s.document_number && ('' + s.document_number).toLowerCase().includes(q)) return s.id;
+            }
+            return '';
+        }
+
+        if (input) {
+            input.addEventListener('input', function(e){
+                const v = (e.target.value || '').trim();
+                if (v === '') { hidden.value = ''; return; }
+                const id = findStudentIdByInput(v);
+                hidden.value = id || '';
+            });
+
+            // Al enviar el formulario verificar que hidden tenga valor
+            const form = input.closest('form');
+            if (form) {
+                form.addEventListener('submit', function(ev){
+                    if (!hidden.value) {
+                        ev.preventDefault();
+                        alert('Por favor selecciona un estudiante válido de la lista.');
+                        input.focus();
+                    }
+                });
+            }
+        }
+    })();
+</script>
     <div class="mb-3">
         <label for="descripcion" class="form-label">Descripción</label>
         <input type="text" name="descripcion" class="form-control" required>

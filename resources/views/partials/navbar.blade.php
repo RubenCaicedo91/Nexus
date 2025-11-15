@@ -1,4 +1,4 @@
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav class="navbar navbar-expand-lg navbar-gradient">
     <div class="container-fluid">
         <a class="navbar-brand text-white" href="{{ route('dashboard') }}">
             <i class="fas fa-school me-2"></i> Nexus Team Education
