@@ -103,23 +103,26 @@
                             <label class="form-label"><strong>Fecha de Matrícula:</strong></label>
                             <input type="date" name="fecha_matricula" value="{{ $matricula->fecha_matricula }}" class="form-control" placeholder="Fecha de Matrícula">
                         </div>
-                        @if(isset($baseCursos) && count($baseCursos) > 0)
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Curso (base):</strong></label>
-                            <select name="curso_nombre" class="form-control" id="curso_nombre_select">
-                                <option value="">-- Seleccionar curso --</option>
-                                @foreach($baseCursos as $c)
-                                    <option value="{{ $c }}" @if(isset($currentCursoBase) && $currentCursoBase == $c) selected @endif>{{ $c }}</option>
-                                @endforeach
-                            </select>
-                            <div class="form-text">Seleccione (o revise) el curso base asignado.</div>
-                            <div id="cursos_lista_info" class="mt-2"></div>
-                        </div>
-                        @elseif(isset($matricula->curso) && !empty($matricula->curso->nombre))
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Curso asignado:</strong></label>
-                            <div class="form-control-plaintext">{{ $matricula->curso->nombre }}</div>
-                        </div>
+                        @if(isset($matricula->curso_id) && $matricula->curso_id)
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Curso asignado:</strong></label>
+                                <div class="form-control-plaintext">{{ optional($matricula->curso)->nombre ?? 'Curso asignado (detalle no disponible)' }}</div>
+                                <input type="hidden" name="curso_id" value="{{ $matricula->curso_id }}">
+                            </div>
+                        @else
+                            @if(isset($baseCursos) && count($baseCursos) > 0)
+                                <div class="mb-3">
+                                    <label class="form-label"><strong>Curso (base):</strong></label>
+                                    <select name="curso_nombre" class="form-control" id="curso_nombre_select">
+                                        <option value="">-- Seleccionar curso --</option>
+                                        @foreach($baseCursos as $c)
+                                            <option value="{{ $c }}" @if(isset($currentCursoBase) && $currentCursoBase == $c) selected @endif>{{ $c }}</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="form-text">Seleccione (o revise) el curso base asignado.</div>
+                                    <div id="cursos_lista_info" class="mt-2"></div>
+                                </div>
+                            @endif
                         @endif
                         @php
                             $roleName = optional(Auth::user()->role)->nombre;
