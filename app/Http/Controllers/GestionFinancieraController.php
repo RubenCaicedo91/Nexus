@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\QueryException;
 use Carbon\Carbon;
+use Dompdf\Dompdf;
 use App\Models\Notificacion;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
@@ -160,6 +161,33 @@ class GestionFinancieraController extends Controller
             'tipo_pago' => ['nullable','string'], // 'incompleto'|'completo'
             'faltante' => ['nullable','numeric','min:0'],
         ]);
+
+        // Antes de crear el pago, validar en el servidor que no supere el faltante (si es matrícula)
+        if ($validated['concepto'] === 'matricula') {
+            $estudianteId = $validated['estudiante_id'];
+
+            // Obtener valor de matrícula (institución o config)
+            $institucion = Institucion::first();
+            $valorMatricula = $institucion && $institucion->valor_matricula ? $institucion->valor_matricula : config('financiera.valor_matricula', 0);
+
+            // Obtener monto ya pagado (preferimos tomarlo desde la matrícula si existe)
+            $matricula = Matricula::where('user_id', $estudianteId)->orderByDesc('fecha_matricula')->first();
+            $prevPaid = 0;
+            if ($matricula) {
+                $prevPaid = floatval($matricula->monto_pago ?? 0);
+            } else {
+                // fallback: sumar pagos ya registrados
+                $prevPaid = floatval(Pago::where('estudiante_id', $estudianteId)->sum('monto'));
+            }
+
+            $remaining = max(0, floatval($valorMatricula) - $prevPaid);
+
+            if (floatval($validated['monto']) > $remaining) {
+                return redirect()->back()
+                    ->withErrors(['monto' => 'El monto ingresado supera el faltante disponible (' . number_format($remaining, 2, ',', '.') . ').'])
+                    ->withInput();
+            }
+        }
 
         $pago = Pago::create([
             'estudiante_id' => $validated['estudiante_id'],
@@ -354,7 +382,28 @@ class GestionFinancieraController extends Controller
         }
 
         if ($export === 'pdf') {
-            return view('financiera.reporte_pdf', compact('reporte'));
+            // Renderizar la vista a HTML
+            $html = view('financiera.reporte_pdf', compact('reporte'))->render();
+
+            try {
+                $dompdf = new Dompdf();
+                $dompdf->loadHtml($html);
+                // Opcional: establecer tamaño y orientación
+                $dompdf->setPaper('A4', 'landscape');
+                $dompdf->render();
+                $output = $dompdf->output();
+
+                $filename = 'reporte_financiero_' . date('Ymd_His') . '.pdf';
+
+                return response($output, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                ]);
+            } catch (\Throwable $e) {
+                // Si falla la generación del PDF, caer de vuelta al view HTML para depurar
+                \Log::error('generarReporte: error generando PDF', ['error' => $e->getMessage()]);
+                return view('financiera.reporte_pdf', compact('reporte'));
+            }
         }
 
         if ($export === 'excel') {

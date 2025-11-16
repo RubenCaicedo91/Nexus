@@ -122,7 +122,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('financiera.registrarPago') }}">
+            <form method="POST" action="{{ route('financiera.registrarPago') }}" id="registrar_pago_form">
                 @csrf
 
                 <div class="mb-4">
@@ -194,6 +194,7 @@
                         <span class="text-uppercase text-secondary small">Faltante</span>
                         <input type="text" id="faltante_display" class="form-control mt-1" value="-" readonly>
                         <input type="hidden" id="faltante" name="faltante" value="0">
+                        <input type="hidden" id="pagado_actual" value="0">
                     </div>
                 </div>
 
@@ -270,10 +271,17 @@ function selectEstudiante(btn){
         }
     }
 
-    // Rellenar monto si existe
+    // Guardar en input oculto el valor ya pagado para el cálculo del faltante
+    var pagadoActualInput = document.getElementById('pagado_actual');
+    if (pagadoActualInput) {
+        var numRegistered = parseFloat(registered);
+        pagadoActualInput.value = !isNaN(numRegistered) ? numRegistered : 0;
+    }
+
+    // Dejar el campo de monto en blanco para que el operador ingrese el valor manualmente
     var montoInput = document.getElementById('monto');
     if(montoInput){
-        montoInput.value = monto;
+        montoInput.value = '';
     }
 
     // Mostrar comprobante
@@ -321,10 +329,10 @@ function selectEstudiante(btn){
 function calcularFaltante(){
     var valor = parseFloat(document.getElementById('valor_matricula').value) || 0;
     var monto = parseFloat(document.getElementById('monto').value) || 0;
-    var falt = 0;
-    if(monto < valor){
-        falt = valor - monto;
-    }
+    var pagado = parseFloat(document.getElementById('pagado_actual').value) || 0;
+
+    // Calcular faltante considerando lo ya abonado y lo nuevo ingresado
+    var falt = Math.max(0, valor - pagado - monto);
 
     var display = document.getElementById('faltante_display');
     var hidden = document.getElementById('faltante');
@@ -336,6 +344,30 @@ document.addEventListener('DOMContentLoaded', function(){
     var montoInput = document.getElementById('monto');
     if(montoInput){
         montoInput.addEventListener('input', calcularFaltante);
+    }
+    // Validación en el cliente antes de enviar: el monto no puede exceder el faltante disponible
+    var form = document.getElementById('registrar_pago_form');
+    if (form) {
+        form.addEventListener('submit', function(e){
+            var montoVal = parseFloat(document.getElementById('monto').value) || 0;
+            var pagado = parseFloat(document.getElementById('pagado_actual').value) || 0;
+            var valor = parseFloat(document.getElementById('valor_matricula').value) || 0;
+            var remaining = Math.max(0, valor - pagado);
+
+            if (montoVal <= 0) {
+                e.preventDefault();
+                alert('Ingrese un monto válido mayor que 0.');
+                return false;
+            }
+
+            if (montoVal > remaining) {
+                e.preventDefault();
+                alert('El monto ingresado supera el faltante disponible (' + new Intl.NumberFormat('es-CO').format(remaining) + '). Por favor corrija.');
+                return false;
+            }
+
+            return true;
+        });
     }
 });
 </script>

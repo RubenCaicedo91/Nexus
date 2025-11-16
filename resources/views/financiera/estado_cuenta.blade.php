@@ -49,6 +49,29 @@
                                         <p class="mb-1"><strong>Curso:</strong> {{ ($matricula && $matricula->curso) ? $matricula->curso->nombre : '-' }}</p>
                                         <p class="mb-1"><strong>Lleva pagado:</strong> ${{ number_format($montoPagado ?? 0, 0, ',', '.') }}</p>
                                         <p class="mb-0"><strong>Faltante:</strong> ${{ number_format($faltante ?? max(0, floatval($valorMatricula ?? 0) - floatval($montoPagado ?? 0)), 0, ',', '.') }}</p>
+                                        @if(isset($matricula) && $matricula && ($matricula->pago_validado || $matricula->pago_validado_por))
+                                            @php
+                                                $validator = null;
+                                                if (!empty($matricula->pago_validado_por)) {
+                                                    try {
+                                                        $validator = \App\Models\User::find($matricula->pago_validado_por);
+                                                    } catch (\Throwable $e) {
+                                                        $validator = null;
+                                                    }
+                                                }
+                                            @endphp
+                                            @if($validator)
+                                                <p class="mb-0"><strong>Validado por:</strong> {{ $validator->name }} (ID: {{ $validator->id }})</p>
+                                            @else
+                                                @if(!empty($matricula->pago_validado_por))
+                                                    <p class="mb-0"><strong>Validado por:</strong> Usuario ID {{ $matricula->pago_validado_por }}</p>
+                                                @endif
+                                            @endif
+
+                                            @if(!empty($matricula->pago_validado_at))
+                                                <p class="mb-0"><strong>Fecha validación:</strong> {{ \Carbon\Carbon::parse($matricula->pago_validado_at)->format('d/m/Y H:i') }}</p>
+                                            @endif
+                                        @endif
                                     </div>
                                 </div>
                             </div>
