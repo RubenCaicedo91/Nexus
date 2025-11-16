@@ -6,7 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class Sancion extends Model
 {
-    protected $fillable = ['usuario_id', 'descripcion', 'tipo', 'fecha'];
+    protected $fillable = ['usuario_id', 'descripcion', 'tipo', 'tipo_id', 'fecha', 'fecha_inicio', 'fecha_fin', 'monto', 'pago_obligatorio', 'pago_observacion', 'reunion_at'];
+
+    protected $casts = [
+        'fecha' => 'date',
+        'fecha_inicio' => 'date',
+        'fecha_fin' => 'date',
+        'monto' => 'decimal:2',
+        'pago_obligatorio' => 'boolean',
+        'reunion_at' => 'datetime',
+    ];
 
     /**
      * Relación: sanción -> reportes disciplinarios asociados.
@@ -24,5 +33,13 @@ class Sancion extends Model
     public function usuario()
     {
         return $this->belongsTo(\App\Models\User::class, 'usuario_id');
+    }
+
+    /**
+     * Relación al tipo normalizado (sancion_tipos)
+     */
+    public function tipo_rel()
+    {
+        return $this->belongsTo(\App\Models\SancionTipo::class, 'tipo_id');
     }
 }

@@ -210,7 +210,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'index'])->name('index');
         Route::get('/registrar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'mostrarFormularioSancion'])->name('registrar');
         Route::post('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'registrarSancion'])->name('store');
+        Route::get('/buscar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'buscarPorDocumento'])->name('buscar');
         Route::get('/reporte', [\App\Http\Controllers\GestionDisciplinariaController::class, 'generarReporte'])->name('reporte');
+        // CRUD para tipos de sanción
+        Route::resource('tipos', \App\Http\Controllers\SancionTipoController::class)->names('tipos');
     });
 
     
