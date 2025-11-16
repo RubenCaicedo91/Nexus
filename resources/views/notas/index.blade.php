@@ -69,33 +69,36 @@
                                 <td>{{ $nota->matricula->user->name ?? 'N/A' }}</td>
                                 <td>{{ $nota->materia->nombre ?? 'N/A' }}</td>
                                 @php
-                                    // Calcular calificación efectiva en escala 0-5 para la fila
+                                    // Calcular calificación efectiva en escala 0-5 para la fila.
+                                    // Prioridad: promedio calculado por el controlador ($nota->calificacion),
+                                    // luego valores individuales si no existe el promedio.
                                     $calif_ef = null;
-                                    // Si hay una nota representativa (en modo agrupado) usar su valor si existe
-                                        if (isset($nota->nota) && is_object($nota->nota) && isset($nota->nota->valor) && $nota->nota->valor !== null) {
-                                            $v = floatval($nota->nota->valor);
-                                            if ($v <= 5.0) {
-                                                $calif_ef = round($v, 2);
-                                            } else {
-                                                $calif_ef = round(($v / 100.0) * 5.0, 2);
-                                            }
-                                        }
-                                    // Si la fila misma tiene valor (caso de Eloquent Nota en lista simple)
-                                        elseif (isset($nota->valor) && $nota->valor !== null) {
-                                            $v = floatval($nota->valor);
-                                            if ($v <= 5.0) {
-                                                $calif_ef = round($v, 2);
-                                            } else {
-                                                $calif_ef = round(($v / 100.0) * 5.0, 2);
-                                            }
-                                        }
-                                    // Si ya viene calculada como calificacion (controller) usarla
-                                    elseif (isset($nota->calificacion) && $nota->calificacion !== null) {
+
+                                    // Si el controlador ya calculó el promedio (suma de calificaciones / cantidad), usarlo.
+                                    if (isset($nota->calificacion) && $nota->calificacion !== null) {
                                         $calif_ef = $nota->calificacion;
                                     }
-                                    // Si existen actividades en la nota representativa
+                                    // Si la fila misma tiene valor (caso de Eloquent Nota en lista simple)
+                                    elseif (isset($nota->valor) && $nota->valor !== null) {
+                                        $v = floatval($nota->valor);
+                                        if ($v <= 5.0) {
+                                            $calif_ef = round($v, 2);
+                                        } else {
+                                            $calif_ef = round(($v / 100.0) * 5.0, 2);
+                                        }
+                                    }
+                                    // Si hay una nota representativa con actividades, usar el promedio de actividades
                                     elseif (isset($nota->nota) && is_object($nota->nota) && isset($nota->nota->actividades) && $nota->nota->actividades->count() > 0) {
                                         $calif_ef = round($nota->nota->actividades->avg('valor'), 2);
+                                    }
+                                    // Si existe una nota representativa con valor numérico, normalizarlo
+                                    elseif (isset($nota->nota) && is_object($nota->nota) && isset($nota->nota->valor) && $nota->nota->valor !== null) {
+                                        $v = floatval($nota->nota->valor);
+                                        if ($v <= 5.0) {
+                                            $calif_ef = round($v, 2);
+                                        } else {
+                                            $calif_ef = round(($v / 100.0) * 5.0, 2);
+                                        }
                                     }
 
                                     $aprobada_display_row = ($calif_ef !== null && $calif_ef >= 3.0) ? true : false;
