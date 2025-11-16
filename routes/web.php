@@ -266,6 +266,9 @@ Route::middleware(['auth'])->group(function () {
     // Servir archivos de matrículas (visualización/descarga) desde el disco configurado
     Route::get('matriculas/{matricula}/archivo/{campo}', [MatriculaController::class, 'archivo'])
         ->name('matriculas.archivo');
+    // Servir comprobantes específicos por nombre (permite a tesorero ver históricos)
+    Route::get('matriculas/{matricula}/comprobante/{filename}', [MatriculaController::class, 'comprobanteFile'])
+        ->name('matriculas.comprobanteFile');
     // Validación de pago (solo tesorero)
     Route::post('matriculas/{matricula}/validar-pago', [MatriculaController::class, 'validarPago'])
         ->name('matriculas.validarPago');
@@ -274,6 +277,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('gestion-financiera', [GestionFinancieraController::class, 'index'])->name('financiera.index');
     Route::get('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'mostrarFormularioPago'])->name('financiera.formularioPago');
     Route::post('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'registrarPago'])->name('financiera.registrarPago');
+    // Actualizar valor de matrícula (solo tesorero/administrador)
+    Route::post('gestion-financiera/valor-matricula', [GestionFinancieraController::class, 'actualizarValorMatricula'])->name('financiera.valorMatricula');
     Route::get('gestion-financiera/estado-cuenta/{id}', [GestionFinancieraController::class, 'estadoCuenta'])->name('financiera.estadoCuenta');
     Route::get('gestion-financiera/reporte', [GestionFinancieraController::class, 'generarReporte'])->name('financiera.reporte');
 

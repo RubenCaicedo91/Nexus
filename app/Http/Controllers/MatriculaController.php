@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
+use App\Models\MatriculaComprobante;
 
 class MatriculaController extends Controller
 {
@@ -477,10 +478,52 @@ class MatriculaController extends Controller
 
         $ext = $file->getClientOriginalExtension() ?: $file->extension();
         $safeDoc = $docSegment ?: 'sin_documento';
-        $filename = 'PM_' . $safeDoc . '.' . $ext;
+        $base = 'PM_' . $safeDoc;
 
-        // Guardar siempre en la raíz del disco
-        return $this->uploadToFtpRoot($file, $filename);
+        $disk = Storage::disk('ftp_matriculas');
+
+        // Buscar si ya existe el archivo sin sufijo
+        $basenameNoSuffix = strtolower($base . '.' . $ext);
+        $existsNoSuffix = false;
+        $maxSuffix = 0;
+
+        try {
+            $all = [];
+            try { $all = $disk->allFiles(''); } catch (\Exception $e) { $all = []; }
+            try { $all = array_merge($all, $disk->allFiles('estudiante')); } catch (\Exception $e) { /* ignore */ }
+
+            foreach ($all as $candidate) {
+                $b = strtolower(basename($candidate));
+                if ($b === $basenameNoSuffix) {
+                    $existsNoSuffix = true;
+                }
+                // match suffix pattern PM_doc_01.ext
+                if (preg_match('/^' . preg_quote(strtolower($base), '/') . '_(\d+)\.' . preg_quote(strtolower($ext), '/') . '$/', $b, $m)) {
+                    $n = intval($m[1]);
+                    if ($n > $maxSuffix) $maxSuffix = $n;
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::warning('uploadPagoMatricula: no se pudieron listar archivos para comprobar sufijos', ['error' => $e->getMessage()]);
+        }
+
+        if (! $existsNoSuffix && $maxSuffix === 0) {
+            $filename = $base . '.' . $ext;
+        } else {
+            // determinar siguiente sufijo
+            $next = $maxSuffix + 1;
+            $filename = $base . '_' . sprintf('%02d', $next) . '.' . $ext;
+        }
+
+        // Guardar en root usando putFileAs (no eliminar históricos)
+        $filename = basename($filename);
+        try {
+            $stored = $disk->putFileAs('', $file, $filename);
+            return $stored === false ? null : $stored;
+        } catch (\Exception $e) {
+            \Log::error('uploadPagoMatricula: error al subir comprobante', ['error' => $e->getMessage(), 'filename' => $filename]);
+            return null;
+        }
     }
     /**
      * Sube un archivo según el nombre del campo del formulario.
@@ -600,6 +643,21 @@ class MatriculaController extends Controller
             $matricula->estado = $request->input('estado');
         }
         $matricula->save();
+
+        // Si se subió un comprobante de pago, registrar su metadata en la tabla de audit
+        if (!empty($rutas['comprobante_pago'])) {
+            try {
+                MatriculaComprobante::create([
+                    'matricula_id' => $matricula->id,
+                    'filename' => basename($rutas['comprobante_pago']),
+                    'path' => $rutas['comprobante_pago'],
+                    'original_name' => $request->hasFile('comprobante_pago') ? $request->file('comprobante_pago')->getClientOriginalName() : null,
+                    'uploaded_by' => Auth::id(),
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('store(): no se pudo crear MatriculaComprobante', ['error' => $e->getMessage()]);
+            }
+        }
 
         // Nota: no se asigna automáticamente `curso_id` aquí.
         // La selección de curso en el formulario de matrícula sirve solo
@@ -724,6 +782,10 @@ class MatriculaController extends Controller
             'certificado_notas'
         ];
 
+        // Variables para capturar datos del comprobante si se sube durante la actualización
+        $uploadedComprobantePath = null;
+        $uploadedComprobanteOriginal = null;
+
         $deletedAny = false;
         $deletedList = [];
 
@@ -742,17 +804,24 @@ class MatriculaController extends Controller
             }
 
             if ($request->hasFile($campo)) {
-                if ($matricula->$campo) {
-                    try {
-                        Storage::disk('ftp_matriculas')->delete($matricula->$campo);
-                    } catch (\Exception $e) {
-                        \Log::warning('update(): error borrando archivo previo antes de reemplazar', ['campo' => $campo, 'error' => $e->getMessage()]);
+                // Para comprobante_pago NO eliminamos históricos ni el archivo existente.
+                if ($campo !== 'comprobante_pago') {
+                    if ($matricula->$campo) {
+                        try {
+                            Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                        } catch (\Exception $e) {
+                            \Log::warning('update(): error borrando archivo previo antes de reemplazar', ['campo' => $campo, 'error' => $e->getMessage()]);
+                        }
                     }
                 }
 
                 $uploaded = $this->uploadByFieldName((int)$request->user_id, $campo, $request->file($campo));
                 if ($uploaded) {
                     $matricula->$campo = $uploaded;
+                    if ($campo === 'comprobante_pago') {
+                        $uploadedComprobantePath = $uploaded;
+                        $uploadedComprobanteOriginal = $request->hasFile($campo) ? $request->file($campo)->getClientOriginalName() : null;
+                    }
                 }
             }
         }
@@ -775,6 +844,21 @@ class MatriculaController extends Controller
         }
 
         $matricula->save();
+
+        // Si se subió un comprobante durante la actualización, registrar metadata
+        if (!empty($uploadedComprobantePath)) {
+            try {
+                MatriculaComprobante::create([
+                    'matricula_id' => $matricula->id,
+                    'filename' => basename($uploadedComprobantePath),
+                    'path' => $uploadedComprobantePath,
+                    'original_name' => $uploadedComprobanteOriginal,
+                    'uploaded_by' => Auth::id(),
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('update(): no se pudo crear MatriculaComprobante', ['error' => $e->getMessage()]);
+            }
+        }
 
         // Nota: no se asigna automáticamente `curso_id` en la actualización.
         // La asignación se realiza desde el módulo de Asignaciones cuando corresponda.
@@ -914,6 +998,50 @@ class MatriculaController extends Controller
         $matricula->save();
 
         return redirect()->back()->with('success', $action ? 'Pago validado por Tesorería.' : 'Validación de pago anulada.');
+    }
+
+    /**
+     * Servir un comprobante específico por nombre (solo tesorero puede ver todos).
+     */
+    public function comprobanteFile(Request $request, Matricula $matricula, $filename)
+    {
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+
+        $isTesorero = in_array(strtolower($roleName), ['tesorero', 'tesorero '], true) || stripos($roleName, 'tesor') !== false;
+
+        $basename = basename($filename);
+
+        // Si no es tesorero, solo puede acceder al último comprobante (almacenado en DB)
+        if (! $isTesorero) {
+            $expected = basename($matricula->comprobante_pago ?? '');
+            if ($basename !== $expected) {
+                abort(403, 'Acceso no autorizado al comprobante solicitado');
+            }
+        }
+
+        $disk = Storage::disk('ftp_matriculas');
+        try {
+            $all = [];
+            try { $all = $disk->allFiles(''); } catch (\Exception $e) { $all = []; }
+            try { $all = array_merge($all, $disk->allFiles('estudiante')); } catch (\Exception $e) { /* ignore */ }
+
+            $found = null;
+            foreach ($all as $candidate) {
+                if (strtolower(basename($candidate)) === strtolower($basename)) {
+                    $found = $candidate;
+                    break;
+                }
+            }
+
+            if ($found) {
+                return $this->serveFileFromDisk($disk, $found);
+            }
+        } catch (\Exception $e) {
+            \Log::error('comprobanteFile: error buscando archivo', ['error' => $e->getMessage()]);
+        }
+
+        abort(404, 'Comprobante no encontrado');
     }
 
     /**

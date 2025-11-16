@@ -147,19 +147,44 @@
 
                                         <div class="mb-3">
                                             <label for="comprobante_pago" class="form-label">Nuevo Comprobante de Pago</label>
-                                            @if($asignacion->comprobante_pago)
-                                                <div class="mb-2">
-                                                    <small class="text-success">
-                                                        <i class="fas fa-check-circle me-1"></i>Archivo actual: 
-                                                        <a href="{{ route('matriculas.archivo', ['matricula' => $asignacion->id, 'campo' => 'comprobante_pago']) }}" 
-                                                           target="_blank" class="text-primary">Ver comprobante actual</a>
-                                                    </small>
-                                                </div>
+                                            @php
+                                                $roleName = optional(Auth::user()->role)->nombre ?? '';
+                                                $isPrivileged = (stripos($roleName, 'tesor') !== false) || (stripos($roleName, 'administrador') !== false) || (stripos($roleName, 'admin') !== false);
+                                            @endphp
+
+                                            @if($isPrivileged)
+                                                {{-- Mostrar todos los documentos cargados por el usuario (actuales + históricos) --}}
+                                                @if(isset($userDocuments) && $userDocuments->count() > 0)
+                                                    <div class="mb-2">
+                                                        <small class="text-success d-block mb-2"><i class="fas fa-check-circle me-1"></i>Documentos cargados por el usuario:</small>
+                                                        <ul class="list-unstyled mb-0">
+                                                            @foreach($userDocuments as $doc)
+                                                                <li>
+                                                                    <a href="{{ route('matriculas.comprobanteFile', ['matricula' => $asignacion->id, 'filename' => $doc->filename]) }}" target="_blank">{{ $doc->filename }}</a>
+                                                                    <small class="text-muted"> — {{ $doc->type }} @if($doc->uploaded_by) · {{ $doc->uploaded_by }} @endif @if($doc->created_at) · {{ $doc->created_at->format('Y-m-d H:i') }} @endif</small>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    </div>
+                                                @else
+                                                    <div class="mb-2"><small class="text-muted">No se encontraron documentos cargados por el usuario.</small></div>
+                                                @endif
+                                            @else
+                                                @if($asignacion->comprobante_pago)
+                                                    <div class="mb-2">
+                                                        <small class="text-success">
+                                                            <i class="fas fa-check-circle me-1"></i>Archivo actual: 
+                                                            <a href="{{ route('matriculas.archivo', ['matricula' => $asignacion->id, 'campo' => 'comprobante_pago']) }}" 
+                                                               target="_blank" class="text-primary">Ver comprobante actual</a>
+                                                        </small>
+                                                    </div>
+                                                @endif
                                             @endif
+
                                             <input type="file" name="comprobante_pago" id="comprobante_pago" 
                                                    class="form-control @error('comprobante_pago') is-invalid @enderror" 
                                                    accept=".pdf,.jpg,.jpeg,.png">
-                                            <div class="form-text">Solo cargar si desea reemplazar el archivo actual. Formatos: PDF, JPG, PNG. Máximo 2MB.</div>
+                                            <div class="form-text">Al subir un nuevo comprobante, el sistema conservará los comprobantes anteriores; solo se reemplaza la referencia al último comprobante que verá el usuario.</div>
                                             @error('comprobante_pago')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror

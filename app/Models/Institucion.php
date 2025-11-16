@@ -21,5 +21,6 @@ class Institucion extends Model
         'mision',
         'vision',
         'valores',
+        'valor_matricula',
     ];
 }

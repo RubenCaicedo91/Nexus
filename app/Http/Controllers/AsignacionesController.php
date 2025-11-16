@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use App\Models\MatriculaComprobante;
 
 class AsignacionesController extends Controller
 {
@@ -172,8 +173,74 @@ class AsignacionesController extends Controller
                           ->select('users.*')
                           ->orderBy('users.name')
                           ->get();
-        
-        return view('asignaciones.edit', compact('asignacion', 'cursos', 'estudiantes'));
+
+        // Determinar si el usuario actual es Tesorero o Administrador del sistema
+        $roleName = optional(Auth::user()->role)->nombre ?? '';
+        $isPrivileged = false;
+        $rn = strtolower($roleName);
+        if (stripos($rn, 'tesor') !== false || stripos($rn, 'administrador') !== false || stripos($rn, 'admin') !== false) {
+            $isPrivileged = true;
+        }
+
+        $comprobantes = collect();
+        if ($isPrivileged) {
+            try {
+                $comprobantes = MatriculaComprobante::where('matricula_id', $asignacion->id)
+                                    ->orderBy('created_at', 'desc')
+                                    ->get();
+            } catch (\Exception $e) {
+                Log::warning('AsignacionesController::edit: error al obtener comprobantes', ['error' => $e->getMessage()]);
+                $comprobantes = collect();
+            }
+        }
+
+        // Construir lista combinada de documentos del usuario (actuales + comprobantes históricos)
+        $userDocuments = collect();
+        if ($isPrivileged) {
+            try {
+                // Documentos actuales referenciados en la matrícula
+                $docFields = [
+                    'documento_identidad' => 'Documento de Identidad',
+                    'rh' => 'Certificado RH',
+                    'certificado_medico' => 'Certificado Médico',
+                    'certificado_notas' => 'Certificado de Notas',
+                    'comprobante_pago' => 'Comprobante de Pago'
+                ];
+
+                foreach ($docFields as $field => $label) {
+                    if (!empty($asignacion->$field)) {
+                        $userDocuments->push((object)[
+                            'filename' => basename($asignacion->$field),
+                            'path' => $asignacion->$field,
+                            'type' => $label,
+                            'uploaded_by' => null,
+                            'created_at' => $asignacion->updated_at ?? $asignacion->created_at,
+                        ]);
+                    }
+                }
+
+                // Añadir comprobantes históricos desde la tabla de auditoría
+                foreach ($comprobantes as $c) {
+                    $userDocuments->push((object)[
+                        'filename' => $c->filename,
+                        'path' => $c->path,
+                        'type' => 'Comprobante de Pago',
+                        'uploaded_by' => optional(User::find($c->uploaded_by))->name ?? null,
+                        'created_at' => $c->created_at,
+                    ]);
+                }
+
+                // Ordenar por fecha descendente
+                $userDocuments = $userDocuments->sortByDesc(function ($item) {
+                    return $item->created_at;
+                })->values();
+            } catch (\Exception $e) {
+                Log::warning('AsignacionesController::edit: error construyendo userDocuments', ['error' => $e->getMessage()]);
+                $userDocuments = collect();
+            }
+        }
+
+        return view('asignaciones.edit', compact('asignacion', 'cursos', 'estudiantes', 'comprobantes', 'userDocuments'));
     }
 
     /**
