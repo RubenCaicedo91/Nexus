@@ -434,6 +434,8 @@ Route::middleware('auth')->group(function () {
 
     // Notificaciones
         Route::get('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'listarNotificaciones'])->name('notificaciones');
+        Route::post('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'guardarNotificacion'])->name('notificaciones.store');
+        Route::post('/notificaciones/{id}/leer', [\App\Http\Controllers\ComunicacionController::class, 'marcarNotificacionLeida'])->name('notificaciones.leer');
 
     // Circulares
         Route::get('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'listarCirculares'])->name('circulares');
