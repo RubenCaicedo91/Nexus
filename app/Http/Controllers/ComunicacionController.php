@@ -21,7 +21,10 @@ class ComunicacionController extends Controller
     {
         // Bandeja de entrada del usuario autenticado
         $mensajes = Mensaje::where('destinatario_id', Auth::id())->latest()->get();
-        return view('comunicacion.mensajes.index', compact('mensajes'));
+        // Cargar roles para el formulario de envío (grupos)
+        $roles = \App\Models\RolesModel::orderBy('nombre')->get();
+
+        return view('comunicacion.mensajes.index', compact('mensajes', 'roles'));
     }
 
     public function crearMensaje()
@@ -32,20 +35,47 @@ class ComunicacionController extends Controller
     public function guardarMensaje(Request $request)
     {
         $request->validate([
-            'destinatario_id' => 'required|integer',
+            'modo' => 'required|string|in:rol,todos',
             'asunto' => 'required|string|max:255',
             'contenido' => 'required|string',
+            'rol_id' => 'nullable|integer',
+            'usuarios_grupo' => 'nullable|array',
+            'usuarios_grupo.*' => 'integer',
         ]);
 
-        Mensaje::create([
-            'remitente_id' => Auth::id(),
-            'destinatario_id' => $request->destinatario_id,
-            'asunto' => $request->asunto,
-            'contenido' => $request->contenido,
-            'leido' => false,
-        ]);
+        $modo = $request->modo;
+        $destinatarios = [];
 
-        return redirect()->route('comunicacion.mensajes')->with('success', 'Mensaje enviado correctamente');
+        if ($modo === 'todos') {
+            $destinatarios = \App\Models\User::pluck('id')->toArray();
+        } elseif ($modo === 'rol') {
+            if (! $request->rol_id) {
+                return back()->withErrors(['rol_id' => 'Seleccione un grupo para enviar'])->withInput();
+            }
+                // Si se enviaron IDs específicos de usuarios del grupo, usarlos
+                if ($request->filled('usuarios_grupo') && is_array($request->usuarios_grupo) && count($request->usuarios_grupo) > 0) {
+                    $destinatarios = array_map('intval', $request->usuarios_grupo);
+                } else {
+                    $destinatarios = \App\Models\User::where('roles_id', $request->rol_id)->pluck('id')->toArray();
+                }
+        } else {
+            return back()->withErrors(['modo' => 'Modo de envío inválido'])->withInput();
+        }
+
+        // Crear mensajes para cada destinatario
+        foreach ($destinatarios as $destId) {
+            if ($destId == Auth::id()) continue; // Evitar enviar mensaje a self
+
+            Mensaje::create([
+                'remitente_id' => Auth::id(),
+                'destinatario_id' => $destId,
+                'asunto' => $request->asunto,
+                'contenido' => $request->contenido,
+                'leido' => false,
+            ]);
+        }
+
+        return redirect()->route('comunicacion.mensajes')->with('success', 'Mensaje(s) enviado(s) correctamente');
     }
 
     // ---------------- Notificaciones ----------------

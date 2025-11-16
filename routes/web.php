@@ -198,6 +198,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('usuarios', UserController::class)->except(['show']);
     // Endpoint para búsqueda rápida de usuarios por nombre o documento
     Route::get('usuarios/search', [UserController::class, 'search'])->name('usuarios.search');
+    // Endpoint para obtener usuarios por rol/grupo (usado por AJAX en comunicación)
+    Route::get('comunicacion/usuarios-por-grupo/{rolId}', [UserController::class, 'byRole'])->name('usuarios.byRole');
     // Gestión académica (páginas básicas)
     Route::get('gestion-academica', [GestionAcademicaController::class, 'index'])->name('gestion.index');
     Route::get('gestion-academica/crear-curso', [GestionAcademicaController::class, 'crearCurso'])->name('gestion.crearCurso');

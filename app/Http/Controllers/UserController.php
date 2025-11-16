@@ -181,4 +181,40 @@ class UserController extends Controller
 
         return response()->json(['data' => $results]);
     }
+
+    /**
+     * Devuelve usuarios que pertenecen a un rol/grupo.
+     * Público para usuarios autenticados (no requiere authorizeManager).
+     */
+    public function byRole(Request $request, $rolId)
+    {
+        if (! Auth::check()) {
+            return response()->json(['data' => []], 401);
+        }
+
+        $q = trim($request->get('q', ''));
+
+        $query = User::where('roles_id', $rolId);
+
+        if ($q !== '') {
+            $query->where(function($sub) use ($q) {
+                $sub->where('name', 'like', "%{$q}%")
+                    ->orWhere('first_name', 'like', "%{$q}%")
+                    ->orWhere('first_last', 'like', "%{$q}%")
+                    ->orWhere('document_number', 'like', "%{$q}%");
+            });
+        }
+
+        $users = $query->select('id', 'name', 'first_name', 'first_last', 'document_number')
+            ->orderBy('name')
+            ->limit(50)
+            ->get()
+            ->map(function($u) use ($rolId) {
+                // Anexar rol_id para facilitar la UI en frontend
+                $u->rol_id = (int) $rolId;
+                return $u;
+            });
+
+        return response()->json(['data' => $users]);
+    }
 }
