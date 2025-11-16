@@ -27,7 +27,11 @@ class AsignacionesController extends Controller
         }
         
         // Filter by student name
-        if ($request->estudiante) {
+        // If an estudiante_id is provided (from autocomplete selection), filter by user_id (more robust)
+        if ($request->filled('estudiante_id')) {
+            $query->where('user_id', $request->estudiante_id);
+        } elseif ($request->estudiante) {
+            // Fallback: search by name text
             $query->whereHas('user', function($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->estudiante . '%');
             });
@@ -296,8 +300,62 @@ class AsignacionesController extends Controller
                   ->where('estado', 'activo')
                   ->where('documentos_completos', true)
                   ->get();
-        
-        return response()->json($asignaciones);
+
+        // Extraer solo la información necesaria de los usuarios (id y name)
+        $estudiantes = $asignaciones->map(function ($matricula) {
+            if ($matricula->user) {
+                return [
+                    'id' => $matricula->user->id,
+                    'name' => $matricula->user->name,
+                ];
+            }
+            return null;
+        })->filter()->unique('id')->values();
+
+        return response()->json($estudiantes);
+    }
+
+    /**
+     * Search students by text (names or last names) for autocomplete.
+     * Optional query params: q, curso_id
+     */
+    public function searchStudents(Request $request)
+    {
+        $q = $request->get('q', '');
+        $cursoId = $request->get('curso_id');
+
+        $usersQuery = User::join('roles', 'users.roles_id', '=', 'roles.id')
+                    ->where('roles.nombre', '=', 'Estudiante')
+                    ->select('users.id', 'users.name', 'users.first_name', 'users.second_name', 'users.first_last', 'users.second_last');
+
+        if (!empty($q)) {
+            $usersQuery->where(function ($s) use ($q) {
+                $s->where('users.name', 'like', '%' . $q . '%')
+                  ->orWhere('users.first_name', 'like', '%' . $q . '%')
+                  ->orWhere('users.second_name', 'like', '%' . $q . '%')
+                  ->orWhere('users.first_last', 'like', '%' . $q . '%')
+                  ->orWhere('users.second_last', 'like', '%' . $q . '%');
+            });
+        }
+
+        if (!empty($cursoId)) {
+            $usersQuery->join('matriculas', 'matriculas.user_id', '=', 'users.id')
+                       ->where('matriculas.curso_id', $cursoId)
+                       ->where('matriculas.estado', 'activo')
+                       ->where('matriculas.documentos_completos', true);
+        }
+
+        $users = $usersQuery->orderBy('users.name')->limit(30)->get();
+
+        $result = $users->map(function ($u) {
+            $display = $u->name ?: trim(implode(' ', array_filter([$u->first_name, $u->second_name, $u->first_last, $u->second_last])));
+            return [
+                'id' => $u->id,
+                'name' => $display,
+            ];
+        })->values();
+
+        return response()->json($result);
     }
 
     /**
