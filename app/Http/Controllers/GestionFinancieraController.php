@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\QueryException;
 use Carbon\Carbon;
+use App\Models\Notificacion;
+use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 class GestionFinancieraController extends Controller
 {
@@ -173,10 +176,16 @@ class GestionFinancieraController extends Controller
             $valorMatricula = $institucion && $institucion->valor_matricula ? $institucion->valor_matricula : config('financiera.valor_matricula', 0);
 
             if ($matricula) {
-                $matricula->monto_pago = $validated['monto'];
+                // Acumular el monto pagado (varias transacciones suman)
+                $prev = floatval($matricula->monto_pago ?? 0);
+                $added = floatval($validated['monto']);
+                $totalPagado = $prev + $added;
+
+                $matricula->monto_pago = $totalPagado;
                 $matricula->fecha_pago = Carbon::now();
 
-                $faltante = isset($validated['faltante']) ? floatval($validated['faltante']) : max(0, $valorMatricula - floatval($validated['monto']));
+                // Calcular faltante real según el valor de la institución
+                $faltante = max(0, floatval($valorMatricula) - $totalPagado);
 
                 if ($faltante <= 0) {
                     $matricula->pago_validado = true;
@@ -187,16 +196,85 @@ class GestionFinancieraController extends Controller
                 }
 
                 $matricula->save();
+
+                // Si quedó totalmente pagada, crear notificación al estudiante
+                if ($faltante <= 0) {
+                    try {
+                        // Crear notificación simple en la tabla notificaciones si existe
+                        if (class_exists(Notificacion::class)) {
+                            Notificacion::create([
+                                'usuario_id' => $matricula->user_id,
+                                'titulo' => 'Pago de matrícula completado',
+                                'mensaje' => 'Su matrícula ha sido registrada como pagada en su totalidad el ' . Carbon::now()->format('Y-m-d H:i') . '.',
+                                'leida' => false,
+                                'fecha' => Carbon::now(),
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        // No bloquear el flujo si falla la notificación
+                        Log::warning('registrarPago: no se pudo crear notificación', ['error' => $e->getMessage()]);
+                    }
+                }
             }
         }
 
-        return redirect()->route('financiera.estadoCuenta', ['id' => $validated['estudiante_id']])->with('success', 'Pago registrado correctamente.');
+        $msg = 'Pago registrado correctamente.';
+        // si fue matricula y la matricula quedó validada, añadir mensaje
+        if (($validated['concepto'] === 'matricula') && isset($matricula) && $matricula->pago_validado) {
+            $msg .= ' La matrícula ha sido pagada en su totalidad y marcada como validada.';
+        } elseif ($validated['concepto'] === 'matricula' && isset($matricula)) {
+            $msg .= ' Faltante: ' . number_format($faltante, 2, ',', '.');
+        }
+
+        return redirect()->route('financiera.estadoCuenta', ['id' => $validated['estudiante_id']])->with('success', $msg);
     }
 
     public function estadoCuenta($id)
     {
+        $estudiante = User::find($id);
         $pagos = Pago::where('estudiante_id', $id)->get();
-        return view('financiera.estado_cuenta', compact('pagos'));
+
+        $institucion = Institucion::first();
+        $valorMatricula = $institucion && $institucion->valor_matricula ? $institucion->valor_matricula : config('financiera.valor_matricula', 0);
+
+        $montoPagado = floatval($pagos->sum('monto'));
+        $matricula = Matricula::where('user_id', $id)->orderByDesc('fecha_matricula')->first();
+        $faltante = max(0, floatval($valorMatricula) - $montoPagado);
+
+        $searched = true; // acceso por id se considera como búsqueda/consulta
+        return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'searched'));
+    }
+
+    /**
+     * Buscar estado de cuenta por número de documento (GET ?documento=...)
+     */
+    public function estadoCuentaSearch(Request $request)
+    {
+        $documento = $request->query('documento');
+        $estudiante = null;
+        $pagos = collect();
+        $matricula = null;
+        $montoPagado = 0;
+        $faltante = null;
+
+        $institucion = Institucion::first();
+        $valorMatricula = $institucion && $institucion->valor_matricula ? $institucion->valor_matricula : config('financiera.valor_matricula', 0);
+
+        if ($documento) {
+            $estudiante = User::where('document_number', $documento)
+                ->orWhere('document_number', 'like', $documento . '%')
+                ->first();
+
+            if ($estudiante) {
+                $pagos = Pago::where('estudiante_id', $estudiante->id)->get();
+                $montoPagado = floatval($pagos->sum('monto'));
+                $matricula = Matricula::where('user_id', $estudiante->id)->orderByDesc('fecha_matricula')->first();
+                $faltante = max(0, floatval($valorMatricula) - $montoPagado);
+            }
+        }
+
+        $searched = !empty($documento);
+        return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched'));
     }
 
     public function generarReporte()

@@ -279,6 +279,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'registrarPago'])->name('financiera.registrarPago');
     // Actualizar valor de matrícula (solo tesorero/administrador)
     Route::post('gestion-financiera/valor-matricula', [GestionFinancieraController::class, 'actualizarValorMatricula'])->name('financiera.valorMatricula');
+    // Buscar estado de cuenta por documento (form) o ver por id
+    Route::get('gestion-financiera/estado-cuenta', [GestionFinancieraController::class, 'estadoCuentaSearch'])->name('financiera.estadoCuenta.search');
     Route::get('gestion-financiera/estado-cuenta/{id}', [GestionFinancieraController::class, 'estadoCuenta'])->name('financiera.estadoCuenta');
     Route::get('gestion-financiera/reporte', [GestionFinancieraController::class, 'generarReporte'])->name('financiera.reporte');
 

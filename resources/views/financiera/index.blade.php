@@ -39,7 +39,7 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">📋 Consulta el estado de cuenta actual de cada usuario o estudiante.</p>
-                    <a href="{{ route('financiera.estadoCuenta', ['id' => Auth::id()]) }}" 
+                    <a href="{{ route('financiera.estadoCuenta.search') }}" 
                        class="btn text-center w-100 text-white" 
                        style="background-color: #0077b6;">
                         📄 Consultar Estado

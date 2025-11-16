@@ -103,6 +103,9 @@
                                             <button type="button" 
                                                 class="btn btn-sm btn-outline-primary"
                                                 data-id="{{ $mat->user_id ?? optional($mat->user)->id ?? $mat->id }}"
+                                                data-student="{{ e(optional($mat->user)->name ?? 'N/A') }}"
+                                                data-curso="{{ e(optional($mat->curso)->nombre ?? ($mat->curso_nombre ?? 'N/A')) }}"
+                                                data-registered="{{ $mat->monto_pago ?? 0 }}"
                                                 data-monto="{{ $mat->monto_pago ?? '' }}"
                                                 data-fecha="{{ $mat->fecha_pago ?? '' }}"
                                                 data-comprobante="{{ $mat->comprobante_pago_url ?? '' }}"
@@ -123,8 +126,23 @@
                 @csrf
 
                 <div class="mb-4">
-                    <span class="text-uppercase text-secondary small">Estudiante</span>
-                    <input type="text" name="estudiante_id" id="estudiante_id" class="form-control mt-1" placeholder="Ej. 1023" required>
+                    <div class="row">
+                        {{-- enviar el id en hidden para el formulario --}}
+                        <input type="hidden" name="estudiante_id" id="estudiante_id" value="">
+
+                        <div class="col-md-5">
+                            <span class="text-uppercase text-secondary small">Nombre del Estudiante</span>
+                            <input type="text" id="estudiante_nombre" class="form-control mt-1" placeholder="Nombre" readonly>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="text-uppercase text-secondary small">Curso registrado</span>
+                            <input type="text" id="estudiante_curso" class="form-control mt-1" placeholder="Curso" readonly>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="text-uppercase text-secondary small">Lleva pagado</span>
+                            <input type="text" id="estudiante_pagado" class="form-control mt-1" placeholder="$0" readonly>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mb-3 row">
@@ -213,11 +231,30 @@ function selectEstudiante(btn){
     if(!input) return;
 
     var id = btn.getAttribute('data-id');
+    var studentName = btn.getAttribute('data-student') || '';
+    var cursoName = btn.getAttribute('data-curso') || '';
     var monto = btn.getAttribute('data-monto') || '';
     var fecha = btn.getAttribute('data-fecha') || '';
     var comprobante = btn.getAttribute('data-comprobante') || '';
+    var registered = btn.getAttribute('data-registered') || '';
 
     input.value = id;
+
+    // Rellenar nombre y curso del estudiante
+    var nombreInput = document.getElementById('estudiante_nombre');
+    var cursoInput = document.getElementById('estudiante_curso');
+    var pagadoInput = document.getElementById('estudiante_pagado');
+    if (nombreInput) nombreInput.value = studentName;
+    if (cursoInput) cursoInput.value = cursoName;
+    if (pagadoInput) {
+        // Formatear número con separador de miles si está disponible
+        var num = parseFloat(registered);
+        if (!isNaN(num)) {
+            pagadoInput.value = new Intl.NumberFormat('es-CO').format(num);
+        } else {
+            pagadoInput.value = registered;
+        }
+    }
 
     // Rellenar monto si existe
     var montoInput = document.getElementById('monto');
