@@ -32,6 +32,7 @@
                             <div id="student_card">
                                 <div class="text-muted">Estudiante seleccionado</div>
                                 <div id="selected_student" class="mt-2">
+                        
                                     <div class="text-muted">Ninguno seleccionado</div>
                                 </div>
                             </div>
@@ -52,6 +53,19 @@
                             <label class="form-label"><strong>Fecha de Matrícula:</strong></label>
                             <input type="date" name="fecha_matricula" class="form-control" placeholder="Fecha de Matrícula">
                         </div>
+
+                        @if(isset($baseCursos) && count($baseCursos) > 0)
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Curso (base):</strong></label>
+                            <select name="curso_nombre" class="form-control" id="curso_nombre_select">
+                                <option value="">-- Seleccionar curso --</option>
+                                   @foreach($baseCursos as $c)
+                                    <option value="{{ $c }}">{{ $c }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Seleccione el curso a matricular.</div>
+                        </div>
+                        @endif
 
                         @php
                             $roleName = optional(Auth::user()->role)->nombre;
@@ -104,6 +118,8 @@
                                 <option value="antiguo">Antiguo</option>
                             </select>
                         </div>
+
+                        
 
                         <div class="mb-3" id="certificado_notas_group" style="display: none;">
                             <label class="form-label"><strong>Certificado de Notas del Año Anterior:</strong></label>

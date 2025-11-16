@@ -57,7 +57,29 @@ class MatriculaController extends Controller
             $students = collect();
         }
 
-        return view('matriculas.create', compact('students'));
+        // Obtener lista de cursos y normalizar para mostrar solo el nombre base
+        // Pero incluir únicamente aquellas bases que tienen al menos un curso
+        // con sufijo de letra (ej: "Primero A", "Primero B"). De esta forma
+        // no se mostrarán niveles que aún no tienen grupos asociados.
+        $rawCursos = \App\Models\Curso::orderBy('nombre')->pluck('nombre');
+        $baseCursos = [];
+        foreach ($rawCursos as $nombre) {
+            // Detectar nombres que terminan en una letra (posible sufijo de grupo)
+            // Requerimos al menos un separador (espacio, guion, paréntesis o corchete)
+            // antes de la letra para evitar coincidir con palabras que terminan
+            // naturalmente en letra (ej: "Pre-jardín"). Ejemplo válido: "Primero A".
+            if (preg_match('/^(.*?)[\s\-\(\[]+([A-Za-zÁÉÍÓÚÑáéíóúñ])$/u', trim($nombre), $m)) {
+                $base = trim($m[1]);
+                if ($base === '') {
+                    $base = $nombre; // fallback
+                }
+                if (!in_array($base, $baseCursos, true)) {
+                    $baseCursos[] = $base;
+                }
+            }
+        }
+
+        return view('matriculas.create', compact('students', 'baseCursos'));
     }
 
     // Helpers nuevos para rutas ESTABLES

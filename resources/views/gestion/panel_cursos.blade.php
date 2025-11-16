@@ -21,6 +21,8 @@
                         <label class="form-label">Nivel</label>
                         <select name="nivel" class="form-select" required>
                             <option value="">Selecciona un nivel</option>
+                            <option>Pre-jardín</option>
+                            <option>Transición</option>
                             <option>Primero</option>
                             <option>Segundo</option>
                             <option>Tercero</option>
