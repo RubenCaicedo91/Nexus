@@ -150,8 +150,123 @@ class GestionDisciplinariaController extends Controller
      */
     public function generarReporte()
     {
-        $reporte = Sancion::with('usuario')->get();
-        return view('gestion-disciplinaria.reporte', compact('reporte'));
+        // Aceptar filtros por query string: start_date, end_date, tipo_id
+        $request = request();
+        $query = Sancion::with('usuario');
+
+        // Filtrar por rango de fechas (campo 'fecha')
+        $start = $request->query('start_date');
+        $end = $request->query('end_date');
+        if ($start) {
+            $startNorm = str_replace('/', '-', $start);
+            $query = $query->whereDate('fecha', '>=', $startNorm);
+        }
+        if ($end) {
+            $endNorm = str_replace('/', '-', $end);
+            $query = $query->whereDate('fecha', '<=', $endNorm);
+        }
+
+        // Filtrar por tipo de sanción (tipo_id)
+        $tipoId = $request->query('tipo_id');
+        if ($tipoId) {
+            $query = $query->where('tipo_id', $tipoId);
+        }
+
+        // Si se solicita exportar (CSV), obtenemos todos los resultados y devolvemos un CSV
+        $export = $request->query('export');
+        $query = $query->orderByDesc('fecha');
+
+        if ($export) {
+            $exp = strtolower($export);
+            if ($exp === 'csv') {
+            $items = $query->get();
+            $filename = 'reporte_sanciones_' . now()->format('Ymd_His') . '.csv';
+
+            $headers = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            ];
+
+            $callback = function() use ($items) {
+                $out = fopen('php://output', 'w');
+                // encabezados
+                fputcsv($out, ['Estudiante', 'Documento', 'Descripción', 'Tipo', 'Fecha']);
+
+                foreach ($items as $s) {
+                    $name = optional($s->usuario)->name ?? 'ID_'.$s->usuario_id;
+                    $doc = optional($s->usuario)->document_number ?? '';
+                    $fecha = $s->fecha ? \Illuminate\Support\Carbon::parse($s->fecha)->format('Y/m/d') : '';
+                    fputcsv($out, [$name, $doc, $s->descripcion, $s->tipo, $fecha]);
+                }
+
+                fclose($out);
+            };
+
+                return response()->streamDownload($callback, $filename, $headers);
+            }
+
+            if ($exp === 'excel' || $exp === 'xls') {
+                $items = $query->get();
+                $filename = 'reporte_sanciones_' . now()->format('Ymd_His') . '.xls';
+
+                $headers = [
+                    'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+                    'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                ];
+
+                $callback = function() use ($items) {
+                    echo "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"/></head><body>";
+                    echo "<table border=\"1\">";
+                    echo "<tr><th>Estudiante</th><th>Documento</th><th>Descripción</th><th>Tipo</th><th>Fecha</th></tr>";
+                    foreach ($items as $s) {
+                        $name = htmlspecialchars(optional($s->usuario)->name ?? 'ID_'.$s->usuario_id, ENT_QUOTES, 'UTF-8');
+                        $doc = htmlspecialchars(optional($s->usuario)->document_number ?? '', ENT_QUOTES, 'UTF-8');
+                        $desc = htmlspecialchars($s->descripcion ?? '', ENT_QUOTES, 'UTF-8');
+                        $tipo = htmlspecialchars($s->tipo ?? '', ENT_QUOTES, 'UTF-8');
+                        $fecha = $s->fecha ? \Illuminate\Support\Carbon::parse($s->fecha)->format('Y/m/d') : '';
+                        echo "<tr>";
+                        echo "<td>{$name}</td><td>{$doc}</td><td>{$desc}</td><td>{$tipo}</td><td>{$fecha}</td>";
+                        echo "</tr>";
+                    }
+                    echo "</table></body></html>";
+                };
+
+                return response()->streamDownload($callback, $filename, $headers);
+            }
+
+            if ($exp === 'pdf') {
+                $items = $query->get();
+                $filename = 'reporte_sanciones_' . now()->format('Ymd_His') . '.pdf';
+
+                // Intentar usar barryvdh/laravel-dompdf o Dompdf directamente
+                $generatedBy = \Auth::user();
+                if (class_exists('\\Barryvdh\\DomPDF\\Facade\\Pdf')) {
+                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('gestion-disciplinaria.reporte_pdf', compact('items', 'generatedBy'));
+                    return $pdf->download($filename);
+                }
+
+                if (class_exists('\\Dompdf\\Dompdf')) {
+                    $html = view('gestion-disciplinaria.reporte_pdf', compact('items', 'generatedBy'))->render();
+                    $dompdf = new \Dompdf\Dompdf();
+                    $dompdf->loadHtml($html);
+                    $dompdf->render();
+                    return response($dompdf->output(), 200, [
+                        'Content-Type' => 'application/pdf',
+                        'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                    ]);
+                }
+
+                // No está disponible una librería PDF: indicar al usuario cómo instalar
+                return redirect()->back()->with('error', 'Para exportar a PDF instala "barryvdh/laravel-dompdf" (composer require barryvdh/laravel-dompdf)');
+            }
+        }
+        // Paginación por defecto
+        $reporte = $query->paginate(20)->withQueryString();
+
+        // Cargar tipos disponibles para el select
+        $tipos = \App\Models\SancionTipo::orderBy('nombre')->get();
+
+        return view('gestion-disciplinaria.reporte', compact('reporte', 'tipos'));
     }
 
     /**
@@ -199,10 +314,14 @@ class GestionDisciplinariaController extends Controller
         // Obtener la matrícula más reciente (por fecha) junto con el curso
         $matricula = $user->matriculas()->with('curso')->orderByDesc('fecha_matricula')->first();
 
+        // Obtener sanciones del estudiante
+        $sanciones = \App\Models\Sancion::with('usuario')->where('usuario_id', $user->id)->get();
+
         return response()->json([
             'success' => true,
             'user' => $user,
-            'matricula' => $matricula
+            'matricula' => $matricula,
+            'sanciones' => $sanciones
         ]);
     }
 

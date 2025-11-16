@@ -2,23 +2,37 @@
 @extends('layouts.app')
 @section('content')
 <h2>Reporte Disciplinario</h2>
-<!-- Buscador de estudiantes (muestra sugerencias y filtra la tabla en tiempo real) -->
-<div class="mb-3">
-    <label for="buscador_estudiante" class="form-label">Buscar estudiante</label>
-    <input id="buscador_estudiante" list="lista_estudiantes" class="form-control" placeholder="Escribe un nombre...">
-    <datalist id="lista_estudiantes">
-        @php
-            // Crear lista única de nombres desde el reporte
-            $nombres = [];
-        @endphp
-        @foreach($reporte as $sancion)
-            @php $nombres[optional($sancion->usuario)->name ?? 'ID_'.$sancion->usuario_id] = optional($sancion->usuario)->name ?? 'ID_'.$sancion->usuario_id; @endphp
-        @endforeach
-        @foreach($nombres as $nombre)
-            <option value="{{ $nombre }}"></option>
-        @endforeach
-    </datalist>
-</div>
+
+<!-- Filtros: rango de fechas y tipo de sanción -->
+<form method="get" class="row g-3 mb-4">
+    <div class="col-md-3">
+        <label for="start_date" class="form-label">Fecha desde</label>
+        <input type="date" id="start_date" name="start_date" class="form-control" value="{{ request()->query('start_date') }}">
+    </div>
+    <div class="col-md-3">
+        <label for="end_date" class="form-label">Fecha hasta</label>
+        <input type="date" id="end_date" name="end_date" class="form-control" value="{{ request()->query('end_date') }}">
+    </div>
+    <div class="col-md-4">
+        <label for="tipo_id" class="form-label">Tipo de sanción</label>
+        <select id="tipo_id" name="tipo_id" class="form-select">
+            <option value="">Todos</option>
+            @if(isset($tipos))
+                @foreach($tipos as $tipo)
+                    <option value="{{ $tipo->id }}" {{ request()->query('tipo_id') == $tipo->id ? 'selected' : '' }}>{{ $tipo->nombre }}</option>
+                @endforeach
+            @endif
+        </select>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <div>
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            <a href="{{ route('gestion-disciplinaria.reporte') }}" class="btn btn-secondary ms-2">Limpiar</a>
+            <a href="{{ request()->fullUrlWithQuery(['export' => 'pdf']) }}" class="btn btn-outline-danger ms-2">Exportar PDF</a>
+            <a href="{{ request()->fullUrlWithQuery(['export' => 'excel']) }}" class="btn btn-outline-primary ms-2">Exportar Excel</a>
+        </div>
+    </div>
+</form>
 <table class="table">
     <thead>
         <tr>
@@ -29,46 +43,30 @@
         </tr>
     </thead>
     <tbody>
-        @php $total = 0; @endphp
         @foreach($reporte as $sancion)
         @php $doc = optional($sancion->usuario)->document_number ?? '' ; @endphp
         <tr data-doc="{{ $doc }}">
             <td>{{ optional($sancion->usuario)->name ?? $sancion->usuario_id }}</td>
             <td>{{ $sancion->descripcion }}</td>
             <td>{{ $sancion->tipo }}</td>
-            <td>{{ \Carbon\Carbon::parse($sancion->fecha)->format('d/m/Y') }}</td>
+            <td>{{ \Illuminate\Support\Carbon::parse($sancion->fecha)->format('Y/m/d') }}</td>
         </tr>
         @endforeach
     </tbody>
 </table>
 
-<p><strong>Total de Sanciones: </strong>{{ count($reporte) }}</p>
+<div class="d-flex justify-content-between align-items-center">
+    <p class="mb-0"><strong>Total de Sanciones: </strong>{{ method_exists($reporte, 'total') ? $reporte->total() : $reporte->count() }}</p>
+    <div>
+        @if(method_exists($reporte, 'links'))
+            {{ $reporte->links() }}
+        @endif
+    </div>
+</div>
  
 <script>
     (function(){
-        const input = document.getElementById('buscador_estudiante');
-        const table = document.querySelector('table');
-        if (!input || !table) return;
-
-        input.addEventListener('input', function(e) {
-            const q = (e.target.value || '').toLowerCase().trim();
-            const rows = table.querySelectorAll('tbody tr');
-            if (q === '') {
-                rows.forEach(r => r.style.display = '');
-                return;
-            }
-
-            rows.forEach(r => {
-                const estudianteCell = r.querySelector('td'); // primera columna es estudiante
-                const text = estudianteCell ? estudianteCell.textContent.toLowerCase() : '';
-                const doc = (r.getAttribute('data-doc') || '').toLowerCase();
-                if (text.indexOf(q) !== -1 || (doc && doc.indexOf(q) !== -1)) {
-                    r.style.display = '';
-                } else {
-                    r.style.display = 'none';
-                }
-            });
-        });
+        // No hay buscador por estudiante en esta vista; el filtrado se realiza en el servidor mediante GET
     })();
 </script>
 @endsection
