@@ -33,13 +33,14 @@ class AsignacionesController extends Controller
             });
         }
         
-        // Filter by status
-        if ($request->estado) {
+        // Filter by status (apply only when a value is selected)
+        if ($request->filled('estado')) {
             $query->where('estado', $request->estado);
         }
 
-        // Filter by document completeness
-        if ($request->has('documentos_completos')) {
+        // Filter by document completeness (only when a value is selected)
+        // Use filled() so an empty "Todos" selection ("") does not apply the filter
+        if ($request->filled('documentos_completos') && $request->documentos_completos !== '') {
             $query->where('documentos_completos', $request->documentos_completos);
         }
         
@@ -89,7 +90,7 @@ class AsignacionesController extends Controller
             'user_id' => 'required|exists:users,id',
             'curso_id' => 'required|exists:cursos,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|in:activa,inactiva,suspendida',
+            'estado' => 'required|in:activo,inactivo,suspendido',
             
             // Documentos requeridos
             'documento_identidad' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
@@ -179,7 +180,7 @@ class AsignacionesController extends Controller
             'user_id' => 'required|exists:users,id',
             'curso_id' => 'required|exists:cursos,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|in:activa,inactiva,suspendida',
+            'estado' => 'required|in:activo,inactivo,suspendido',
             
             // Documentos opcionales en edición
             'documento_identidad' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
@@ -291,10 +292,10 @@ class AsignacionesController extends Controller
     public function getStudentsByCourse($cursoId)
     {
         $asignaciones = Matricula::with('user')
-                              ->where('curso_id', $cursoId)
-                              ->where('estado', 'activa')
-                              ->where('documentos_completos', true)
-                              ->get();
+                  ->where('curso_id', $cursoId)
+                  ->where('estado', 'activo')
+                  ->where('documentos_completos', true)
+                  ->get();
         
         return response()->json($asignaciones);
     }

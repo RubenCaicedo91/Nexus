@@ -144,6 +144,13 @@ class Matricula extends Model
     protected static function booted()
     {
         static::saving(function ($matricula) {
+            // Permitir que el estado 'suspendido' se asigne manualmente y
+            // no sea sobrescrito por la recalculación automática.
+            if (isset($matricula->estado) && $matricula->estado === 'suspendido') {
+                // Mantener 'suspendido' tal cual.
+                return;
+            }
+
             $matricula->recalcularEstado();
         });
     }

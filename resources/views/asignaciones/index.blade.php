@@ -44,9 +44,10 @@
                             <label for="estado" class="form-label">Estado</label>
                             <select name="estado" id="estado" class="form-select">
                                 <option value="">Todos</option>
-                                <option value="activa" {{ request('estado') == 'activa' ? 'selected' : '' }}>Activa</option>
-                                <option value="inactiva" {{ request('estado') == 'inactiva' ? 'selected' : '' }}>Inactiva</option>
-                                <option value="suspendida" {{ request('estado') == 'suspendida' ? 'selected' : '' }}>Suspendida</option>
+                                <option value="activo" {{ request('estado') == 'activo' ? 'selected' : '' }}>Activo</option>
+                                <option value="inactivo" {{ request('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                                <option value="suspendido" {{ request('estado') == 'suspendido' ? 'selected' : '' }}>Suspendido</option>
+                               
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -96,14 +97,17 @@
                                         <td>{{ \Carbon\Carbon::parse($asignacion->fecha_matricula)->format('d/m/Y') }}</td>
                                         <td>
                                             @switch($asignacion->estado)
-                                                @case('activa')
-                                                    <span class="badge bg-success">Activa</span>
+                                                @case('activo')
+                                                    <span class="badge bg-success">Activo</span>
                                                     @break
-                                                @case('inactiva')
-                                                    <span class="badge bg-secondary">Inactiva</span>
+                                                @case('inactivo')
+                                                    <span class="badge bg-secondary">Inactivo</span>
                                                     @break
-                                                @case('suspendida')
-                                                    <span class="badge bg-warning">Suspendida</span>
+                                                @case('completado')
+                                                    <span class="badge bg-warning">Completado</span>
+                                                    @break
+                                                @case('suspendido')
+                                                    <span class="badge bg-warning">Suspendido</span>
                                                     @break
                                                 @default
                                                     <span class="badge bg-light text-dark">{{ $asignacion->estado }}</span>

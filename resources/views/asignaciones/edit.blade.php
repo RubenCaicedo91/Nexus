@@ -85,7 +85,7 @@
                                             <select name="estado" id="estado" class="form-select @error('estado') is-invalid @enderror" required>
                                                 <option value="activa" {{ old('estado', $asignacion->estado) == 'activa' ? 'selected' : '' }}>Activa</option>
                                                 <option value="inactiva" {{ old('estado', $asignacion->estado) == 'inactiva' ? 'selected' : '' }}>Inactiva</option>
-                                                <option value="suspendida" {{ old('estado', $asignacion->estado) == 'suspendida' ? 'selected' : '' }}>Suspendida</option>
+                                                <option value="suspendido" {{ old('estado', $asignacion->estado) == 'suspendido' ? 'selected' : '' }}>Suspendido</option>
                                             </select>
                                             @error('estado')
                                                 <div class="invalid-feedback">{{ $message }}</div>

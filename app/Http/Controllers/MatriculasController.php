@@ -69,7 +69,7 @@ class MatriculasController extends Controller
             'user_id' => 'required|exists:users,id',
             'curso_id' => 'required|exists:cursos,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|in:activa,inactiva,suspendida'
+            'estado' => 'required|in:activo,inactivo,suspendido'
         ]);
 
         // Check if student is already enrolled in this course
@@ -123,7 +123,7 @@ class MatriculasController extends Controller
             'user_id' => 'required|exists:users,id',
             'curso_id' => 'required|exists:cursos,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|in:activa,inactiva,suspendida'
+            'estado' => 'required|in:activo,inactivo,suspendido'
         ]);
 
         // Check if student is already enrolled in this course (excluding current matricula)

@@ -59,8 +59,8 @@
                                                     @case('inactiva')
                                                         <span class="badge bg-secondary fs-6">Inactiva</span>
                                                         @break
-                                                    @case('suspendida')
-                                                        <span class="badge bg-warning fs-6">Suspendida</span>
+                                                    @case('suspendido')
+                                                        <span class="badge bg-warning fs-6">Suspendido</span>
                                                         @break
                                                     @default
                                                         <span class="badge bg-light text-dark fs-6">{{ $asignacion->estado }}</span>
