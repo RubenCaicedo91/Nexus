@@ -38,6 +38,15 @@ Route::middleware('auth')->group(function () {
         Route::put('/{nota}', [\App\Http\Controllers\NotasController::class, 'update'])->name('update');
         Route::post('/{nota}/aprobar', [\App\Http\Controllers\NotasController::class, 'approve'])->name('approve');
         Route::get('/reporte', [\App\Http\Controllers\NotasController::class, 'reporte'])->name('reporte');
+        // Ver notas por matrícula (estudiante)
+        Route::get('/matricula/{matricula}/ver', [\App\Http\Controllers\NotasController::class, 'porMatricula'])->name('matricula.ver');
+        // Marcar nota como definitiva
+        Route::post('/{nota}/definitiva', [\App\Http\Controllers\NotasController::class, 'marcarDefinitiva'])->name('definitiva');
+        // Actividades por nota
+        Route::get('/{nota}/actividades', [\App\Http\Controllers\ActividadesController::class, 'index'])->name('actividades.index');
+        Route::get('/{nota}/actividades/crear', [\App\Http\Controllers\ActividadesController::class, 'create'])->name('actividades.create');
+        Route::post('/{nota}/actividades', [\App\Http\Controllers\ActividadesController::class, 'store'])->name('actividades.store');
+        Route::delete('/{nota}/actividades/{actividad}', [\App\Http\Controllers\ActividadesController::class, 'destroy'])->name('actividades.destroy');
     });
 });
 

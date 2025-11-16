@@ -92,11 +92,11 @@ class AsignacionesController extends Controller
             'estado' => 'required|in:activa,inactiva,suspendida',
             
             // Documentos requeridos
-            'documento_identidad' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'rh' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'certificado_medico' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'certificado_notas' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'comprobante_pago' => 'required|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'documento_identidad' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'rh' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'certificado_medico' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'certificado_notas' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'comprobante_pago' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
             
             // Datos de pago
             'monto_pago' => 'required|numeric|min:0',
@@ -144,9 +144,14 @@ class AsignacionesController extends Controller
     {
         $asignacion->load(['user', 'curso']);
         
-        // Get schedule for this course
-        $horarios = Horario::where('curso', $asignacion->curso->nombre)->get();
-        
+        // Get schedule for this course (safely handle missing curso)
+        if ($asignacion->curso) {
+            $horarios = Horario::where('curso', $asignacion->curso->nombre)->get();
+        } else {
+            Log::warning('Matricula sin curso asignado', ['matricula_id' => $asignacion->id]);
+            $horarios = collect();
+        }
+
         return view('asignaciones.show', compact('asignacion', 'horarios'));
     }
 
@@ -177,11 +182,11 @@ class AsignacionesController extends Controller
             'estado' => 'required|in:activa,inactiva,suspendida',
             
             // Documentos opcionales en edición
-            'documento_identidad' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'rh' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'certificado_medico' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'certificado_notas' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
-            'comprobante_pago' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
+            'documento_identidad' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'rh' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'certificado_medico' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'certificado_notas' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'comprobante_pago' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
             
             // Datos de pago
             'monto_pago' => 'nullable|numeric|min:0',

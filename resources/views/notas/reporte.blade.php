@@ -8,7 +8,7 @@
         </div>
         <div class="card-body">
             @if($stats->isEmpty())
-                <div class="alert alert-info">No hay datos para el periodo seleccionado.</div>
+                <div class="alert alert-info">No hay datos para el año seleccionado.</div>
             @else
                 <table class="table">
                     <thead>

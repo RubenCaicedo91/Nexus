@@ -221,7 +221,7 @@ class PensionesController extends Controller
         $request->validate([
             'metodo_pago' => 'required|in:efectivo,transferencia,tarjeta,consignacion,pse',
             'numero_recibo' => 'required|string|max:50',
-            'comprobante_pago' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120', // 5MB
+            'comprobante_pago' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480', // 20480 KB (20MB)
             'observaciones_pago' => 'nullable|string|max:500'
         ]);
 
