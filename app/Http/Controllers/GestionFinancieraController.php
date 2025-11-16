@@ -157,6 +157,7 @@ class GestionFinancieraController extends Controller
             'estudiante_id' => ['required','integer'],
             'concepto' => ['required','string'],
             'monto' => ['required','numeric','min:0'],
+            'tipo_pago' => ['nullable','string'], // 'incompleto'|'completo'
             'faltante' => ['nullable','numeric','min:0'],
         ]);
 
@@ -187,12 +188,37 @@ class GestionFinancieraController extends Controller
                 // Calcular faltante real según el valor de la institución
                 $faltante = max(0, floatval($valorMatricula) - $totalPagado);
 
-                if ($faltante <= 0) {
-                    $matricula->pago_validado = true;
-                    $matricula->pago_validado_por = Auth::id();
-                    $matricula->pago_validado_at = Carbon::now();
+                // Si el usuario tiene rol tesorero/administrador puede forzar el tipo de pago
+                $user = Auth::user();
+                $roleNombre = optional($user->role)->nombre ?? '';
+                $canSetTipo = ($user && (stripos($roleNombre, 'tesor') !== false || stripos($roleNombre, 'administrador') !== false || stripos($roleNombre, 'admin') !== false));
+
+                $tipoPago = $validated['tipo_pago'] ?? null;
+
+                if ($canSetTipo && $tipoPago) {
+                    if (strtolower($tipoPago) === 'incompleto') {
+                        $matricula->pago_validado = false;
+                        $matricula->estado = 'pago por cuotas';
+                    } elseif (strtolower($tipoPago) === 'completo') {
+                        $matricula->pago_validado = true;
+                        $matricula->pago_validado_por = Auth::id();
+                        $matricula->pago_validado_at = Carbon::now();
+                        $matricula->estado = 'pago_validado';
+                    }
                 } else {
-                    $matricula->pago_validado = false;
+                    // comportamiento automático según monto
+                    if ($faltante <= 0) {
+                        $matricula->pago_validado = true;
+                        $matricula->pago_validado_por = Auth::id();
+                        $matricula->pago_validado_at = Carbon::now();
+                        $matricula->estado = 'pago_validado';
+                    } else {
+                        $matricula->pago_validado = false;
+                        // si no está validado y hay algún pago, marcar como pago por cuotas
+                        if ($totalPagado > 0) {
+                            $matricula->estado = 'pago por cuotas';
+                        }
+                    }
                 }
 
                 $matricula->save();
@@ -277,10 +303,107 @@ class GestionFinancieraController extends Controller
         return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched'));
     }
 
-    public function generarReporte()
+    public function generarReporte(Request $request)
     {
-        $reporte = Pago::all();
-        return view('financiera.reporte', compact('reporte'));
+        $query = Pago::with(['estudiante.matriculas.curso']);
+
+        // filtro por curso (se busca en las matrículas del estudiante)
+        $cursoId = $request->query('curso_id');
+        if ($cursoId) {
+            $query->whereHas('estudiante.matriculas', function ($q) use ($cursoId) {
+                $q->where('curso_id', $cursoId);
+            });
+        }
+
+        // filtro por estado (se busca en las matrículas del estudiante)
+        $estadoFiltro = $request->query('estado');
+        if ($estadoFiltro) {
+            $query->whereHas('estudiante.matriculas', function ($q) use ($estadoFiltro) {
+                $q->where('estado', $estadoFiltro);
+            });
+        }
+
+        // filtro por concepto
+        $concepto = $request->query('concepto');
+        if ($concepto) {
+            $query->where('concepto', $concepto);
+        }
+
+        // Export options: if export=pdf or excel, get full collection
+        $export = $request->query('export');
+
+        if ($export === 'pdf' || $export === 'excel') {
+            $reporte = $query->orderByDesc('created_at')->get();
+        } else {
+            $reporte = $query->orderByDesc('created_at')->paginate(25)->withQueryString();
+        }
+
+        // lista de conceptos para el filtro
+        $conceptos = Pago::select('concepto')->distinct()->pluck('concepto');
+        // lista de cursos y estados para los filtros (tomados de la tabla cursos y matrículas)
+        try {
+            $cursos = \App\Models\Curso::orderBy('nombre')->get();
+        } catch (\Throwable $e) {
+            $cursos = collect();
+        }
+
+        try {
+            $estados = \App\Models\Matricula::select('estado')->distinct()->pluck('estado')->filter()->values();
+        } catch (\Throwable $e) {
+            $estados = collect();
+        }
+
+        if ($export === 'pdf') {
+            return view('financiera.reporte_pdf', compact('reporte'));
+        }
+
+        if ($export === 'excel') {
+            // Export to a format Excel can open: HTML table with Excel content-type.
+            $rows = $reporte->map(function ($p) {
+                $mat = null;
+                if ($p->estudiante && $p->estudiante->matriculas) {
+                    $mat = $p->estudiante->matriculas->sortByDesc('fecha_matricula')->first();
+                }
+                $curso = $mat && $mat->curso ? $mat->curso->nombre : '';
+                $estado = $mat ? ($mat->estado ?? '') : null;
+                $tieneMatricula = $mat ? true : false;
+
+                return [
+                    'Estudiante' => optional($p->estudiante)->name ?? $p->estudiante_id,
+                    'Concepto' => ucfirst($p->concepto),
+                    'Monto' => number_format($p->monto, 0, ',', '.'),
+                    'Tiene Matrícula' => $tieneMatricula ? 'Sí' : 'No',
+                    'Curso' => $curso ?: '-',
+                    'Estado Pago' => $estado ? $estado : ($tieneMatricula ? '' : 'Sin matrícula'),
+                ];
+            })->toArray();
+
+            $filename = 'reporte_financiero_' . date('Ymd_His') . '.xls';
+
+            // Build an HTML table (Excel can open it) to preserve column order and formatting.
+            $html = '<table border="1"><thead><tr>';
+            if (!empty($rows)) {
+                foreach (array_keys($rows[0]) as $col) {
+                    $html .= '<th>' . htmlentities($col) . '</th>';
+                }
+            }
+            $html .= '</tr></thead><tbody>';
+            foreach ($rows as $r) {
+                $html .= '<tr>';
+                foreach ($r as $cell) {
+                    $html .= '<td>' . htmlentities($cell) . '</td>';
+                }
+                $html .= '</tr>';
+            }
+            $html .= '</tbody></table>';
+
+            return response($html, 200, [
+                'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            ]);
+        }
+
+        return view('financiera.reporte', compact('reporte', 'conceptos', 'cursos', 'estados'));
     }
 
     public function index()

@@ -163,7 +163,7 @@ class Matricula extends Model
     {
         static::saving(function ($matricula) {
             // Roles que pueden asignar manualmente un estado (no serán sobrescritos)
-            $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+            $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico', 'Tesorero', 'tesorero'];
 
             // Si el usuario autenticado pertenece a un rol autorizado y se proporciona
             // explícitamente un estado, respetarlo (no recalcular).

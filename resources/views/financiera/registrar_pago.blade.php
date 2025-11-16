@@ -171,6 +171,20 @@
                     </div>
                 </div>
 
+                    @if($isPrivilegedView)
+                        <div class="mb-3 row">
+                            <div class="col-md-6">
+                                <span class="text-uppercase text-secondary small">Tipo de pago</span>
+                                <select name="tipo_pago" class="form-select mt-1">
+                                    <option value="">Automático</option>
+                                    <option value="incompleto">Pago incompleto (Pago por cuotas)</option>
+                                    <option value="completo">Pago completo (Validar matrícula)</option>
+                                </select>
+                                <div class="form-text">Si deja en automático el sistema decidirá según el monto y el valor de matrícula.</div>
+                            </div>
+                        </div>
+                    @endif
+
                 <div class="mb-3 row">
                     <div class="col-md-6">
                         <span class="text-uppercase text-secondary small">Comprobante</span>
