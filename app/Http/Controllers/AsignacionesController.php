@@ -94,13 +94,14 @@ class AsignacionesController extends Controller
             'user_id' => 'required|exists:users,id',
             'curso_id' => 'required|exists:cursos,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|in:activo,inactivo,suspendido',
+            'estado' => 'required|in:activo,inactivo,suspendido,completado,falta de documentacion',
+            'tipo_usuario' => 'required|in:nuevo,antiguo',
             
             // Documentos requeridos
             'documento_identidad' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
             'rh' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
             'certificado_medico' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
-            'certificado_notas' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
+            'certificado_notas' => 'required_if:tipo_usuario,antiguo|file|mimes:pdf,jpg,jpeg,png|max:20480',
             'comprobante_pago' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
             
             // Datos de pago
@@ -184,7 +185,8 @@ class AsignacionesController extends Controller
             'user_id' => 'required|exists:users,id',
             'curso_id' => 'required|exists:cursos,id',
             'fecha_matricula' => 'required|date',
-            'estado' => 'required|in:activo,inactivo,suspendido',
+            'estado' => 'required|in:activo,inactivo,suspendido,completado,falta de documentacion',
+            'tipo_usuario' => 'required|in:nuevo,antiguo',
             
             // Documentos opcionales en edición
             'documento_identidad' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:20480',
@@ -207,6 +209,13 @@ class AsignacionesController extends Controller
         if ($exists) {
             return back()->withErrors(['user_id' => 'El estudiante ya está asignado a este curso.'])
                         ->withInput();
+        }
+
+        // En edición: si el tipo de usuario es 'antiguo' y NO existe certificado_notas en la DB
+        // y tampoco se está enviando un archivo nuevo, devolver error (requerido)
+        if ($request->input('tipo_usuario') === 'antiguo' && empty($asignacion->certificado_notas) && !$request->hasFile('certificado_notas')) {
+            return back()->withErrors(['certificado_notas' => 'El certificado de notas es obligatorio para usuarios antiguos.'])
+                         ->withInput();
         }
 
         // Update files if uploaded
@@ -394,6 +403,11 @@ class AsignacionesController extends Controller
         $faltantes = [];
         
         foreach ($documentos as $campo => $nombre) {
+            // Si el campo es certificado_notas y el tipo de usuario es 'nuevo', no es obligatorio
+            if ($campo === 'certificado_notas' && (($asignacion->tipo_usuario ?? 'nuevo') === 'nuevo')) {
+                continue;
+            }
+
             if (empty($asignacion->$campo)) {
                 $faltantes[] = $nombre;
             }

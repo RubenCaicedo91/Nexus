@@ -261,6 +261,9 @@ Route::middleware(['auth'])->group(function () {
     // Servir archivos de matrículas (visualización/descarga) desde el disco configurado
     Route::get('matriculas/{matricula}/archivo/{campo}', [MatriculaController::class, 'archivo'])
         ->name('matriculas.archivo');
+    // Validación de pago (solo tesorero)
+    Route::post('matriculas/{matricula}/validar-pago', [MatriculaController::class, 'validarPago'])
+        ->name('matriculas.validarPago');
 
     // Rutas de Gestión Financiera
     Route::get('gestion-financiera', [GestionFinancieraController::class, 'index'])->name('financiera.index');

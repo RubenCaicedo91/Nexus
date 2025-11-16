@@ -53,14 +53,27 @@
                             <input type="date" name="fecha_matricula" class="form-control" placeholder="Fecha de Matrícula">
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label"><strong>Estado:</strong></label>
-                            <select name="estado" class="form-control">
-                                <option value="activo">Activo</option>
-                                <option value="inactivo">Inactivo</option>
-                                <option value="completado">Completado</option>
-                            </select>
-                        </div>
+                        @php
+                            $roleName = optional(Auth::user()->role)->nombre;
+                            $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+                            $canChangeEstado = in_array($roleName, $allowedRoles);
+                        @endphp
+                        @if($canChangeEstado)
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Estado:</strong></label>
+                                <select name="estado" class="form-control">
+                                    <option value="activo">Activo</option>
+                                    <option value="inactivo">Inactivo</option>
+                                    <option value="completado">Completado</option>
+                                    <option value="suspendido">Suspendido</option>
+                                </select>
+                            </div>
+                        @else
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Estado:</strong></label>
+                                <div class="form-control-plaintext text-muted">El estado lo asigna el sistema; solo el Administrador de sistema, Rector o Coordinador Académico pueden modificarlo.</div>
+                            </div>
+                        @endif
 
                         <div class="row">
                             <div class="col-md-6 mb-3">

@@ -102,6 +102,9 @@
                                                 @case('inactivo')
                                                     <span class="badge bg-secondary">Inactivo</span>
                                                     @break
+                                                @case('falta de documentacion')
+                                                    <span class="badge bg-warning text-dark">Falta documentación</span>
+                                                    @break
                                                 @case('completado')
                                                     <span class="badge bg-warning">Completado</span>
                                                     @break

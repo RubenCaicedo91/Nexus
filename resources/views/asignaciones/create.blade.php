@@ -97,10 +97,22 @@
                                         </div>
 
                                         <div class="mb-3">
+                                            <label for="tipo_usuario" class="form-label">Tipo de Usuario <span class="text-danger">*</span></label>
+                                            <select name="tipo_usuario" id="tipo_usuario" class="form-select @error('tipo_usuario') is-invalid @enderror" required>
+                                                <option value="nuevo" {{ old('tipo_usuario', 'nuevo') == 'nuevo' ? 'selected' : '' }}>Nuevo</option>
+                                                <option value="antiguo" {{ old('tipo_usuario') == 'antiguo' ? 'selected' : '' }}>Antiguo</option>
+                                            </select>
+                                            <div class="form-text">Seleccione si el estudiante es nuevo o antiguo. Si es nuevo, no se requiere el certificado de notas.</div>
+                                            @error('tipo_usuario')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
                                             <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
                                             <select name="estado" id="estado" class="form-select @error('estado') is-invalid @enderror" required>
-                                                <option value="activa" {{ old('estado', 'activa') == 'activa' ? 'selected' : '' }}>Activa</option>
-                                                <option value="inactiva" {{ old('estado') == 'inactiva' ? 'selected' : '' }}>Inactiva</option>
+                                                <option value="activo" {{ old('estado', 'activo') == 'activo' ? 'selected' : '' }}>Activo</option>
+                                                <option value="inactivo" {{ old('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
                                                 <option value="suspendido" {{ old('estado') == 'suspendido' ? 'selected' : '' }}>Suspendido</option>
                                             </select>
                                             @error('estado')
@@ -257,6 +269,25 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const tipoUsuarioSelect = document.getElementById('tipo_usuario');
+    const certificadoNotasInput = document.getElementById('certificado_notas');
+
+    function toggleCertificadoNotasRequirement() {
+        if (!tipoUsuarioSelect || !certificadoNotasInput) return;
+        if (tipoUsuarioSelect.value === 'antiguo') {
+            certificadoNotasInput.required = true;
+        } else {
+            certificadoNotasInput.required = false;
+        }
+    }
+
+    // Inicializar según valor por defecto
+    toggleCertificadoNotasRequirement();
+
+    // Escuchar cambios en el select
+    if (tipoUsuarioSelect) {
+        tipoUsuarioSelect.addEventListener('change', toggleCertificadoNotasRequirement);
+    }
     const form = document.querySelector('form');
     const submitBtn = document.getElementById('submitBtn');
     

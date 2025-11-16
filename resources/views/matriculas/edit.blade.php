@@ -103,14 +103,23 @@
                             <label class="form-label"><strong>Fecha de Matrícula:</strong></label>
                             <input type="date" name="fecha_matricula" value="{{ $matricula->fecha_matricula }}" class="form-control" placeholder="Fecha de Matrícula">
                         </div>
+                        @php
+                            $roleName = optional(Auth::user()->role)->nombre;
+                            $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+                            $canChangeEstado = in_array($roleName, $allowedRoles);
+                        @endphp
                         <div class="mb-3">
                             <label class="form-label"><strong>Estado:</strong></label>
-                            <select name="estado" class="form-control">
-                                <option value="activo" @if($matricula->estado == 'activo') selected @endif>Activo</option>
-                                <option value="inactivo" @if($matricula->estado == 'inactivo') selected @endif>Inactivo</option>
-                                <option value="completado" @if($matricula->estado == 'completado') selected @endif>Completado</option>
-                                <option value="falta de documentacion" @if($matricula->estado == 'falta de documentacion') selected @endif>Falta de Documentación</option>
-                            </select>
+                            @if($canChangeEstado)
+                                <select name="estado" class="form-control">
+                                    <option value="activo" @if($matricula->estado == 'activo') selected @endif>Activo</option>
+                                    <option value="inactivo" @if($matricula->estado == 'inactivo') selected @endif>Inactivo</option>
+                                    <option value="completado" @if($matricula->estado == 'completado') selected @endif>Completado</option>
+                                    <option value="suspendido" @if($matricula->estado == 'suspendido') selected @endif>Suspendido</option>
+                                </select>
+                            @else
+                                <div class="form-control-plaintext">{{ $matricula->estado }}</div>
+                            @endif
                         </div>
 
                         <div class="row">

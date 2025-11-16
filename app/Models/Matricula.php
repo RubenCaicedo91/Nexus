@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class Matricula extends Model
 {
@@ -11,6 +12,7 @@ class Matricula extends Model
         'user_id',
         'curso_id',
         'fecha_matricula',
+        'tipo_usuario',
         'estado',
         'documento_identidad',
         'rh',
@@ -20,6 +22,9 @@ class Matricula extends Model
         'monto_pago',
         'fecha_pago',
         'documentos_completos',
+        'pago_validado',
+        'pago_validado_por',
+        'pago_validado_at',
     ];
 
     // Agregar atributos virtuales para obtener URL de descarga/visualización
@@ -35,6 +40,12 @@ class Matricula extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    protected $casts = [
+        'documentos_completos' => 'boolean',
+        'pago_validado' => 'boolean',
+        'pago_validado_at' => 'datetime',
+    ];
 
     // Accesores para generar rutas que servirán los archivos desde el controlador
     public function getDocumentoIdentidadUrlAttribute()
@@ -120,22 +131,28 @@ class Matricula extends Model
 
     /**
      * Recalcula y asigna el `estado` según las reglas:
-     * - 'inactivo' si falta algún documento
-     * - si documentos completos: 'activo' si hay pago, 'completado' si falta solo el pago
+     * - Si hay pago: `activo` (aunque falten documentos)
+     * - Si no hay pago pero documentos completos: `completado`
+     * - Si no hay pago y faltan documentos: `falta de documentacion`
      */
     public function recalcularEstado()
     {
         $docs = $this->documentsComplete();
         $paid = $this->hasPayment();
 
-        if (! $docs) {
-            $this->estado = 'inactivo';
-        } else {
-            $this->estado = $paid ? 'activo' : 'completado';
-        }
+        // Actualizar flag de documentos
+        $this->documentos_completos = (bool) $docs;
 
-        // Mantener el flag `documentos_completos` sincronizado
-        $this->documentos_completos = $docs;
+        if ($paid) {
+            // Pago registrado: estado principal activo independientemente de documentos
+            $this->estado = 'activo';
+        } else {
+            if ($docs) {
+                $this->estado = 'completado';
+            } else {
+                $this->estado = 'falta de documentacion';
+            }
+        }
     }
 
     /**
@@ -144,10 +161,25 @@ class Matricula extends Model
     protected static function booted()
     {
         static::saving(function ($matricula) {
-            // Permitir que el estado 'suspendido' se asigne manualmente y
-            // no sea sobrescrito por la recalculación automática.
+            // Roles que pueden asignar manualmente un estado (no serán sobrescritos)
+            $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+
+            // Si el usuario autenticado pertenece a un rol autorizado y se proporciona
+            // explícitamente un estado, respetarlo (no recalcular).
+            try {
+                $user = Auth::user();
+            } catch (\Throwable $e) {
+                $user = null;
+            }
+
+            if ($user && in_array(optional($user->role)->nombre, $allowedRoles)) {
+                if (isset($matricula->estado) && $matricula->estado !== null) {
+                    return;
+                }
+            }
+
+            // Mantener el comportamiento previo: permitir 'suspendido' manual
             if (isset($matricula->estado) && $matricula->estado === 'suspendido') {
-                // Mantener 'suspendido' tal cual.
                 return;
             }
 

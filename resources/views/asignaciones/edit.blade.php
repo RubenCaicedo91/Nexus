@@ -26,7 +26,7 @@
                         Puede actualizar documentos individualmente o modificar la información básica.
                     </div>
 
-                    <form action="{{ route('asignaciones.update', $asignacion) }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('asignaciones.update', $asignacion) }}" method="POST" enctype="multipart/form-data" data-existing-certificado="{{ !empty($asignacion->certificado_notas) ? '1' : '0' }}">
                         @csrf
                         @method('PUT')
                         
@@ -81,10 +81,22 @@
                                         </div>
 
                                         <div class="mb-3">
+                                            <label for="tipo_usuario" class="form-label">Tipo de Usuario <span class="text-danger">*</span></label>
+                                            <select name="tipo_usuario" id="tipo_usuario" class="form-select @error('tipo_usuario') is-invalid @enderror" required>
+                                                <option value="nuevo" {{ old('tipo_usuario', $asignacion->tipo_usuario ?? 'nuevo') == 'nuevo' ? 'selected' : '' }}>Nuevo</option>
+                                                <option value="antiguo" {{ old('tipo_usuario', $asignacion->tipo_usuario) == 'antiguo' ? 'selected' : '' }}>Antiguo</option>
+                                            </select>
+                                            <div class="form-text">Si el estudiante es nuevo, el certificado de notas no es obligatorio.</div>
+                                            @error('tipo_usuario')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
                                             <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
                                             <select name="estado" id="estado" class="form-select @error('estado') is-invalid @enderror" required>
-                                                <option value="activa" {{ old('estado', $asignacion->estado) == 'activa' ? 'selected' : '' }}>Activa</option>
-                                                <option value="inactiva" {{ old('estado', $asignacion->estado) == 'inactiva' ? 'selected' : '' }}>Inactiva</option>
+                                                <option value="activo" {{ old('estado', $asignacion->estado) == 'activo' ? 'selected' : '' }}>Activo</option>
+                                                <option value="inactivo" {{ old('estado', $asignacion->estado) == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
                                                 <option value="suspendido" {{ old('estado', $asignacion->estado) == 'suspendido' ? 'selected' : '' }}>Suspendido</option>
                                             </select>
                                             @error('estado')
@@ -156,7 +168,7 @@
                             <div class="card-header bg-light">
                                 <h5 class="mb-0">
                                     <i class="fas fa-file-alt me-2"></i>Documentos 
-                                    @if($asignacion->documentos_completos)
+                                    @if($asignacion->tieneDocumentosCompletos())
                                         <span class="badge bg-success ms-2">Completos</span>
                                     @else
                                         <span class="badge bg-danger ms-2">Incompletos</span>
@@ -211,7 +223,7 @@
                                     @endforeach
                                 </div>
 
-                                @if(!$asignacion->documentos_completos)
+                                @if(!$asignacion->tieneDocumentosCompletos())
                                     <div class="alert alert-warning">
                                         <i class="fas fa-exclamation-triangle me-2"></i>
                                         <strong>Nota:</strong> La asignación no estará completa hasta que todos los documentos estén cargados.
@@ -247,6 +259,24 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     const submitBtn = document.getElementById('submitBtn');
+    const tipoUsuarioSelect = document.getElementById('tipo_usuario');
+    const certificadoNotasInput = document.getElementById('certificado_notas');
+    const existingCertificadoNotas = form && form.dataset && form.dataset.existingCertificado === '1';
+
+    function toggleCertificadoNotasRequirement() {
+        if (!tipoUsuarioSelect || !certificadoNotasInput) return;
+        if (tipoUsuarioSelect.value === 'antiguo' && !existingCertificadoNotas) {
+            certificadoNotasInput.required = true;
+        } else {
+            certificadoNotasInput.required = false;
+        }
+    }
+
+    // Inicializar y escuchar cambios
+    toggleCertificadoNotasRequirement();
+    if (tipoUsuarioSelect) {
+        tipoUsuarioSelect.addEventListener('change', toggleCertificadoNotasRequirement);
+    }
     
     // Validar archivos antes del envío
     form.addEventListener('submit', function(e) {

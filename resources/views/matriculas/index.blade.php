@@ -51,19 +51,19 @@
                             {{-- Enlaces a documentos si existen --}}
                             <div class="mt-2">
                                 @if($m->documento_identidad_url)
-                                    <a class="btn btn-outline-primary btn-sm me-1 preview-file" href="{{ $m->documento_identidad_url }}" data-href="{{ $m->documento_identidad_url }}">Documento de identidad</a>
+                                    <a class="btn btn-outline-primary btn-sm me-1 preview-file" href="{{ $m->documento_identidad_url }}" data-href="{{ $m->documento_identidad_url }}" data-name="{{ optional($m->user)->name }}" data-email="{{ optional($m->user)->email }}" data-phone="{{ optional($m->user)->celular }}">Documento de identidad</a>
                                 @endif
                                 @if($m->rh_url)
-                                    <a class="btn btn-outline-secondary btn-sm me-1 preview-file" href="{{ $m->rh_url }}" data-href="{{ $m->rh_url }}">RH</a>
+                                    <a class="btn btn-outline-secondary btn-sm me-1 preview-file" href="{{ $m->rh_url }}" data-href="{{ $m->rh_url }}" data-name="{{ optional($m->user)->name }}" data-email="{{ optional($m->user)->email }}" data-phone="{{ optional($m->user)->celular }}">RH</a>
                                 @endif
                                 @if($m->comprobante_pago_url)
-                                    <a class="btn btn-outline-success btn-sm me-1 preview-file" href="{{ $m->comprobante_pago_url }}" data-href="{{ $m->comprobante_pago_url }}">Comprobante pago</a>
+                                    <a class="btn btn-outline-success btn-sm me-1 preview-file" href="{{ $m->comprobante_pago_url }}" data-href="{{ $m->comprobante_pago_url }}" data-name="{{ optional($m->user)->name }}" data-email="{{ optional($m->user)->email }}" data-phone="{{ optional($m->user)->celular }}">Comprobante pago</a>
                                 @endif
                                 @if($m->certificado_medico_url)
-                                    <a class="btn btn-outline-info btn-sm me-1 preview-file" href="{{ $m->certificado_medico_url }}" data-href="{{ $m->certificado_medico_url }}">Certificado médico</a>
+                                    <a class="btn btn-outline-info btn-sm me-1 preview-file" href="{{ $m->certificado_medico_url }}" data-href="{{ $m->certificado_medico_url }}" data-name="{{ optional($m->user)->name }}" data-email="{{ optional($m->user)->email }}" data-phone="{{ optional($m->user)->celular }}">Certificado médico</a>
                                 @endif
                                 @if($m->certificado_notas_url)
-                                    <a class="btn btn-outline-warning btn-sm me-1" href="{{ $m->certificado_notas_url }}" target="_blank">Registro de notas</a>
+                                    <a class="btn btn-outline-warning btn-sm me-1 preview-file" href="{{ $m->certificado_notas_url }}" data-href="{{ $m->certificado_notas_url }}" data-name="{{ optional($m->user)->name }}" data-email="{{ optional($m->user)->email }}" data-phone="{{ optional($m->user)->celular }}">Registro de notas</a>
                                 @endif
                             </div>
                         </div>

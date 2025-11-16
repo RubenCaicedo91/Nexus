@@ -492,16 +492,42 @@ class MatriculaController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $roleName = optional(Auth::user()->role)->nombre;
+        $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+
+        $rules = [
             'user_id' => 'required|exists:users,id',
+            'tipo_usuario' => 'required|in:nuevo,antiguo',
             'fecha_matricula' => 'required|date',
-            // 'estado' ahora se calcula automáticamente en el modelo
             'documento_identidad' => 'nullable|file|max:20480',
             'rh' => 'nullable|file|max:20480',
             'comprobante_pago' => 'nullable|file|max:20480',
             'certificado_medico' => 'nullable|file|max:20480',
-            'certificado_notas' => 'nullable|file|max:20480',
-        ]);
+            'certificado_notas' => 'required_if:tipo_usuario,antiguo|file|max:20480',
+        ];
+
+        if (in_array($roleName, $allowedRoles)) {
+            $rules['estado'] = 'nullable|in:activo,inactivo,completado,suspendido,falta de documentacion';
+        }
+
+        $request->validate($rules);
+
+        // Validación adicional para UPDATE: si el tipo de usuario es 'antiguo'
+        // y no existe certificado_notas en la DB y no se está subiendo uno nuevo,
+        // devolver error para forzar la carga del certificado.
+        if ($request->isMethod('post') === false) {
+            $tipo = $request->input('tipo_usuario');
+            if ($tipo === 'antiguo') {
+                $willDelete = $request->has('delete_certificado_notas');
+                $hasExisting = !empty($matricula->certificado_notas);
+                $isUploading = $request->hasFile('certificado_notas');
+
+                if (($willDelete && !$isUploading) || (!$hasExisting && !$isUploading)) {
+                    return back()->withErrors(['certificado_notas' => 'El certificado de notas es obligatorio para usuarios antiguos.'])
+                                 ->withInput();
+                }
+            }
+        }
 
         $userId = (int) $request->user_id;
         $tipo_usuario = $request->input('tipo_usuario');
@@ -536,6 +562,10 @@ class MatriculaController extends Controller
         $matricula->comprobante_pago = $rutas['comprobante_pago'] ?? null;
         $matricula->certificado_medico = $rutas['certificado_medico'] ?? null;
         $matricula->certificado_notas = $rutas['certificado_notas'] ?? null;
+        // Permitir que solo roles autorizados establezcan manualmente el estado
+        if (in_array($roleName, $allowedRoles) && $request->filled('estado')) {
+            $matricula->estado = $request->input('estado');
+        }
         $matricula->save();
 
         return redirect()->route('matriculas.index')->with('success', 'Matrícula creada correctamente.');
@@ -588,16 +618,24 @@ class MatriculaController extends Controller
     {
         $matricula = Matricula::findOrFail($id);
 
-        $request->validate([
+        $roleName = optional(Auth::user()->role)->nombre;
+        $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+
+        $rules = [
             'user_id' => 'required|exists:users,id',
             'fecha_matricula' => 'required|date',
-            // 'estado' ahora se calcula automáticamente en el modelo
             'documento_identidad' => 'nullable|file|max:20480',
             'rh' => 'nullable|file|max:20480',
             'comprobante_pago' => 'nullable|file|max:20480',
             'certificado_medico' => 'nullable|file|max:20480',
             'certificado_notas' => 'nullable|file|max:20480',
-        ]);
+        ];
+
+        if (in_array($roleName, $allowedRoles)) {
+            $rules['estado'] = 'nullable|in:activo,inactivo,completado,suspendido,falta de documentacion';
+        }
+
+        $request->validate($rules);
 
         $documentos = [
             'documento_identidad',
@@ -643,6 +681,11 @@ class MatriculaController extends Controller
         $matricula->user_id = $request->user_id;
         $matricula->fecha_matricula = $request->fecha_matricula;
         $matricula->tipo_usuario = $request->tipo_usuario;
+
+        // Solo roles autorizados pueden cambiar el estado manualmente
+        if (in_array($roleName, $allowedRoles) && $request->filled('estado')) {
+            $matricula->estado = $request->input('estado');
+        }
 
         $matricula->save();
 
@@ -757,6 +800,30 @@ class MatriculaController extends Controller
             'basename' => $basename
         ]);
         abort(404);
+    }
+
+    /**
+     * Validar o anular la validación del pago (solo tesorero).
+     */
+    public function validarPago(Request $request, Matricula $matricula)
+    {
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre;
+
+        // Aceptar varias variantes del nombre de rol 'tesorero'
+        $allowed = ['tesorero', 'Tesorero', 'tesorero '];
+        if (! $user || ! in_array($roleName, $allowed, true)) {
+            abort(403, 'Acción no autorizada');
+        }
+
+        $action = $request->input('validar') ? true : false;
+
+        $matricula->pago_validado = (bool) $action;
+        $matricula->pago_validado_por = $action ? $user->id : null;
+        $matricula->pago_validado_at = $action ? now() : null;
+        $matricula->save();
+
+        return redirect()->back()->with('success', $action ? 'Pago validado por Tesorería.' : 'Validación de pago anulada.');
     }
 
     /**

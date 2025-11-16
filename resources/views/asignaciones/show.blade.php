@@ -121,7 +121,7 @@
                         <div class="card-header bg-light">
                             <h5 class="mb-0">
                                 <i class="fas fa-file-alt me-2"></i>Estado de Documentos
-                                @if($asignacion->documentos_completos)
+                                @if($asignacion->tieneDocumentosCompletos())
                                     <span class="badge bg-success ms-2">Completos</span>
                                 @else
                                     <span class="badge bg-danger ms-2">Incompletos</span>
@@ -166,7 +166,7 @@
                                 @endforeach
                             </div>
 
-                            @if(!$asignacion->documentos_completos)
+                            @if(!$asignacion->tieneDocumentosCompletos())
                                 <div class="alert alert-warning mt-3">
                                     <i class="fas fa-exclamation-triangle me-2"></i>
                                     <strong>Atención:</strong> Esta asignación no puede ser activada hasta que todos los documentos estén completos.
