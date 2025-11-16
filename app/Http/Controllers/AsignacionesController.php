@@ -286,6 +286,31 @@ class AsignacionesController extends Controller
     }
 
     /**
+     * Devuelve la última matrícula de un estudiante (si existe) con información de curso.
+     */
+    public function getLatestMatricula($userId)
+    {
+        $matricula = Matricula::with('curso')
+                        ->where('user_id', $userId)
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+
+        if (! $matricula) {
+            return response()->json(null, 204);
+        }
+
+        return response()->json([
+            'id' => $matricula->id,
+            'curso_id' => $matricula->curso_id,
+            'curso_asignado_nombre' => $matricula->curso->nombre ?? null,
+            // curso_seleccionado es la preferencia guardada al crear la matrícula (curso_nombre)
+            'curso_seleccionado' => $matricula->curso_nombre ?? null,
+            'fecha_matricula' => $matricula->fecha_matricula,
+            'estado' => $matricula->estado,
+        ]);
+    }
+
+    /**
      * Get course schedule as JSON
      */
     public function getCourseSchedule($cursoId)

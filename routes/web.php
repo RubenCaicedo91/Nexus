@@ -258,6 +258,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Rutas para administrar matrículas
     Route::resource('matriculas', MatriculaController::class);
+    // Endpoint JSON para obtener cursos por nombre base (usado por formulario de matrículas)
+    Route::get('matriculas/json/cursos-por-base/{base}', [MatriculaController::class, 'cursosPorBase'])->name('matriculas.json.cursos_por_base');
     // Servir archivos de matrículas (visualización/descarga) desde el disco configurado
     Route::get('matriculas/{matricula}/archivo/{campo}', [MatriculaController::class, 'archivo'])
         ->name('matriculas.archivo');
@@ -314,6 +316,7 @@ Route::middleware(['auth'])->group(function () {
         
         // Endpoints JSON para AJAX
         Route::get('/json/lista', [\App\Http\Controllers\AsignacionesController::class, 'getAsignacionesJson'])->name('json');
+        Route::get('/json/ultima-matricula/{userId}', [\App\Http\Controllers\AsignacionesController::class, 'getLatestMatricula'])->name('json.ultima_matricula');
         Route::get('/json/curso/{cursoId}/horarios', [\App\Http\Controllers\AsignacionesController::class, 'getCourseSchedule'])->name('curso.horarios');
         Route::get('/json/curso/{cursoId}/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'getStudentsByCourse'])->name('curso.estudiantes');
         Route::get('/json/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'searchStudents'])->name('json.estudiantes');

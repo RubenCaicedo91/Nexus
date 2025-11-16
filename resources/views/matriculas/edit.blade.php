@@ -103,6 +103,24 @@
                             <label class="form-label"><strong>Fecha de Matrícula:</strong></label>
                             <input type="date" name="fecha_matricula" value="{{ $matricula->fecha_matricula }}" class="form-control" placeholder="Fecha de Matrícula">
                         </div>
+                        @if(isset($baseCursos) && count($baseCursos) > 0)
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Curso (base):</strong></label>
+                            <select name="curso_nombre" class="form-control" id="curso_nombre_select">
+                                <option value="">-- Seleccionar curso --</option>
+                                @foreach($baseCursos as $c)
+                                    <option value="{{ $c }}" @if(isset($currentCursoBase) && $currentCursoBase == $c) selected @endif>{{ $c }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Seleccione (o revise) el curso base asignado.</div>
+                            <div id="cursos_lista_info" class="mt-2"></div>
+                        </div>
+                        @elseif(isset($matricula->curso) && !empty($matricula->curso->nombre))
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Curso asignado:</strong></label>
+                            <div class="form-control-plaintext">{{ $matricula->curso->nombre }}</div>
+                        </div>
+                        @endif
                         @php
                             $roleName = optional(Auth::user()->role)->nombre;
                             $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
@@ -210,6 +228,40 @@
         }
         tipoUsuario.addEventListener('change', toggleNotas);
         toggleNotas();
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const cursosPorBaseTemplate = '/matriculas/json/cursos-por-base/__BASE__';
+        const cursoSelect = document.getElementById('curso_nombre_select');
+        const cursosLista = document.getElementById('cursos_lista_info');
+
+        async function fetchCursosPorBase(base) {
+            if (!base) { cursosLista.innerHTML = ''; return; }
+            const url = cursosPorBaseTemplate.replace('__BASE__', encodeURIComponent(base));
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Error al obtener cursos');
+                const data = await res.json();
+                if (!data || data.length === 0) {
+                    cursosLista.innerHTML = '<div class="text-muted small">No hay grupos creados para este nivel.</div>';
+                    return;
+                }
+                const badges = data.map(c => '<span class="badge bg-info me-1 mb-1">' + c.nombre + '</span>').join('');
+                cursosLista.innerHTML = '<div class="small"><strong>Grupos disponibles:</strong></div><div class="mt-1">' + badges + '</div>' +
+                    '<div class="form-text text-muted mt-1">Esto es solo informativo; la asignación real se realiza desde el módulo de Asignaciones.</div>';
+            } catch (err) {
+                console.error(err);
+                cursosLista.innerHTML = '<div class="text-danger">No se pudieron cargar los cursos informativos.</div>';
+            }
+        }
+
+        if (cursoSelect) {
+            cursoSelect.addEventListener('change', function() {
+                fetchCursosPorBase(this.value);
+            });
+            if (cursoSelect.value) fetchCursosPorBase(cursoSelect.value);
+        }
     });
 </script>
 @endpush

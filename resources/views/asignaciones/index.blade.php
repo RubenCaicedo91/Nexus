@@ -91,7 +91,14 @@
                                             <small class="text-muted">{{ $asignacion->user->email }}</small>
                                         </td>
                                         <td>
-                                            <span class="badge bg-info">{{ $asignacion->curso->nombre ?? 'Sin asignar' }}</span>
+                                            @if(!empty($asignacion->curso))
+                                                <span class="badge bg-info">{{ $asignacion->curso->nombre }}</span>
+                                            @else
+                                                <span class="badge bg-info">Sin asignar</span>
+                                                @if(!empty($asignacion->curso_nombre))
+                                                    <span class="badge bg-secondary ms-2">Matriculado: {{ $asignacion->curso_nombre }}</span>
+                                                @endif
+                                            @endif
                                         </td>
                                         <td>{{ \Carbon\Carbon::parse($asignacion->fecha_matricula)->format('d/m/Y') }}</td>
                                         <td>
@@ -116,7 +123,7 @@
                                             @endswitch
                                         </td>
                                         <td>
-                                            @if($asignacion->documentos_completos)
+                                            @if(method_exists($asignacion, 'tieneDocumentosCompletos') ? $asignacion->tieneDocumentosCompletos() : ($asignacion->documentos_completos ?? false))
                                                 <span class="badge bg-success">
                                                     <i class="fas fa-check me-1"></i>Completos
                                                 </span>

@@ -64,6 +64,7 @@
                                 @endforeach
                             </select>
                             <div class="form-text">Seleccione el curso a matricular.</div>
+                            <div id="cursos_lista_info" class="mt-2"></div>
                         </div>
                         @endif
 
@@ -157,6 +158,10 @@
 
         const searchUrl = '{{ route("matriculas.create") }}';
 
+        // URL template para obtener cursos por base
+        // Plantilla de URL (usar __BASE__ como placeholder)
+        const cursosPorBaseTemplate = '/matriculas/json/cursos-por-base/__BASE__';
+
         function renderResults(list) {
             resultsBox.innerHTML = '';
             if (!list || list.length === 0) {
@@ -224,6 +229,41 @@
                     searchInput.focus();
                 }
             });
+        }
+
+        // Mostrar lista informativa de cursos según la base seleccionada (no asigna nada)
+        const cursosLista = document.getElementById('cursos_lista_info');
+        const cursoSelect = document.getElementById('curso_nombre_select');
+        async function fetchCursosPorBase(base) {
+            if (!base) {
+                cursosLista.innerHTML = '';
+                return;
+            }
+            const url = cursosPorBaseTemplate.replace('__BASE__', encodeURIComponent(base));
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Error al obtener cursos');
+                const data = await res.json();
+                if (!data || data.length === 0) {
+                    cursosLista.innerHTML = '<div class="text-muted small">No hay grupos creados para este nivel.</div>';
+                    return;
+                }
+                // Mostrar como badges informativos
+                const badges = data.map(c => '<span class="badge bg-outline-primary me-1 mb-1">' + c.nombre + '</span>').join('');
+                cursosLista.innerHTML = '<div class="small"><strong>Grupos disponibles:</strong></div><div class="mt-1">' + badges + '</div>' +
+                    '<div class="form-text text-muted mt-1">Esto es solo informativo; la asignación real se realiza depues de validar información y pago.</div>';
+            } catch (err) {
+                console.error(err);
+                cursosLista.innerHTML = '<div class="text-danger">No se pudieron cargar los cursos informativos.</div>';
+            }
+        }
+
+        if (cursoSelect) {
+            cursoSelect.addEventListener('change', function() {
+                fetchCursosPorBase(this.value);
+            });
+            // Si hay uno seleccionado al cargar, pedir la lista
+            if (cursoSelect.value) fetchCursosPorBase(cursoSelect.value);
         }
     });
 </script>

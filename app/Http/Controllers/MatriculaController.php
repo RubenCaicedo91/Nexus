@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 class MatriculaController extends Controller
 {
@@ -579,6 +580,16 @@ class MatriculaController extends Controller
         $matricula->user_id = $userId;
         $matricula->fecha_matricula = $request->fecha_matricula;
         $matricula->tipo_usuario = $tipo_usuario ?? null;
+        // Guardar el nombre base del curso seleccionado en la matrícula (informativo)
+        // Sólo hacerlo si la columna existe en la base de datos (migración no aplicada aún evita error)
+        try {
+            if (Schema::hasColumn('matriculas', 'curso_nombre')) {
+                $matricula->curso_nombre = $request->input('curso_nombre') ?: null;
+            }
+        } catch (\Throwable $e) {
+            // Si por alguna razón no se puede comprobar el esquema, omitimos el campo para evitar excepción
+            logger()->warning('No se pudo comprobar columna curso_nombre al crear matrícula: ' . $e->getMessage());
+        }
         $matricula->documento_identidad = $rutas['documento_identidad'] ?? null;
         $matricula->rh = $rutas['rh'] ?? null;
         $matricula->comprobante_pago = $rutas['comprobante_pago'] ?? null;
@@ -590,6 +601,11 @@ class MatriculaController extends Controller
         }
         $matricula->save();
 
+        // Nota: no se asigna automáticamente `curso_id` aquí.
+        // La selección de curso en el formulario de matrícula sirve solo
+        // para mostrar una preferencia/base; la asignación real se debe
+        // realizar desde el módulo de Asignaciones.
+
         return redirect()->route('matriculas.index')->with('success', 'Matrícula creada correctamente.');
     }
     /**
@@ -598,6 +614,21 @@ class MatriculaController extends Controller
     public function show(Matricula $matricula)
     {
         return view('matriculas.show', compact('matricula'));
+    }
+
+    /**
+     * Devuelve los cursos existentes que coinciden con una base (ej: "Primero" -> "Primero A", "Primero B").
+     * Usado por AJAX en el formulario de matrícula para mostrar las opciones informativas.
+     */
+    public function cursosPorBase($base)
+    {
+        $base = trim(urldecode($base));
+        $items = \App\Models\Curso::where('nombre', 'LIKE', $base . ' %')
+            ->orWhere('nombre', $base)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
+
+        return response()->json($items);
     }
 
     /**
@@ -630,7 +661,33 @@ class MatriculaController extends Controller
             $students = collect();
         }
 
-        return view('matriculas.edit', compact('matricula', 'students'));
+        // También enviar las bases de curso (mismo criterio que en create)
+        $rawCursos = \App\Models\Curso::orderBy('nombre')->pluck('nombre');
+        $baseCursos = [];
+        foreach ($rawCursos as $nombre) {
+            if (preg_match('/^(.*?)[\s\-\(\[]+([A-Za-zÁÉÍÓÚÑáéíóúñ])$/u', trim($nombre), $m)) {
+                $base = trim($m[1]);
+                if ($base === '') {
+                    $base = $nombre;
+                }
+                if (!in_array($base, $baseCursos, true)) {
+                    $baseCursos[] = $base;
+                }
+            }
+        }
+
+        // Calcular la base del curso actual de la matrícula (si existe)
+        $currentCursoBase = null;
+        if ($matricula->curso && !empty($matricula->curso->nombre)) {
+            $nombre = $matricula->curso->nombre;
+            if (preg_match('/^(.*?)[\s\-\(\[]+([A-Za-zÁÉÍÓÚÑáéíóúñ])$/u', trim($nombre), $m)) {
+                $currentCursoBase = trim($m[1]);
+            } else {
+                $currentCursoBase = $nombre;
+            }
+        }
+
+        return view('matriculas.edit', compact('matricula', 'students', 'baseCursos', 'currentCursoBase'));
     }
 
     /**
@@ -703,6 +760,14 @@ class MatriculaController extends Controller
         $matricula->user_id = $request->user_id;
         $matricula->fecha_matricula = $request->fecha_matricula;
         $matricula->tipo_usuario = $request->tipo_usuario;
+        // Mantener la preferencia/base del curso originalmente seleccionada
+        try {
+            if (Schema::hasColumn('matriculas', 'curso_nombre')) {
+                $matricula->curso_nombre = $request->input('curso_nombre') ?: $matricula->curso_nombre;
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('No se pudo comprobar columna curso_nombre al actualizar matrícula: ' . $e->getMessage());
+        }
 
         // Solo roles autorizados pueden cambiar el estado manualmente
         if (in_array($roleName, $allowedRoles) && $request->filled('estado')) {
@@ -710,6 +775,9 @@ class MatriculaController extends Controller
         }
 
         $matricula->save();
+
+        // Nota: no se asigna automáticamente `curso_id` en la actualización.
+        // La asignación se realiza desde el módulo de Asignaciones cuando corresponda.
 
         // Si borramos al menos un archivo, permanecer en la misma página de edición
         if ($deletedAny) {
