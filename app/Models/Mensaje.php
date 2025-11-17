@@ -16,6 +16,8 @@ class Mensaje extends Model
         'contenido',
         'leido',
         'parent_id',
+        'deleted_by_remitente',
+        'deleted_by_destinatario',
     ];
 
     // Relaciones

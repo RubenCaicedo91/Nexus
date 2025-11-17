@@ -21,9 +21,13 @@ class ComunicacionController extends Controller
     {
         // Bandeja de entrada del usuario autenticado
         // Eager load remitente para mostrar nombre en la vista
-        $mensajes = Mensaje::where('destinatario_id', Auth::id())->with('remitente')->latest()->get();
+        $mensajes = Mensaje::where('destinatario_id', Auth::id())
+            ->where(function($q){ $q->whereNull('deleted_by_destinatario')->orWhere('deleted_by_destinatario', false); })
+            ->with('remitente')->latest()->get();
         // Mensajes enviados por el usuario (para mostrar en el mismo panel)
-        $mensajesEnviados = Mensaje::where('remitente_id', Auth::id())->with('destinatario')->latest()->get();
+        $mensajesEnviados = Mensaje::where('remitente_id', Auth::id())
+            ->where(function($q){ $q->whereNull('deleted_by_remitente')->orWhere('deleted_by_remitente', false); })
+            ->with('destinatario')->latest()->get();
         // Cargar roles para el formulario de envío (grupos)
         $roles = \App\Models\RolesModel::orderBy('nombre')->get();
         // Cargar lista inicial de usuarios (limitada) para evitar error en la vista
@@ -86,7 +90,9 @@ class ComunicacionController extends Controller
     // Listar mensajes enviados por el remitente autenticado
     public function listarMensajesEnviados()
     {
-        $mensajes = Mensaje::where('remitente_id', Auth::id())->with('destinatario')->latest()->get();
+        $mensajes = Mensaje::where('remitente_id', Auth::id())
+            ->where(function($q){ $q->whereNull('deleted_by_remitente')->orWhere('deleted_by_remitente', false); })
+            ->with('destinatario')->latest()->get();
         $roles = \App\Models\RolesModel::orderBy('nombre')->get();
         return view('comunicacion.mensajes.enviados', compact('mensajes', 'roles'));
     }
@@ -98,6 +104,14 @@ class ComunicacionController extends Controller
         $userId = Auth::id();
         if ($mensaje->remitente_id !== $userId && $mensaje->destinatario_id !== $userId) {
             abort(403, 'No autorizado');
+        }
+
+        // Si el mensaje fue eliminado para este usuario, no permitir verlo
+        if ($mensaje->remitente_id === $userId && ($mensaje->deleted_by_remitente ?? false)) {
+            abort(404);
+        }
+        if ($mensaje->destinatario_id === $userId && ($mensaje->deleted_by_destinatario ?? false)) {
+            abort(404);
         }
 
         // Si quien ve es el destinatario y no está leído, marcar como leído
@@ -112,8 +126,15 @@ class ComunicacionController extends Controller
         if ($request->wantsJson() || $request->ajax()) {
             // Construir hilo: determinar root y recuperar todos los mensajes del hilo (root + replies)
             $rootId = $mensaje->parent_id ?: $mensaje->id;
+            // Recuperar sólo los mensajes del hilo que no hayan sido eliminados para el usuario actual
             $thread = Mensaje::where(function($q) use ($rootId) {
                 $q->where('id', $rootId)->orWhere('parent_id', $rootId);
+            })->where(function($q) use ($userId) {
+                $q->where(function($s) use ($userId){
+                    $s->where('remitente_id', $userId)->where(function($x){ $x->whereNull('deleted_by_remitente')->orWhere('deleted_by_remitente', false); });
+                })->orWhere(function($s) use ($userId){
+                    $s->where('destinatario_id', $userId)->where(function($x){ $x->whereNull('deleted_by_destinatario')->orWhere('deleted_by_destinatario', false); });
+                });
             })->with(['remitente', 'destinatario'])->orderBy('created_at', 'asc')->get();
 
             $threadData = $thread->map(function($m){
@@ -217,7 +238,7 @@ class ComunicacionController extends Controller
     {
         $mensaje = Mensaje::findOrFail($id);
         $userId = Auth::id();
-        // Permitir eliminar si es remitente o destinatario (borrado físico)
+        // Permitir "eliminar" si es remitente o destinatario; el borrado será lógico por usuario
         if ($mensaje->remitente_id !== $userId && $mensaje->destinatario_id !== $userId) {
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json(['error' => 'No autorizado'], 403);
@@ -225,13 +246,26 @@ class ComunicacionController extends Controller
             return back()->with('error', 'No autorizado');
         }
 
-        $mensaje->delete();
+        // Marcar la bandera correspondiente
+        if ($mensaje->remitente_id === $userId) {
+            $mensaje->deleted_by_remitente = true;
+        }
+        if ($mensaje->destinatario_id === $userId) {
+            $mensaje->deleted_by_destinatario = true;
+        }
+
+        // Si ambos borraron, eliminar físicamente
+        if (($mensaje->deleted_by_remitente ?? false) && ($mensaje->deleted_by_destinatario ?? false)) {
+            $mensaje->delete();
+        } else {
+            $mensaje->save();
+        }
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['message' => 'Mensaje eliminado'], 200);
         }
 
-        return redirect()->route('comunicacion.mensajes.enviados')->with('success', 'Mensaje eliminado');
+        return redirect()->route('comunicacion.mensajes')->with('success', 'Mensaje eliminado');
     }
 
     // ---------------- Notificaciones ----------------
