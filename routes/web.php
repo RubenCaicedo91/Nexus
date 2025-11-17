@@ -461,8 +461,12 @@ Route::middleware('auth')->group(function () {
 
     // Circulares
         Route::get('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'listarCirculares'])->name('circulares');
+        // Adapter: servir un archivo de circular por su nombre (basename) usando el mismo disco que Matrículas
+        Route::get('/circulares/file/{filename}', [\App\Http\Controllers\ComunicacionController::class, 'archivoPorNombre'])->name('circulares.file');
         Route::get('/circulares/crear', [\App\Http\Controllers\ComunicacionController::class, 'crearCircular'])->name('circulares.create');
         Route::post('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'guardarCircular'])->name('circulares.store');
+        Route::post('/circulares/{id}/eliminar', [\App\Http\Controllers\ComunicacionController::class, 'eliminarCircular'])->name('circulares.eliminar');
+        Route::get('/circulares/{id}/archivo', [\App\Http\Controllers\ComunicacionController::class, 'archivoCircular'])->name('circulares.archivo');
 });
 
 });

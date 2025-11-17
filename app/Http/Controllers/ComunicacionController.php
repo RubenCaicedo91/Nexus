@@ -21,9 +21,141 @@ class ComunicacionController extends Controller
     }
 
     /**
-     * Mostrar las respuestas (mensajes) asociadas a un grupo de notificaciones (group_key).
-     * Solo puede acceder el creador del grupo o usuarios con roles administrativos.
+     * Servir (visualizar/descargar inline) el archivo asociado a una circular.
      */
+    public function archivoCircular(Request $request, $id)
+    {
+        $circ = Circular::findOrFail($id);
+        if (! $circ->archivo) abort(404);
+
+        $disk = \Illuminate\Support\Facades\Storage::disk('ftp_matriculas');
+        $path = $circ->archivo;
+
+        // Si la ruta exacta existe, servirla
+        try {
+            if ($disk->exists($path)) {
+                return $this->serveFileFromDisk($disk, $path);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('archivoCircular: error comprobando existencia en ftp_matriculas: ' . $e->getMessage());
+        }
+
+        // Fallback: buscar por basename en la raíz
+        $basename = basename($path);
+        try {
+            $all = $disk->allFiles('');
+            $found = null;
+            foreach ($all as $candidate) {
+                if (strtolower(basename($candidate)) === strtolower($basename)) { $found = $candidate; break; }
+            }
+            if ($found) {
+                return $this->serveFileFromDisk($disk, $found);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('archivoCircular: error buscando archivo en ftp_matriculas: ' . $e->getMessage());
+        }
+
+        // Si no se encontró, intentar servir desde disco public (fallback)
+        try {
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+                $content = \Illuminate\Support\Facades\Storage::disk('public')->get($path);
+                $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($path) ?? 'application/octet-stream';
+                return response($content, 200, ['Content-Type' => $mime, 'Content-Disposition' => 'inline; filename="' . basename($path) . '"']);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('archivoCircular: fallback public failed: ' . $e->getMessage());
+        }
+
+        abort(404);
+    }
+
+    /**
+     * Adapter: servir un archivo por su nombre (basename) reutilizando el disco
+     * que usa Matrículas (`ftp_matriculas`). Esta ruta acepta únicamente el
+     * nombre del archivo y busca en la raíz y en la carpeta 'estudiante'.
+     */
+    public function archivoPorNombre(Request $request, $filename)
+    {
+        $basename = basename($filename);
+        $disk = \Illuminate\Support\Facades\Storage::disk('ftp_matriculas');
+
+        try {
+            $all = [];
+            try { $all = $disk->allFiles(''); } catch (\Throwable $e) { $all = []; }
+            try { $all = array_merge($all, $disk->allFiles('estudiante')); } catch (\Throwable $e) { /* ignore */ }
+
+            $found = null;
+            foreach ($all as $candidate) {
+                if (strtolower(basename($candidate)) === strtolower($basename)) {
+                    $found = $candidate;
+                    break;
+                }
+            }
+
+            if ($found) {
+                return $this->serveFileFromDisk($disk, $found);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('archivoPorNombre: error buscando en ftp_matriculas: ' . $e->getMessage());
+        }
+
+        // Fallback: buscar en disco 'public' bajo la carpeta 'circulares'
+        try {
+            $publicPath = 'circulares/' . $basename;
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($publicPath)) {
+                $content = \Illuminate\Support\Facades\Storage::disk('public')->get($publicPath);
+                $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($publicPath) ?? 'application/octet-stream';
+                return response($content, 200, ['Content-Type' => $mime, 'Content-Disposition' => 'inline; filename="' . $basename . '"']);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('archivoPorNombre: fallback public failed: ' . $e->getMessage());
+        }
+
+        abort(404);
+    }
+
+    private function serveFileFromDisk($disk, string $path)
+    {
+        $filename = basename($path);
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mimeTypes = ['pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png'];
+        $mime = $mimeTypes[$ext] ?? 'application/octet-stream';
+
+        try {
+            $stream = $disk->readStream($path);
+            if ($stream) {
+                $headers = ['Content-Type' => $mime, 'Content-Disposition' => 'inline; filename="' . $filename . '"', 'Cache-Control' => 'private, max-age=0, no-cache'];
+                return response()->stream(function () use ($stream) { fpassthru($stream); if (is_resource($stream)) @fclose($stream); }, 200, $headers);
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('serveFileFromDisk: readStream failed: ' . $e->getMessage());
+        }
+
+        try {
+            $content = $disk->get($path);
+            $headers = ['Content-Type' => $mime, 'Content-Disposition' => 'inline; filename="' . $filename . '"', 'Cache-Control' => 'private, max-age=0, no-cache'];
+            return response($content, 200, $headers);
+        } catch (\Throwable $e) {
+            logger()->error('serveFileFromDisk: fallback get failed: ' . $e->getMessage());
+        }
+
+        abort(500, 'No se pudo leer el archivo desde el almacenamiento.');
+    }
+
+    /**
+     * Mostrar las respuestas (mensajes) asociadas a un grupo de notificaciones (group_key).
+                // Guardar en el mismo disco/ruta que usa el módulo de Matrícula
+                try {
+                    $disk = \Illuminate\Support\Facades\Storage::disk('ftp_matriculas');
+                    // Guardar en la raíz del disco (misma estrategia que comprobantes)
+                    $stored = $disk->putFileAs('', $file, $filename);
+                    $circular->archivo = $stored === false ? $filename : $stored;
+                } catch (\Throwable $e) {
+                    // Fallback: intentar guardar en disco 'public'
+                    logger()->warning('guardarCircular: fallo guardando en ftp_matriculas, fallback a public: ' . $e->getMessage());
+                    $path = $file->storeAs('circulares', $filename, 'public');
+                    $circular->archivo = $path;
+                }
     public function mostrarRespuestasGrupo(Request $request, $groupKey)
     {
         $user = Auth::user();
@@ -428,17 +560,22 @@ class ComunicacionController extends Controller
 
         $canReply = false;
         if ((int)$notif->usuario_id === (int)$user->id) {
-            $roleName = optional($user->role)->nombre ?? '';
-            $isAcudiente = stripos($roleName, 'acudiente') !== false;
-
-            // Si es notificación de pago de matrícula, los acudientes NO pueden responder
-            if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
+            // Si la notificación está marcada como solo lectura, no permitir respuesta
+            if (! empty($notif->solo_lectura)) {
                 $canReply = false;
             } else {
-                if (! $notif->solo_acudiente_responde) {
-                    $canReply = true;
+                $roleName = optional($user->role)->nombre ?? '';
+                $isAcudiente = stripos($roleName, 'acudiente') !== false;
+
+                // Si es notificación de pago de matrícula, los acudientes NO pueden responder
+                if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
+                    $canReply = false;
                 } else {
-                    if ($isAcudiente) $canReply = true;
+                    if (! $notif->solo_acudiente_responde) {
+                        $canReply = true;
+                    } else {
+                        if ($isAcudiente) $canReply = true;
+                    }
                 }
             }
         }
@@ -474,6 +611,10 @@ class ComunicacionController extends Controller
         // Si la notificación es de pago de matrícula, y quien intenta abrir es un acudiente, no permitir
         $roleName = optional($user->role)->nombre ?? '';
         $isAcudiente = stripos($roleName, 'acudiente') !== false;
+        if (! empty($notif->solo_lectura)) {
+            abort(403, 'Esta notificación no acepta respuestas');
+        }
+
         if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
             abort(403, 'Esta notificación no acepta respuestas');
         }
@@ -502,6 +643,10 @@ class ComunicacionController extends Controller
         // Si la notificación es de pago y quien intenta enviar es un acudiente, no aceptar
         $roleName = optional($user->role)->nombre ?? '';
         $isAcudiente = stripos($roleName, 'acudiente') !== false;
+        if (! empty($notif->solo_lectura)) {
+            abort(403, 'Esta notificación no acepta respuestas');
+        }
+
         if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
             abort(403, 'Esta notificación no acepta respuestas');
         }
@@ -668,11 +813,59 @@ class ComunicacionController extends Controller
         $circulares = Circular::latest()->get();
         // Pasar roles para el formulario de envío (grupos)
         $roles = \App\Models\RolesModel::orderBy('nombre')->get();
-        return view('comunicacion.circulares.index', compact('circulares', 'roles'));
+        // identificar id del rol Estudiante para comportamiento especial en la vista
+        $rolEstudiante = \App\Models\RolesModel::where('nombre', 'Estudiante')->first();
+        $estudianteRoleId = $rolEstudiante ? $rolEstudiante->id : null;
+        // cargar cursos (se usan sólo cuando rol Estudiante está seleccionado)
+        $cursos = Curso::orderBy('nombre')->get();
+
+        $user = Auth::user();
+        // determinar si el usuario puede enviar circulares (palabras clave en el nombre del rol)
+        $canSend = false;
+        if ($user) {
+            $roleName = optional($user->role)->nombre ?? '';
+            $roleLower = mb_strtolower($roleName);
+            $allowedKeywords = ['rector','administrador','coordinador','tesorero'];
+            foreach ($allowedKeywords as $k) { if (mb_stripos($roleLower, $k) !== false) { $canSend = true; break; } }
+        }
+
+        $myCirculares = collect();
+        $othersCirculares = collect();
+        // Evitar consultas si la columna creador_id no existe (migraciones no ejecutadas)
+        if ($canSend && $user && \Illuminate\Support\Facades\Schema::hasColumn('circulars', 'creador_id')) {
+            $myCirculares = Circular::where('creador_id', $user->id)->orderByDesc('created_at')->get();
+            // circulares creadas por otros usuarios que también pueden enviar
+            $allowedUsers = \App\Models\User::whereHas('role', function($q) use ($allowedKeywords){
+                foreach ($allowedKeywords as $k) {
+                    $q->orWhere('nombre', 'like', "%{$k}%");
+                }
+            })->pluck('id')->all();
+
+            $othersCirculares = Circular::whereIn('creador_id', $allowedUsers)->where('creador_id', '<>', $user->id)->orderByDesc('created_at')->get();
+        }
+
+        // determinar si el usuario puede eliminar (solo Rector y Administrador del sistema)
+        $canDelete = false;
+        if ($user) {
+            $rName = optional($user->role)->nombre ?? '';
+            $rLower = mb_strtolower($rName);
+            if (mb_stripos($rLower, 'rector') !== false || mb_stripos($rLower, 'administrador') !== false) {
+                $canDelete = true;
+            }
+        }
+
+        return view('comunicacion.circulares.index', compact('circulares', 'roles', 'estudianteRoleId', 'cursos', 'canSend', 'myCirculares', 'othersCirculares', 'canDelete'));
     }
 
     public function crearCircular()
     {
+        $user = Auth::user();
+        // sólo permitir a usuarios con roles autorizados
+        $roleName = optional($user->role)->nombre ?? '';
+        $roleLower = mb_strtolower($roleName);
+        $allowedKeywords = ['rector','administrador','coordinador','tesorero'];
+        $canSend = false; foreach ($allowedKeywords as $k) { if (mb_stripos($roleLower, $k) !== false) { $canSend = true; break; } }
+        if (! $canSend) abort(403);
         return view('comunicacion.circulares.create');
     }
 
@@ -690,49 +883,134 @@ class ComunicacionController extends Controller
             'usuarios.*' => 'integer',
         ]);
 
-        $archivo = null;
-        if ($request->hasFile('archivo')) {
-            $archivo = $request->file('archivo')->store('circulares', 'public');
+        $user = Auth::user();
+        // Validar permiso de envío
+        $roleName = optional($user->role)->nombre ?? '';
+        $roleLower = mb_strtolower($roleName);
+        $allowedKeywords = ['rector','administrador','coordinador','tesorero'];
+        $canSend = false; foreach ($allowedKeywords as $k) { if (mb_stripos($roleLower, $k) !== false) { $canSend = true; break; } }
+        if (! $canSend) {
+            return back()->with('error', 'No está autorizado para publicar circulares');
         }
 
-        $circular = Circular::create([
-            'titulo' => $request->titulo,
-            'contenido' => $request->contenido,
-            'fecha_publicacion' => $request->fecha_publicacion,
-            'archivo' => $archivo,
-        ]);
-
-        // Crear notificaciones para destinatarios según modo
-        $modo = $request->modo;
-        $destinatarios = [];
-
-        if ($modo === 'todos') {
-            $destinatarios = \App\Models\User::pluck('id')->toArray();
-        } elseif ($modo === 'rol') {
-            if ($request->filled('usuarios') && is_array($request->usuarios) && count($request->usuarios) > 0) {
-                $destinatarios = array_map('intval', $request->usuarios);
-            } else {
-                if (! $request->rol_id) {
-                    return back()->withErrors(['rol_id' => 'Seleccione un grupo para enviar'])->withInput();
-                }
-                $destinatarios = \App\Models\User::where('roles_id', $request->rol_id)->pluck('id')->toArray();
+        // Crear circular primero sin archivo para obtener id y usar secuencia numérica
+        \DB::beginTransaction();
+        try {
+            $circularData = [
+                'titulo' => $request->titulo,
+                'contenido' => $request->contenido,
+                'fecha_publicacion' => $request->fecha_publicacion,
+                'archivo' => null,
+            ];
+            // Incluir creador_id solo si la columna existe (migraciones pendientes pueden no tenerla aún)
+            if (\Illuminate\Support\Facades\Schema::hasColumn('circulars', 'creador_id')) {
+                $circularData['creador_id'] = $user->id;
             }
-        }
+            $circular = Circular::create($circularData);
 
-        foreach ($destinatarios as $destId) {
-            if ($destId == Auth::id()) continue;
-            // Crear notificación informando sobre la circular (enlace podría añadirse más adelante)
-            Notificacion::create([
-                'usuario_id' => $destId,
-                'titulo' => 'Nueva circular: ' . $circular->titulo,
-                'mensaje' => \Illuminate\Support\Str::limit($circular->contenido, 200),
-                'leida' => false,
-                'fecha' => now(),
-                'creador_id' => Auth::id(),
-                'solo_acudiente_responde' => false,
-            ]);
+            // manejar archivo si existe: intentar subir primero al disco ftp_matriculas (raíz),
+            // y si falla hacer fallback a disco 'public' bajo 'circulares/'.
+            if ($request->hasFile('archivo')) {
+                $file = $request->file('archivo');
+                $ext = $file->getClientOriginalExtension();
+                $seq = str_pad($circular->id, 4, '0', STR_PAD_LEFT);
+                $filename = "Circular_{$seq}." . $ext;
+
+                try {
+                    $disk = \Illuminate\Support\Facades\Storage::disk('ftp_matriculas');
+                    // Intentar escribir en la raíz del disco FTP (misma estrategia que comprobantes)
+                    $stored = $disk->putFileAs('', $file, $filename);
+                    if ($stored === false || $stored === null) {
+                        throw new \Exception('ftp putFileAs returned false/null');
+                    }
+                    // putFileAs suele devolver la ruta relativa; en nuestro caso será el nombre del archivo
+                    $circular->archivo = is_string($stored) ? $stored : $filename;
+                    $circular->save();
+                } catch (\Throwable $e) {
+                    logger()->warning('guardarCircular: fallo guardando en ftp_matriculas, fallback a public: ' . $e->getMessage());
+                    $path = $file->storeAs('circulares', $filename, 'public');
+                    $circular->archivo = $path;
+                    $circular->save();
+                }
+            }
+
+            // Crear notificaciones para destinatarios según modo (marcarlas como solo lectura/tipo=circular)
+            $modo = $request->modo;
+            $destinatarios = [];
+
+            if ($modo === 'todos') {
+                $destinatarios = \App\Models\User::pluck('id')->toArray();
+            } elseif ($modo === 'rol') {
+                if ($request->filled('usuarios') && is_array($request->usuarios) && count($request->usuarios) > 0) {
+                    $destinatarios = array_map('intval', $request->usuarios);
+                } else {
+                    if (! $request->rol_id) {
+                        \DB::rollBack();
+                        return back()->withErrors(['rol_id' => 'Seleccione un grupo para enviar'])->withInput();
+                    }
+                    $destinatarios = \App\Models\User::where('roles_id', $request->rol_id)->pluck('id')->toArray();
+                }
+            }
+
+            foreach ($destinatarios as $destId) {
+                if ($destId == $user->id) continue;
+                Notificacion::create([
+                    'usuario_id' => $destId,
+                    'titulo' => 'Nueva circular: ' . $circular->titulo,
+                    'mensaje' => \Illuminate\Support\Str::limit($circular->contenido, 200),
+                    'leida' => false,
+                    'fecha' => now(),
+                    'creador_id' => $user->id,
+                    'solo_acudiente_responde' => false,
+                    'solo_lectura' => true,
+                    'tipo' => 'circular',
+                ]);
+            }
+
+            \DB::commit();
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return back()->with('error', 'Error al crear la circular: ' . $e->getMessage());
         }
 
         return redirect()->route('comunicacion.circulares')->with('success', 'Circular publicada y notificaciones enviadas correctamente');
+    }
+
+    /**
+     * Eliminar una circular (sólo Rector o Administrador del sistema).
+     * Elimina también el archivo almacenado en el disco `public` si existe.
+     */
+    public function eliminarCircular(Request $request, $id)
+    {
+        $user = Auth::user();
+        if (! $user) abort(401);
+
+        $roleName = optional($user->role)->nombre ?? '';
+        $roleLower = mb_strtolower($roleName);
+        $isAllowed = false;
+        if (mb_stripos($roleLower, 'rector') !== false || mb_stripos($roleLower, 'administrador') !== false) {
+            $isAllowed = true;
+        }
+
+        if (! $isAllowed) {
+            if ($request->wantsJson() || $request->ajax()) return response()->json(['error' => 'No autorizado'], 403);
+            return back()->with('error', 'No está autorizado para eliminar circulares');
+        }
+
+        $circ = Circular::findOrFail($id);
+        // borrar archivo si existe (usar mismo disco que Matrículas)
+        if (! empty($circ->archivo)) {
+            try {
+                \Illuminate\Support\Facades\Storage::disk('ftp_matriculas')->delete($circ->archivo);
+            } catch (\Throwable $e) {
+                // no impedir eliminación del registro si el archivo no se puede borrar; loguear opcionalmente
+                logger()->warning('eliminarCircular: no se pudo borrar archivo en ftp_matriculas: ' . $e->getMessage());
+            }
+        }
+
+        $circ->delete();
+
+        if ($request->wantsJson() || $request->ajax()) return response()->json(['message' => 'Circular eliminada correctamente'], 200);
+        return redirect()->route('comunicacion.circulares')->with('success', 'Circular eliminada correctamente');
     }
 }
