@@ -20,11 +20,16 @@ class ComunicacionController extends Controller
     public function listarMensajes()
     {
         // Bandeja de entrada del usuario autenticado
-        $mensajes = Mensaje::where('destinatario_id', Auth::id())->latest()->get();
+        // Eager load remitente para mostrar nombre en la vista
+        $mensajes = Mensaje::where('destinatario_id', Auth::id())->with('remitente')->latest()->get();
+        // Mensajes enviados por el usuario (para mostrar en el mismo panel)
+        $mensajesEnviados = Mensaje::where('remitente_id', Auth::id())->with('destinatario')->latest()->get();
         // Cargar roles para el formulario de envío (grupos)
         $roles = \App\Models\RolesModel::orderBy('nombre')->get();
+        // Cargar lista inicial de usuarios (limitada) para evitar error en la vista
+        $usuarios = \App\Models\User::orderBy('name')->limit(200)->get();
 
-        return view('comunicacion.mensajes.index', compact('mensajes', 'roles'));
+        return view('comunicacion.mensajes.index', compact('mensajes', 'mensajesEnviados', 'roles', 'usuarios'));
     }
 
     public function crearMensaje()
@@ -76,6 +81,157 @@ class ComunicacionController extends Controller
         }
 
         return redirect()->route('comunicacion.mensajes')->with('success', 'Mensaje(s) enviado(s) correctamente');
+    }
+
+    // Listar mensajes enviados por el remitente autenticado
+    public function listarMensajesEnviados()
+    {
+        $mensajes = Mensaje::where('remitente_id', Auth::id())->with('destinatario')->latest()->get();
+        $roles = \App\Models\RolesModel::orderBy('nombre')->get();
+        return view('comunicacion.mensajes.enviados', compact('mensajes', 'roles'));
+    }
+
+    // Mostrar detalle de un mensaje (remitente o destinatario pueden verlo)
+    public function mostrarMensaje(\Illuminate\Http\Request $request, $id)
+    {
+        $mensaje = Mensaje::with(['remitente', 'destinatario'])->findOrFail($id);
+        $userId = Auth::id();
+        if ($mensaje->remitente_id !== $userId && $mensaje->destinatario_id !== $userId) {
+            abort(403, 'No autorizado');
+        }
+
+        // Si quien ve es el destinatario y no está leído, marcar como leído
+        // Permitimos saltar el marcado automático cuando la solicitud incluye ?skip_mark=1
+        $skipMark = $request->boolean('skip_mark');
+        if ($mensaje->destinatario_id === $userId && ! $mensaje->leido && ! $skipMark) {
+            $mensaje->leido = true;
+            $mensaje->save();
+        }
+
+        // Si la petición solicita JSON (AJAX), devolver los datos como JSON para uso en modal
+        if ($request->wantsJson() || $request->ajax()) {
+            // Construir hilo: determinar root y recuperar todos los mensajes del hilo (root + replies)
+            $rootId = $mensaje->parent_id ?: $mensaje->id;
+            $thread = Mensaje::where(function($q) use ($rootId) {
+                $q->where('id', $rootId)->orWhere('parent_id', $rootId);
+            })->with(['remitente', 'destinatario'])->orderBy('created_at', 'asc')->get();
+
+            $threadData = $thread->map(function($m){
+                return [
+                    'id' => $m->id,
+                    'remitente' => $m->remitente ? ['id' => $m->remitente->id, 'name' => $m->remitente->name] : null,
+                    'destinatario' => $m->destinatario ? ['id' => $m->destinatario->id, 'name' => $m->destinatario->name] : null,
+                    'asunto' => $m->asunto,
+                    'contenido' => $m->contenido,
+                    'leido' => (bool) $m->leido,
+                    'created_at' => $m->created_at->toDateTimeString(),
+                ];
+            });
+
+            return response()->json([
+                'id' => $mensaje->id,
+                'remitente' => $mensaje->remitente ? ['id' => $mensaje->remitente->id, 'name' => $mensaje->remitente->name] : null,
+                'destinatario' => $mensaje->destinatario ? ['id' => $mensaje->destinatario->id, 'name' => $mensaje->destinatario->name] : null,
+                'asunto' => $mensaje->asunto,
+                'contenido' => $mensaje->contenido,
+                'leido' => (bool) $mensaje->leido,
+                'created_at' => $mensaje->created_at->toDateTimeString(),
+                'thread' => $threadData,
+            ]);
+        }
+
+        return view('comunicacion.mensajes.show', compact('mensaje'));
+    }
+
+    // Marcar como no leído (solo destinatario puede hacerlo)
+    public function marcarNoLeido(\Illuminate\Http\Request $request, $id)
+    {
+        $mensaje = Mensaje::findOrFail($id);
+        if ($mensaje->destinatario_id !== Auth::id()) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'Solo el destinatario puede marcar como no leído'], 403);
+            }
+            return back()->with('error', 'Solo el destinatario puede marcar como no leído');
+        }
+        $mensaje->leido = false;
+        $mensaje->save();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Mensaje marcado como no leído'], 200);
+        }
+
+        // Redirigir al detalle del mensaje para mantener una URL segura en el historial
+        // Añadimos ?skip_mark=1 para evitar que mostrarMensaje vuelva a marcarlo como leído inmediatamente
+        return redirect()->route('comunicacion.mensajes.show', ['id' => $id, 'skip_mark' => 1])->with('success', 'Mensaje marcado como no leído');
+    }
+
+    // Mostrar formulario de respuesta
+    public function formResponder($id)
+    {
+        $mensaje = Mensaje::with('remitente')->findOrFail($id);
+        $userId = Auth::id();
+        if ($mensaje->remitente_id !== $userId && $mensaje->destinatario_id !== $userId) {
+            abort(403, 'No autorizado');
+        }
+        return view('comunicacion.mensajes.responder', compact('mensaje'));
+    }
+
+    // Enviar respuesta al remitente original
+    public function enviarRespuesta(Request $request, $id)
+    {
+        $original = Mensaje::findOrFail($id);
+        $userId = Auth::id();
+        if ($original->remitente_id !== $userId && $original->destinatario_id !== $userId) {
+            abort(403, 'No autorizado');
+        }
+
+        $request->validate([
+            'asunto' => 'required|string|max:255',
+            'contenido' => 'required|string',
+        ]);
+
+        // Destinatario de la respuesta: si yo era destinatario original, enviamos al remitente; si yo era remitente, enviamos al destinatario original
+        $to = ($original->destinatario_id === $userId) ? $original->remitente_id : $original->destinatario_id;
+
+        // Determinar root del hilo: si el original tiene parent_id, usarlo; si no, usar el original
+        $rootId = $original->parent_id ?: $original->id;
+
+        Mensaje::create([
+            'remitente_id' => $userId,
+            'destinatario_id' => $to,
+            'asunto' => $request->asunto,
+            'contenido' => $request->contenido,
+            'leido' => false,
+            'parent_id' => $rootId,
+        ]);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Respuesta enviada correctamente'], 200);
+        }
+
+        return redirect()->route('comunicacion.mensajes.enviados')->with('success', 'Respuesta enviada correctamente');
+    }
+
+    // Eliminar mensaje (solo remitente puede eliminar)
+    public function eliminarMensaje(\Illuminate\Http\Request $request, $id)
+    {
+        $mensaje = Mensaje::findOrFail($id);
+        $userId = Auth::id();
+        // Permitir eliminar si es remitente o destinatario (borrado físico)
+        if ($mensaje->remitente_id !== $userId && $mensaje->destinatario_id !== $userId) {
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json(['error' => 'No autorizado'], 403);
+            }
+            return back()->with('error', 'No autorizado');
+        }
+
+        $mensaje->delete();
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Mensaje eliminado'], 200);
+        }
+
+        return redirect()->route('comunicacion.mensajes.enviados')->with('success', 'Mensaje eliminado');
     }
 
     // ---------------- Notificaciones ----------------

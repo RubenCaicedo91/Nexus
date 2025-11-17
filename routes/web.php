@@ -431,6 +431,17 @@ Route::middleware('auth')->group(function () {
     // Mensajes
         Route::get('/mensajes', [\App\Http\Controllers\ComunicacionController::class, 'listarMensajes'])->name('mensajes');
         Route::post('/mensajes', [\App\Http\Controllers\ComunicacionController::class, 'guardarMensaje'])->name('mensajes.store');
+        // Ver mensajes enviados por el remitente
+        Route::get('/mensajes/enviados', [\App\Http\Controllers\ComunicacionController::class, 'listarMensajesEnviados'])->name('mensajes.enviados');
+        // Ver detalle de un mensaje (remitente o destinatario)
+        Route::get('/mensajes/{id}', [\App\Http\Controllers\ComunicacionController::class, 'mostrarMensaje'])->name('mensajes.show');
+        // Eliminar un mensaje (solo remitente puede eliminar)
+        Route::delete('/mensajes/{id}', [\App\Http\Controllers\ComunicacionController::class, 'eliminarMensaje'])->name('mensajes.destroy');
+        // Marcar como no leído (solo destinatario puede hacerlo)
+        Route::post('/mensajes/{id}/no-leer', [\App\Http\Controllers\ComunicacionController::class, 'marcarNoLeido'])->name('mensajes.no_leer');
+        // Responder a un mensaje (form + envío)
+        Route::get('/mensajes/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'formResponder'])->name('mensajes.responder.form');
+        Route::post('/mensajes/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'enviarRespuesta'])->name('mensajes.responder.enviar');
 
     // Notificaciones
         Route::get('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'listarNotificaciones'])->name('notificaciones');
