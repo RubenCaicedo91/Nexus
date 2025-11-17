@@ -20,38 +20,42 @@
 
     {{-- Campo de búsqueda de estudiante --}}
     <div class="mb-3">
-        <label for="buscador_estudiante_registrar" class="form-label">Estudiante</label>
-        <input id="buscador_estudiante_registrar"
-               list="lista_estudiantes_registrar"
-               class="form-control"
-               placeholder="Escribe un nombre..."
-               autocomplete="off"
-               required>
-
-        <datalist id="lista_estudiantes_registrar">
-            @if(isset($students) && count($students))
-                @foreach($students as $stu)
-                    <option value="{{ $stu->name }} (ID: {{ $stu->id }})"></option>
-                @endforeach
-            @endif
-        </datalist>
-
-        <input type="hidden" name="usuario_id" id="usuario_id_hidden">
-
-        <small class="form-text text-muted">
-            Selecciona un estudiante de la lista. Si no se selecciona, el formulario no se enviará.
-        </small>
+        <label for="usuario_id" class="form-label">ID Usuario</label>
+        <input type="number" name="usuario_id" class="form-control" required>
     </div>
-
-    {{-- Campos del formulario --}}
     <div class="mb-3">
         <label for="descripcion" class="form-label">Descripción</label>
         <input type="text" name="descripcion" class="form-control" required>
     </div>
 
     <div class="mb-3">
-        <label for="tipo" class="form-label">Tipo</label>
-        <input type="text" name="tipo" class="form-control" required>
+        <label for="tipo_id" class="form-label">Tipo</label>
+        <select name="tipo_id" id="tipo_id" class="form-control" required>
+            <option value="">-- Selecciona un tipo --</option>
+                @if(isset($tipos) && count($tipos))
+                    @foreach($tipos as $t)
+                        <option value="{{ $t->id }}" {{ old('tipo_id') == $t->id ? 'selected' : '' }}>{{ $t->nombre }}</option>
+                    @endforeach
+                @endif
+        </select>
+    </div>
+    <div id="suspension_fields" class="mb-3" style="display:none">
+        <label class="form-label">Fecha inicio sanción</label>
+        <input type="date" name="fecha_inicio" id="fecha_inicio" class="form-control" value="{{ old('fecha_inicio') }}">
+        <div id="fecha_fin_wrap">
+            <label class="form-label mt-2">Fecha fin sanción</label>
+            <input type="date" name="fecha_fin" id="fecha_fin" class="form-control" value="{{ old('fecha_fin') }}">
+        </div>
+    </div>
+    <div id="meeting_fields" class="mb-3" style="display:none">
+        <label class="form-label">Fecha y hora de reunión (padre/tutor)</label>
+        <input type="datetime-local" name="reunion_at" id="reunion_at" class="form-control" value="{{ old('reunion_at') }}">
+    </div>
+    <div id="monetary_fields" class="mb-3" style="display:none">
+        <label class="form-label">Monto a pagar</label>
+        <input type="number" step="0.01" min="0" name="monto" id="monto" class="form-control" value="{{ old('monto') }}">
+        <small class="form-text text-muted">Este monto debe ser pagado por el responsable.</small>
+        <input type="hidden" name="pago_observacion" id="pago_observacion" value="{{ old('pago_observacion', '') }}">
     </div>
 
     <div class="mb-3">

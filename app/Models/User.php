@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use App\Models\RolesModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Matricula;
 
 class User extends Authenticatable
 {
@@ -22,10 +23,17 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name',
+        'second_name',
+        'first_last',
+        'second_last',
         'email',
         'password',
         'roles_id',
         'acudiente_id',
+        'document_type',
+        'document_number',
+        'celular',
     ];
 
     /**
@@ -79,6 +87,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Relación: un usuario (estudiante) puede tener muchas matrículas
+     * @return HasMany
+     */
+    public function matriculas(): HasMany
+    {
+        return $this->hasMany(Matricula::class, 'user_id');
+    }
+
+    /**
      * Cursos asignados cuando el usuario es docente (many-to-many)
      */
     public function cursosAsignados()
@@ -126,5 +143,32 @@ class User extends Authenticatable
 
         if (! is_array($permisos)) return false;
         return in_array($permiso, $permisos);
+    }
+
+    /**
+     * Mutator para normalizar el tipo de documento al guardarlo.
+     * Guardaremos sin puntos y en mayúsculas (RC, CC, TI) para búsquedas y consistencia.
+     * Acepta valores como "R.C", "RC", "r.c" y los normaliza a "RC".
+     * @param mixed $value
+     * @return void
+     */
+    public function setDocumentTypeAttribute($value): void
+    {
+        if (is_null($value) || $value === '') {
+            $this->attributes['document_type'] = null;
+            return;
+        }
+
+        // Eliminar puntos y espacios, pasar a mayúsculas
+        $clean = strtoupper(str_replace(['.', ' '], '', trim($value)));
+
+        // Sólo permitir las formas conocidas
+        $allowed = ['RC', 'CC', 'TI'];
+        if (in_array($clean, $allowed, true)) {
+            $this->attributes['document_type'] = $clean;
+        } else {
+            // Si viene otro valor, lo guardamos tal cual (limpio y en mayúsculas)
+            $this->attributes['document_type'] = $clean;
+        }
     }
 }

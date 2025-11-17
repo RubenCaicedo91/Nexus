@@ -9,5 +9,5 @@ class Horario extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['curso', 'dia', 'hora'];
+    protected $fillable = ['curso', 'dia', 'hora', 'hora_fin', 'materia_id', 'hora_text'];
 }

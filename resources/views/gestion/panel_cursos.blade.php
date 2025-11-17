@@ -21,6 +21,8 @@
                         <label class="form-label">Nivel</label>
                         <select name="nivel" class="form-select" required>
                             <option value="">Selecciona un nivel</option>
+                            <option>Pre-jardín</option>
+                            <option>Transición</option>
                             <option>Primero</option>
                             <option>Segundo</option>
                             <option>Tercero</option>
@@ -71,7 +73,7 @@
                             <td>
                                 <a href="{{ route('editarCurso', $curso->id) }}" class="btn btn-sm btn-warning">✏️ Editar</a>
 
-                                <a href="{{ route('cursos.materias', $curso->id) }}" class="btn btn-sm btn-info">👩‍🏫 Asignar docentes</a>
+                                <a href="{{ route('docentes.index') }}" class="btn btn-sm btn-info">👩‍🏫 Asignar docentes</a>
 
                                 <form action="{{ route('eliminarCurso', $curso->id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás segura de eliminar este curso?')">
                                     @csrf

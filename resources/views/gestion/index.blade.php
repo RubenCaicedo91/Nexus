@@ -72,6 +72,56 @@
             </div>
         </div>
     </div>
+    
+    {{-- Tarjeta: Gestionar Materias (nuevo menú independiente) --}}
+    <div class="col-md-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="text-success mb-3">
+                    <i class="fas fa-book-open fa-2x"></i>
+                </div>
+                <h5 class="card-title mb-3">Gestionar Materias</h5>
+                @if((
+                    auth()->user()->hasPermission('asignar_docentes') ||
+                    (optional(auth()->user()->role)->nombre && (
+                        stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false
+                    )) || auth()->user()->roles_id == 1
+                ))
+                    <a href="{{ route('materias.index') }}" class="btn btn-outline-success w-100">
+                        <i class="fas fa-book-open me-2"></i>Gestionar Materias
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled>Materias (sin permiso)</button>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    {{-- Tarjeta: Asignaciones de Estudiantes --}}
+    <div class="col-md-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="text-purple mb-3" style="color: #6f42c1;">
+                    <i class="fas fa-users fa-2x"></i>
+                </div>
+                <h5 class="card-title mb-3">Asignaciones de Estudiantes</h5>
+                @if((
+                    auth()->user()->hasPermission('asignar_docentes') ||
+                    (optional(auth()->user()->role)->nombre && (
+                        stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false
+                    )) || auth()->user()->roles_id == 1
+                ))
+                    <a href="{{ route('asignaciones.index') }}" class="btn w-100" style="color: #6f42c1; border-color: #6f42c1;">
+                        <i class="fas fa-user-check me-2"></i>Gestionar Asignaciones
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled>Asignaciones (sin permiso)</button>
+                @endif
+            </div>
+        </div>
+    </div>
         </div> <!-- .row -->
 
         <!-- Modal: Asignar Docentes -->
@@ -112,4 +162,22 @@
             </div>
         </div>
 
+@endsection
+
+@section('scripts')
+<!-- Datos de docentes como JSON embebido fuera del bloque JS para evitar mixing Blade/JS -->
+<script id="docentes-data" type="application/json">@json($docentes)</script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+        // CSRF token from meta
+        const csrfTokenMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfTokenMeta ? csrfTokenMeta.getAttribute('content') : '';
+    // Docentes data (leída desde el tag JSON embebido)
+    const docentesEl = document.getElementById('docentes-data');
+    const docentesOptions = docentesEl ? JSON.parse(docentesEl.textContent || '[]') : [];
+
+
+
+});
+</script>
 @endsection

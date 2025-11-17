@@ -16,6 +16,7 @@
                     <tr>
                         <th>Nombre</th>
                         <th>Email</th>
+                        <th>Cursos asignados</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -25,12 +26,21 @@
                             <td>{{ $d->name }}</td>
                             <td>{{ $d->email }}</td>
                             <td>
+                                @if(method_exists($d, 'cursosAsignados') && $d->cursosAsignados->isNotEmpty())
+                                    @foreach($d->cursosAsignados as $c)
+                                        <span class="badge bg-secondary me-1">{{ $c->nombre }}</span>
+                                    @endforeach
+                                @else
+                                    <span class="text-muted">(Sin cursos)</span>
+                                @endif
+                            </td>
+                            <td>
                                 <a href="{{ route('docentes.edit', $d->id) }}" class="btn btn-sm btn-primary">Asignar Cursos</a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="3" class="text-center text-muted">No se encontraron docentes.</td>
+                            <td colspan="4" class="text-center text-muted">No se encontraron docentes.</td>
                         </tr>
                     @endforelse
                 </tbody>

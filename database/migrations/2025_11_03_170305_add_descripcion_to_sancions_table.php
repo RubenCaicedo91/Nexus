@@ -11,10 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sancions', function (Blueprint $table) {
-            $table->string('descripcion')->nullable();
-            $table->string('tipo')->nullable();
-        });
+        // Only add the columns if the table exists and the columns don't already exist.
+        if (!Schema::hasTable('sancions')) {
+            return;
+        }
+
+        // Add columns individually if they are missing to avoid duplicate column errors
+        if (!Schema::hasColumn('sancions', 'descripcion') || !Schema::hasColumn('sancions', 'tipo')) {
+            Schema::table('sancions', function (Blueprint $table) {
+                if (!Schema::hasColumn('sancions', 'descripcion')) {
+                    $table->string('descripcion')->nullable();
+                }
+                if (!Schema::hasColumn('sancions', 'tipo')) {
+                    $table->string('tipo')->nullable();
+                }
+            });
+        }
     }
 
     /**
