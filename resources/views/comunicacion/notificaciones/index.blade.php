@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container py-4">
+<div class="container py-4" data-estudiante-role="{{ $estudianteRoleId ?? '' }}">
     <div class="card shadow-sm rounded overflow-hidden">
 
         <!-- Encabezado oscuro -->
@@ -44,6 +44,17 @@
                                 </select>
                                 <div class="form-text">Se enviará la notificación a todos los usuarios de este grupo. O seleccione usuarios concretos abajo.</div>
                             </div>
+
+                            <div class="col-md-6 mb-3" id="container-curso-notif" style="display:none;">
+                                <label for="curso_notif" class="form-label fw-bold">Curso (si aplica)</label>
+                                <select name="curso_id" id="curso_notif" class="form-select">
+                                    <option value="">-- Seleccione curso --</option>
+                                    @foreach($cursos as $curso)
+                                        <option value="{{ $curso->id }}">{{ $curso->nombre }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">Si selecciona un curso, la notificación se enviará a los estudiantes matriculados y a sus acudientes (si existen). Sólo se mostrarán los estudiantes en la interfaz.</div>
+                            </div>
                         </div>
 
                         <div class="row" id="container-usuarios-grupo-notif" style="display:none;">
@@ -75,6 +86,12 @@
                             <label for="mensaje_notif" class="form-label fw-bold">Mensaje</label>
                             <textarea name="mensaje" id="mensaje_notif" rows="3" class="form-control" required></textarea>
                         </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" value="1" id="solo_acudiente_responde" name="solo_acudiente_responde">
+                            <label class="form-check-label" for="solo_acudiente_responde">
+                                Sólo el acudiente puede responder
+                            </label>
+                        </div>
                         <button type="submit" class="btn btn-warning">
                             <i class="bi bi-send-fill me-1"></i> Enviar Notificación
                         </button>
@@ -83,9 +100,37 @@
             </div>
 
             <div class="row">
+                @if(!empty($sentGroups) && $sentGroups->count())
+                    <div class="col-12 mb-4">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                                <div><i class="bi bi-send-fill me-2"></i> Notificaciones enviadas (grupos)</div>
+                                <small class="text-light">Acciones sobre grupos enviados</small>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach($sentGroups as $g)
+                                        <div class="card p-2" style="min-width:220px;">
+                                            <div class="fw-bold small">{{ Str::limit($g->titulo, 50) }}</div>
+                                            <div class="small text-muted">{{ Str::limit($g->mensaje, 80) }}</div>
+                                            <div class="small text-muted mt-1">{{ optional($g->created_at)->toDateTimeString() }}</div>
+                                            <div class="mt-2 text-end">
+                                                <a href="{{ route('comunicacion.notificaciones.grupo.respuestas', $g->group_key) }}" class="btn btn-sm btn-outline-primary">Ver respuestas</a>
+                                                <form action="{{ route('comunicacion.notificaciones.grupo.eliminar', $g->group_key) }}" method="POST" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('¿Eliminar este grupo de notificaciones para los destinatarios?')">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
                 @forelse($notificaciones as $notif)
                     <div class="col-md-4 mb-3">
-                        <div class="card shadow-sm h-100 {{ $notif->leida ? 'border-secondary' : 'border-warning' }}">
+                        <div class="card notif-card shadow-sm h-100 {{ $notif->leida ? 'border-secondary' : 'border-warning' }}" data-notif-id="{{ $notif->id }}">
                             <div class="card-header d-flex align-items-center {{ $notif->leida ? 'bg-secondary text-white' : 'bg-warning text-dark' }}">
                                 <i class="bi bi-bell-fill me-2"></i>
                                 <span class="fw-bold">{{ $notif->titulo }}</span>
@@ -105,7 +150,25 @@
                                         </button>
                                     </form>
                                 @else
-                                    <span class="text-muted"><i class="bi bi-eye-fill"></i> Leída</span>
+                                        <span class="text-muted"><i class="bi bi-eye-fill"></i> Leída</span>
+                                @endif
+                                {{-- Botón responder: sólo si el usuario es destinatario y tiene permiso según la notificación --}}
+                                @php
+                                    $canReply = false;
+                                    if (auth()->check() && (int)auth()->id() === (int)$notif->usuario_id) {
+                                        if (empty($notif->solo_acudiente_responde)) {
+                                            $canReply = true;
+                                        } else {
+                                            $roleName = optional(auth()->user()->role)->nombre ?? '';
+                                            if (stripos($roleName, 'Acudiente') !== false || stripos($roleName, 'acudiente') !== false) {
+                                                $canReply = true;
+                                            }
+                                        }
+                                    }
+                                @endphp
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2 view-notif-btn" data-notif-id="{{ $notif->id }}">Ver</button>
+                                @if($canReply)
+                                    <button type="button" class="btn btn-sm btn-primary mt-2 open-reply-btn" data-notif-id="{{ $notif->id }}">Responder</button>
                                 @endif
                             </div>
                         </div>
@@ -130,17 +193,30 @@
             const modo = document.getElementById('modo_notif');
             const containerRol = document.getElementById('container-rol-notif');
             const rolSelect = document.getElementById('rol_notif');
+            const containerCurso = document.getElementById('container-curso-notif');
+            const cursoSelect = document.getElementById('curso_notif');
             const containerUsuariosGrupo = document.getElementById('container-usuarios-grupo-notif');
             const usuariosGrupoSearch = document.getElementById('usuarios_notif_search');
             const usuariosGrupoClear = document.getElementById('usuarios_notif_clear');
             const usuariosGrupoResults = document.getElementById('usuarios_notif_results');
             const hiddenInputsContainer = document.getElementById('selected-hidden-inputs-notif');
 
+            // leer id del rol Estudiante desde el atributo data del contenedor (evita directivas Blade en JS)
+            const containerRoot = document.querySelector('[data-estudiante-role]');
+            const estudianteRoleIdRaw = containerRoot ? containerRoot.dataset.estudianteRole : '';
+            const estudianteRoleId = estudianteRoleIdRaw ? Number(estudianteRoleIdRaw) : null;
+
             function toggleFields() {
                 const val = modo.value;
                 if (val === 'rol') {
                     containerRol.style.display = '';
                     rolSelect.disabled = false;
+                    // Mostrar selector de curso sólo si el rol seleccionado es Estudiante
+                    if (estudianteRoleId && String(rolSelect.value) === String(estudianteRoleId)) {
+                        containerCurso.style.display = '';
+                    } else {
+                        containerCurso.style.display = 'none';
+                    }
                     if (rolSelect.value) containerUsuariosGrupo.style.display = '';
                 } else {
                     containerRol.style.display = 'none';
@@ -157,10 +233,29 @@
                 usuariosGrupoResults.innerHTML = '';
                 if (!rolId) {
                     containerUsuariosGrupo.style.display = 'none';
+                    containerCurso.style.display = 'none';
                     return;
+                }
+                // Si el rol es Estudiante, mostrar selector de curso
+                if (estudianteRoleId && String(rolId) === String(estudianteRoleId)) {
+                    containerCurso.style.display = '';
+                } else {
+                    containerCurso.style.display = 'none';
                 }
                 containerUsuariosGrupo.style.display = '';
                 usuariosGrupoSearch.focus();
+            });
+
+            cursoSelect.addEventListener('change', function(){
+                usuariosGrupoSearch.value = '';
+                usuariosGrupoResults.innerHTML = '';
+                if (!this.value) {
+                    // si se deselecciona curso, limpiar lista
+                    usuariosGrupoResults.style.display = 'none';
+                    return;
+                }
+                // Cargar lista inicial de estudiantes del curso (sin filtro)
+                doSearch();
             });
 
             function debounce(fn, delay){ let t; return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), delay); }; }
@@ -181,7 +276,17 @@
             }
 
             const doSearch = debounce(function(){
-                const q = usuariosGrupoSearch.value.trim(); const rolId = rolSelect.value; usuariosGrupoResults.innerHTML=''; if (!rolId) return; if (q.length<1){ usuariosGrupoResults.style.display='none'; return; }
+                const q = usuariosGrupoSearch.value.trim(); const rolId = rolSelect.value; usuariosGrupoResults.innerHTML=''; if (!rolId) return;
+                // Si es rol Estudiante y hay curso seleccionado, buscar por curso
+                if (estudianteRoleId && String(rolId) === String(estudianteRoleId) && cursoSelect && cursoSelect.value) {
+                    const cursoId = cursoSelect.value;
+                    fetch(`/comunicacion/estudiantes-por-curso/${cursoId}?q=${encodeURIComponent(q)}`)
+                        .then(r=>r.json()).then(json=>renderResults(json.data||[])).catch(()=>usuariosGrupoResults.style.display='none');
+                    return;
+                }
+
+                // Comportamiento por defecto: buscar usuarios por rol
+                if (q.length<1){ usuariosGrupoResults.style.display='none'; return; }
                 fetch(`/comunicacion/usuarios-por-grupo/${rolId}?q=${encodeURIComponent(q)}`)
                     .then(r=>r.json()).then(json=>renderResults(json.data||[])).catch(()=>usuariosGrupoResults.style.display='none');
             }, 300);
@@ -197,7 +302,7 @@
                 const containerWrapper = document.getElementById('selected-recipients-container-notif');
                 container.innerHTML = ''; hiddenInputsContainer.innerHTML = '';
                 const arr = Array.from(selectedUsers.values()); if (arr.length===0){ containerWrapper.style.display='none'; return; }
-                function colorFromGrupoId(id){ if (!id) return null; const hue=(id*53)%360; return `hsl(${hue} 65% 45%)`; }
+                function colorFromGrupoId(id){ if (!id) return null; const hue=(id*53)%360; return `hsl(${hue}, 65%, 45%)`; }
                 arr.forEach(u=>{
                     const bg = colorFromGrupoId(u.rol_id)||'#fd7e14'; const chip = document.createElement('div'); chip.className='d-inline-flex align-items-center rounded-pill text-white'; chip.style.background=bg; chip.style.padding='0.25rem 0.6rem'; chip.style.fontSize='0.85rem'; chip.style.marginRight='0.35rem'; chip.style.marginBottom='0.35rem';
                     const span=document.createElement('span'); span.textContent=u.name; chip.appendChild(span);
@@ -212,5 +317,220 @@
             toggleFields();
         })();
     });
+</script>
+@endpush
+
+
+<!-- Modal flotante para detalle de notificación -->
+<div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="notifModalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="notifModalBody"></div>
+            <div class="modal-footer" id="notifModalFooter">
+                <div style="flex:1 1 auto; text-align:left;">
+                        <small class="text-muted" id="notifModalFecha"></small>
+                </div>
+                <div id="notifReplyArea" style="display:none; width:100%;">
+                        <form id="notifReplyForm" class="row gx-2">
+                                <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                                <div class="col-12 mb-2">
+                                        <input type="text" name="asunto" id="notifReplyAsunto" class="form-control form-control-sm" placeholder="Asunto" required>
+                                </div>
+                                <div class="col-12 mb-2">
+                                        <textarea name="contenido" id="notifReplyContenido" class="form-control form-control-sm" rows="3" placeholder="Escribe tu respuesta..." required></textarea>
+                                </div>
+                                <div class="col-auto">
+                                        <button type="button" id="notifReplySubmit" class="btn btn-primary btn-sm">Enviar</button>
+                                </div>
+                                <div class="col-auto">
+                                        <button type="button" id="notifReplyCancel" class="btn btn-secondary btn-sm">Cancelar</button>
+                                </div>
+                        </form>
+                </div>
+                <button type="button" id="notifReplyBtn" class="btn btn-primary" style="display:none; margin-right:0.5rem;">Responder</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+    </div>
+  </div>
+</div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    function showNotification(id, card){
+        if (!id) return Promise.reject(new Error('id missing'));
+        return fetch(`/comunicacion/notificaciones/${id}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+            .then(async r => {
+                if (!r.ok) {
+                    // intentar leer mensaje JSON devuelto por el servidor
+                    let text = await r.text();
+                    try {
+                        const obj = JSON.parse(text);
+                        const msg = obj.message || obj.error || obj.msg || text;
+                        throw new Error(msg || ('HTTP ' + r.status));
+                    } catch (e) {
+                        throw new Error(text || ('HTTP ' + r.status));
+                    }
+                }
+                return r.json();
+            })
+                .then(json => {
+                const title = json.titulo || '';
+                const body = json.mensaje || '';
+                const fecha = json.fecha || '';
+                const canReply = json.canReply || false;
+                const replyUrl = json.replyUrl || null;
+
+                document.getElementById('notifModalTitle').textContent = title;
+                document.getElementById('notifModalBody').textContent = body;
+                document.getElementById('notifModalFecha').textContent = fecha;
+
+                    const replyBtn = document.getElementById('notifReplyBtn');
+                    if (canReply) {
+                        replyBtn.style.display = '';
+                        // store replyUrl for fallback or reference (not used for navigation)
+                        replyBtn.dataset.replyUrl = replyUrl || '';
+                    } else {
+                        replyBtn.style.display = 'none';
+                        replyBtn.dataset.replyUrl = '';
+                    }
+
+                    // guardar id de notificación en el modal para usar al enviar respuesta
+                    try {
+                        var modalEl = document.getElementById('notifModal');
+                        modalEl.setAttribute('data-current-notif', json.id);
+                    } catch (e) {}
+
+                // mostrar modal usando Bootstrap (si está disponible)
+                try {
+                    var modalEl = document.getElementById('notifModal');
+                    var bsModal = new bootstrap.Modal(modalEl);
+                    bsModal.show();
+                } catch (err) {
+                    alert(title + '\n\n' + body);
+                }
+
+                if (card && card.classList) {
+                    card.classList.remove('border-warning');
+                    card.classList.add('border-secondary');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert(err.message || 'No se pudo cargar la notificación');
+                throw err;
+            });
+    }
+
+    // Conectar handlers: tarjeta completa y botón 'Ver'
+    document.querySelectorAll('.notif-card').forEach(function(card){
+        card.addEventListener('click', function(e){
+            // evitar colisiones con botones dentro de la tarjeta
+            if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'A' || e.target.closest('form'))) return;
+            const id = card.dataset.notifId;
+            showNotification(id, card);
+        });
+    });
+
+    document.querySelectorAll('.view-notif-btn').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            e.preventDefault();
+            const id = btn.dataset.notifId;
+            const card = btn.closest('.notif-card');
+            showNotification(id, card);
+        });
+    });
+
+    document.querySelectorAll('.open-reply-btn').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+            e.stopPropagation();
+            e.preventDefault();
+            const id = btn.dataset.notifId;
+            const card = btn.closest('.notif-card');
+            // cargar notificación y al finalizar abrir el área de respuesta
+            showNotification(id, card).then(() => {
+                const replyBtn = document.getElementById('notifReplyBtn');
+                if (replyBtn) replyBtn.click();
+            }).catch(()=>{});
+        });
+    });
+
+    // Handlers for inline reply in modal
+    function resetReplyArea(){
+        document.getElementById('notifReplyArea').style.display = 'none';
+        document.getElementById('notifReplyBtn').style.display = 'none';
+        document.getElementById('notifReplyAsunto').value = '';
+        document.getElementById('notifReplyContenido').value = '';
+    }
+
+    document.getElementById('notifReplyCancel').addEventListener('click', function(){
+        resetReplyArea();
+    });
+
+    // Mostrar área inline al pulsar el botón 'Responder' (no navegar)
+    document.getElementById('notifReplyBtn').addEventListener('click', function(e){
+        e.preventDefault();
+        const area = document.getElementById('notifReplyArea');
+        const replyBtn = document.getElementById('notifReplyBtn');
+        if (!area || !replyBtn) return;
+        area.style.display = '';
+        replyBtn.style.display = 'none';
+        // prefill asunto
+        const titulo = document.getElementById('notifModalTitle').textContent || '';
+        const asu = titulo ? ('Re: ' + titulo) : '';
+        document.getElementById('notifReplyAsunto').value = asu;
+        document.getElementById('notifReplyContenido').focus();
+    });
+
+    document.getElementById('notifReplySubmit').addEventListener('click', function(){
+        // obtener id del notificación abierta
+        const modalEl = document.getElementById('notifModal');
+        const id = modalEl.getAttribute('data-current-notif');
+        if (!id) { alert('ID de notificación no disponible'); return; }
+
+        const asunto = document.getElementById('notifReplyAsunto').value.trim();
+        const contenido = document.getElementById('notifReplyContenido').value.trim();
+        if (!asunto || !contenido) { alert('Complete asunto y mensaje'); return; }
+
+        const token = document.querySelector('#notifReplyForm input[name="_token"]').value;
+
+        fetch(`/comunicacion/notificaciones/${id}/responder`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': token,
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ asunto: asunto, contenido: contenido })
+        }).then(async res => {
+            if (!res.ok) {
+                let text = await res.text();
+                try { const obj = JSON.parse(text); throw new Error(obj.message || obj.error || text); } catch(e){ throw new Error(text || ('HTTP ' + res.status)); }
+            }
+            return res.json();
+        }).then(json => {
+            // mostrar éxito, cerrar modal
+            try { var modalEl = document.getElementById('notifModal'); var bsModal = bootstrap.Modal.getInstance(modalEl); if (bsModal) bsModal.hide(); } catch(e){}
+            alert(json.message || 'Respuesta enviada');
+            resetReplyArea();
+        }).catch(err => {
+            console.error(err);
+            alert('Error al enviar la respuesta: ' + (err.message || err));
+        });
+    });
+});
 </script>
 @endpush

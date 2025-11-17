@@ -444,9 +444,20 @@ Route::middleware('auth')->group(function () {
         Route::post('/mensajes/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'enviarRespuesta'])->name('mensajes.responder.enviar');
 
     // Notificaciones
+        // Endpoint para obtener estudiantes por curso (JSON)
+        Route::get('/estudiantes-por-curso/{cursoId}', [\App\Http\Controllers\ComunicacionController::class, 'estudiantesPorCurso'])->name('estudiantes.por_curso');
         Route::get('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'listarNotificaciones'])->name('notificaciones');
+        // Mostrar detalle de una notificación (JSON/HTML) - usado por modal flotante
+        Route::get('/notificaciones/{id}', [\App\Http\Controllers\ComunicacionController::class, 'mostrarNotificacion'])->name('notificaciones.show');
+        Route::get('/notificaciones/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'formResponderNotificacion'])->name('notificaciones.responder.form');
+        Route::post('/notificaciones/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'enviarRespuestaNotificacion'])->name('notificaciones.responder.enviar');
         Route::post('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'guardarNotificacion'])->name('notificaciones.store');
         Route::post('/notificaciones/{id}/leer', [\App\Http\Controllers\ComunicacionController::class, 'marcarNotificacionLeida'])->name('notificaciones.leer');
+
+        // Ver respuestas de un grupo (solo creador o roles administrativos)
+        Route::get('/notificaciones/grupo/{groupKey}/respuestas', [\App\Http\Controllers\ComunicacionController::class, 'mostrarRespuestasGrupo'])->name('notificaciones.grupo.respuestas');
+        // Eliminar grupo de notificaciones (solo creador)
+        Route::post('/notificaciones/grupo/{groupKey}/eliminar', [\App\Http\Controllers\ComunicacionController::class, 'eliminarGrupoNotificaciones'])->name('notificaciones.grupo.eliminar');
 
     // Circulares
         Route::get('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'listarCirculares'])->name('circulares');

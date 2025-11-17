@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Mensaje;
 use App\Models\Notificacion;
 use App\Models\Circular;
+use App\Models\Curso;
+use App\Models\Matricula;
+use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 
 class ComunicacionController extends Controller
 {
@@ -16,6 +20,91 @@ class ComunicacionController extends Controller
         return view('comunicacion.index');
     }
 
+    /**
+     * Mostrar las respuestas (mensajes) asociadas a un grupo de notificaciones (group_key).
+     * Solo puede acceder el creador del grupo o usuarios con roles administrativos.
+     */
+    public function mostrarRespuestasGrupo(Request $request, $groupKey)
+    {
+        $user = Auth::user();
+        if (! $user) abort(401);
+
+        // Recuperar notificaciones del grupo
+        $notifs = Notificacion::where('group_key', $groupKey)->get();
+        if ($notifs->isEmpty()) {
+            abort(404, 'Grupo no encontrado');
+        }
+
+        // Determinar si el usuario puede ver las respuestas: creador del grupo o rol administrativo
+        $isCreator = $notifs->first()->creador_id && ((int)$notifs->first()->creador_id === (int)$user->id);
+        $roleName = optional($user->role)->nombre ?? '';
+        $roleLower = mb_strtolower($roleName);
+        $allowedKeywords = ['administrador', 'rector', 'coordinador', 'tesorero'];
+        $isAdminRole = false;
+        foreach ($allowedKeywords as $k) {
+            if (mb_stripos($roleLower, $k) !== false) { $isAdminRole = true; break; }
+        }
+
+        if (! $isCreator && ! $isAdminRole) {
+            abort(403, 'No autorizado');
+        }
+
+        // Obtener ids de notificación del grupo
+        $notifIds = $notifs->pluck('id')->all();
+
+        // Recuperar mensajes que tengan notificacion_id dentro del grupo
+        $mensajes = Mensaje::whereIn('notificacion_id', $notifIds)
+            ->with(['remitente', 'destinatario'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Datos de cabecera para la vista
+        $groupInfo = [
+            'group_key' => $groupKey,
+            'titulo' => $notifs->first()->titulo ?? '',
+            'mensaje' => $notifs->first()->mensaje ?? '',
+            'creador_id' => $notifs->first()->creador_id ?? null,
+            'created_at' => $notifs->first()->created_at ?? null,
+        ];
+
+        return view('comunicacion.notificaciones.respuestas', compact('mensajes', 'groupInfo'));
+    }
+
+    /**
+     * Eliminar (lógicamente) todas las notificaciones de un grupo para los destinatarios.
+     * Solo el creador del grupo puede ejecutar esta acción.
+     */
+    public function eliminarGrupoNotificaciones(Request $request, $groupKey)
+    {
+        $user = Auth::user();
+        if (! $user) abort(401);
+
+        $notifs = Notificacion::where('group_key', $groupKey)->get();
+        if ($notifs->isEmpty()) {
+            if ($request->wantsJson() || $request->ajax()) return response()->json(['error' => 'Grupo no encontrado'], 404);
+            return back()->with('error', 'Grupo no encontrado');
+        }
+
+        // Solo el creador puede eliminar el grupo
+        $creadorId = $notifs->first()->creador_id;
+        if (! $creadorId || (int)$creadorId !== (int)$user->id) {
+            if ($request->wantsJson() || $request->ajax()) return response()->json(['error' => 'No autorizado'], 403);
+            return back()->with('error', 'No autorizado');
+        }
+
+        // Si la columna deleted_by_creador existe, marcarla; si no, eliminar físicamente
+        if (\Illuminate\Support\Facades\Schema::hasColumn('notificaciones', 'deleted_by_creador')) {
+            Notificacion::where('group_key', $groupKey)->update(['deleted_by_creador' => true]);
+        } else {
+            Notificacion::where('group_key', $groupKey)->delete();
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Grupo eliminado correctamente'], 200);
+        }
+
+        return redirect()->route('comunicacion.notificaciones')->with('success', 'Grupo de notificaciones eliminado correctamente');
+    }
     // ---------------- Mensajes ----------------
     public function listarMensajes()
     {
@@ -54,6 +143,9 @@ class ComunicacionController extends Controller
 
         $modo = $request->modo;
         $destinatarios = [];
+
+        // Generar clave de grupo para agrupar las notificaciones creadas en esta acción
+        $groupKey = (string) \Illuminate\Support\Str::uuid();
 
         if ($modo === 'todos') {
             $destinatarios = \App\Models\User::pluck('id')->toArray();
@@ -271,10 +363,31 @@ class ComunicacionController extends Controller
     // ---------------- Notificaciones ----------------
     public function listarNotificaciones()
     {
-        $notificaciones = Notificacion::where('usuario_id', Auth::id())->latest()->get();
+        $notificacionesQuery = Notificacion::where('usuario_id', Auth::id());
+        if (Schema::hasColumn('notificaciones', 'deleted_by_creador')) {
+            $notificacionesQuery->where(function($q){ $q->whereNull('deleted_by_creador')->orWhere('deleted_by_creador', false); });
+        }
+        $notificaciones = $notificacionesQuery->latest()->get();
         // roles para formulario de envío
         $roles = \App\Models\RolesModel::orderBy('nombre')->get();
-        return view('comunicacion.notificaciones.index', compact('notificaciones', 'roles'));
+        // identificar id del rol Estudiante para comportamiento especial en la vista
+        $rolEstudiante = \App\Models\RolesModel::where('nombre', 'Estudiante')->first();
+        $estudianteRoleId = $rolEstudiante ? $rolEstudiante->id : null;
+        // cargar cursos (se usan sólo cuando rol Estudiante está seleccionado)
+        $cursos = Curso::orderBy('nombre')->get();
+
+        // notificaciones enviadas por el usuario (agrupar por group_key)
+        $sentGroupsQuery = Notificacion::where('creador_id', Auth::id())
+            ->select('group_key','titulo','mensaje','created_at')
+            ->whereNotNull('group_key');
+
+        if (Schema::hasColumn('notificaciones', 'deleted_by_creador')) {
+            $sentGroupsQuery->where(function($q){ $q->whereNull('deleted_by_creador')->orWhere('deleted_by_creador', false); });
+        }
+
+        $sentGroups = $sentGroupsQuery->orderByDesc('created_at')->distinct()->get();
+
+        return view('comunicacion.notificaciones.index', compact('notificaciones', 'roles', 'estudianteRoleId', 'cursos', 'sentGroups'));
     }
 
     public function marcarNotificacionLeida($id)
@@ -286,6 +399,126 @@ class ComunicacionController extends Controller
         return back()->with('success', 'Notificación marcada como leída');
     }
 
+    /**
+     * Mostrar detalle de notificación. Si la petición es AJAX/JSON, devolver JSON
+     * para mostrar en modal. Si no, renderizar una vista simple.
+     */
+    public function mostrarNotificacion(Request $request, $id)
+    {
+        $notif = Notificacion::with(['creador' => function($q){ $q->select('id','name'); }])->findOrFail($id);
+
+        $user = Auth::user();
+        if (! $user) abort(401);
+
+        // Sólo el destinatario puede ver su notificación
+        if ((int)$notif->usuario_id !== (int)$user->id) {
+            abort(403);
+        }
+
+        // Marcar como leída si no lo está
+        if (! $notif->leida) {
+            $notif->leida = true;
+            $notif->save();
+        }
+
+        $creador = null;
+        if ($notif->creador_id) {
+            try { $creador = \App\Models\User::select('id','name')->find($notif->creador_id); } catch (\Throwable $e) { $creador = null; }
+        }
+
+        $canReply = false;
+        if ((int)$notif->usuario_id === (int)$user->id) {
+            if (! $notif->solo_acudiente_responde) {
+                $canReply = true;
+            } else {
+                $roleName = optional($user->role)->nombre ?? '';
+                if (stripos($roleName, 'acudiente') !== false) $canReply = true;
+            }
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'id' => $notif->id,
+                'titulo' => $notif->titulo,
+                'mensaje' => $notif->mensaje,
+                'fecha' => $notif->fecha,
+                'leida' => (bool)$notif->leida,
+                'creador' => $creador ? ['id' => $creador->id, 'name' => $creador->name] : null,
+                'canReply' => $canReply,
+                'replyUrl' => $canReply ? route('comunicacion.notificaciones.responder.form', $notif->id) : null,
+            ]);
+        }
+
+        return view('comunicacion.notificaciones.show', compact('notif', 'creador', 'canReply'));
+    }
+
+    // Mostrar formulario para responder a una notificación (solo destinatario)
+    public function formResponderNotificacion($id)
+    {
+        $notif = Notificacion::findOrFail($id);
+        $user = Auth::user();
+        if (! $user) abort(403);
+
+        // Solo el destinatario original puede responder
+        if ((int)$notif->usuario_id !== (int)$user->id) {
+            abort(403, 'Solo el destinatario puede responder esta notificación');
+        }
+
+        // Si la notificación está marcada como "solo acudiente puede responder", validar rol
+        if ($notif->solo_acudiente_responde) {
+            $roleName = optional($user->role)->nombre ?? '';
+            if (stripos($roleName, 'acudiente') === false) {
+                abort(403, 'Solo el acudiente puede responder esta notificación');
+            }
+        }
+
+        return view('comunicacion.notificaciones.responder', compact('notif'));
+    }
+
+    // Enviar la respuesta (crea un Mensaje dirigido al creador de la notificación)
+    public function enviarRespuestaNotificacion(Request $request, $id)
+    {
+        $notif = Notificacion::findOrFail($id);
+        $user = Auth::user();
+        if (! $user) abort(403);
+
+        if ((int)$notif->usuario_id !== (int)$user->id) {
+            abort(403, 'Solo el destinatario puede responder esta notificación');
+        }
+
+        if ($notif->solo_acudiente_responde) {
+            $roleName = optional($user->role)->nombre ?? '';
+            if (stripos($roleName, 'acudiente') === false) {
+                abort(403, 'Solo el acudiente puede responder esta notificación');
+            }
+        }
+
+        $request->validate([
+            'asunto' => 'required|string|max:255',
+            'contenido' => 'required|string',
+        ]);
+
+        if (! $notif->creador_id) {
+            return back()->withErrors(['creador' => 'No se puede responder: remitente desconocido']);
+        }
+
+        // Crear mensaje hacia el creador de la notificación
+        Mensaje::create([
+            'remitente_id' => $user->id,
+            'destinatario_id' => $notif->creador_id,
+            'asunto' => $request->asunto,
+            'contenido' => $request->contenido,
+            'leido' => false,
+            'notificacion_id' => $notif->id,
+        ]);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Respuesta enviada correctamente'], 200);
+        }
+
+        return redirect()->route('comunicacion.notificaciones')->with('success', 'Respuesta enviada correctamente');
+    }
+
     public function guardarNotificacion(Request $request)
     {
         $request->validate([
@@ -295,27 +528,65 @@ class ComunicacionController extends Controller
             'rol_id' => 'nullable|integer',
             'usuarios' => 'nullable|array',
             'usuarios.*' => 'integer',
+            'curso_id' => 'nullable|integer',
+            'solo_acudiente_responde' => 'nullable|boolean',
         ]);
 
         $modo = $request->modo;
         $destinatarios = [];
 
+        // Generar clave de grupo para agrupar las notificaciones creadas en esta acción
+        $groupKey = (string) \Illuminate\Support\Str::uuid();
+
         if ($modo === 'todos') {
             $destinatarios = \App\Models\User::pluck('id')->toArray();
         } elseif ($modo === 'rol') {
+            // Si se enviaron IDs específicos de usuarios del grupo, usarlos
             if ($request->filled('usuarios') && is_array($request->usuarios) && count($request->usuarios) > 0) {
                 $destinatarios = array_map('intval', $request->usuarios);
             } else {
                 if (! $request->rol_id) {
                     return back()->withErrors(['rol_id' => 'Seleccione un grupo para enviar'])->withInput();
                 }
-                $destinatarios = \App\Models\User::where('roles_id', $request->rol_id)->pluck('id')->toArray();
+
+                // Comportamiento especial para Estudiantes: si se envía curso_id, seleccionar estudiantes de ese curso
+                $rolEstudiante = \App\Models\RolesModel::where('nombre', 'Estudiante')->first();
+                $estudianteRoleId = $rolEstudiante ? (int)$rolEstudiante->id : null;
+
+                if ($estudianteRoleId && (int)$request->rol_id === $estudianteRoleId && $request->filled('curso_id')) {
+                    // Obtener estudiantes matriculados en el curso
+                    $cursoId = (int)$request->curso_id;
+                    $matriculas = Matricula::where('curso_id', $cursoId)->with('user')->get();
+                    $userIds = $matriculas->pluck('user.id')->filter()->unique()->values()->all();
+
+                    // Añadir también los acudientes registrados de esos estudiantes
+                    $acudienteIds = User::whereIn('id', $userIds)->pluck('acudiente_id')->filter()->unique()->values()->all();
+
+                    $destinatarios = array_values(array_unique(array_merge($userIds, $acudienteIds)));
+                } else {
+                    $destinatarios = \App\Models\User::where('roles_id', $request->rol_id)->pluck('id')->toArray();
+                }
             }
         } else {
             return back()->withErrors(['modo' => 'Modo de envío inválido'])->withInput();
         }
 
-        foreach ($destinatarios as $destId) {
+        // Si se seleccionaron usuarios individuales y (algunos) son estudiantes, también incluir sus acudientes
+        $finalDestinatarios = [];
+        if (is_array($destinatarios)) {
+            foreach ($destinatarios as $d) {
+                $finalDestinatarios[] = (int)$d;
+                // si el destinatario es un estudiante, incluir su acudiente
+                $u = User::find($d);
+                if ($u && optional($u->role)->nombre === 'Estudiante') {
+                    if ($u->acudiente_id) $finalDestinatarios[] = (int)$u->acudiente_id;
+                }
+            }
+        }
+
+        $finalDestinatarios = array_values(array_unique($finalDestinatarios));
+
+        foreach ($finalDestinatarios as $destId) {
             // Evitar enviar notificación a self
             if ($destId == Auth::id()) continue;
 
@@ -325,10 +596,51 @@ class ComunicacionController extends Controller
                 'mensaje' => $request->mensaje,
                 'leida' => false,
                 'fecha' => now(),
+                'creador_id' => Auth::id(),
+                'solo_acudiente_responde' => $request->boolean('solo_acudiente_responde', false),
+                'group_key' => $groupKey,
+                'deleted_by_creador' => false,
             ]);
         }
 
         return redirect()->route('comunicacion.notificaciones')->with('success', 'Notificación(es) enviada(s) correctamente');
+    }
+
+    /**
+     * Endpoint JSON: devuelve usuarios (estudiantes) matriculados en un curso.
+     * Parámetros opcionales: q para buscar por nombre o documento.
+     */
+    public function estudiantesPorCurso(Request $request, $cursoId)
+    {
+        if (! Auth::check()) {
+            return response()->json(['data' => []], 401);
+        }
+
+        $q = trim($request->get('q', ''));
+
+        $query = Matricula::where('curso_id', $cursoId)->with('user');
+
+        $matriculas = $query->get();
+
+        $users = $matriculas->map(function($m){
+            if (! $m->user) return null;
+            return [
+                'id' => $m->user->id,
+                'name' => $m->user->name,
+                'document_number' => $m->user->document_number ?? null,
+            ];
+        })->filter();
+
+        if ($q !== '') {
+            $qLower = mb_strtolower($q);
+            $users = $users->filter(function($u) use ($qLower) {
+                return mb_stripos($u['name'], $qLower) !== false || (isset($u['document_number']) && mb_stripos($u['document_number'], $qLower) !== false);
+            });
+        }
+
+        $users = $users->values()->take(200);
+
+        return response()->json(['data' => $users]);
     }
 
     // ---------------- Circulares ----------------
@@ -397,6 +709,8 @@ class ComunicacionController extends Controller
                 'mensaje' => \Illuminate\Support\Str::limit($circular->contenido, 200),
                 'leida' => false,
                 'fecha' => now(),
+                'creador_id' => Auth::id(),
+                'solo_acudiente_responde' => false,
             ]);
         }
 
