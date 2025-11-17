@@ -66,6 +66,17 @@
                     </select>
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label">Acudiente (si el rol es Estudiante)</label>
+                    <select name="acudiente_id" class="form-select @error('acudiente_id') is-invalid @enderror">
+                        <option value="">-- Ninguno --</option>
+                        @foreach($acudientes as $a)
+                            <option value="{{ $a->id }}" {{ (string)old('acudiente_id', $user->acudiente_id ?? '') === (string)$a->id ? 'selected' : '' }}>{{ $a->name }} ({{ $a->document_number ?? '—' }})</option>
+                        @endforeach
+                    </select>
+                    @error('acudiente_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Tipo de documento</label>

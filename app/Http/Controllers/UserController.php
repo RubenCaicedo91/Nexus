@@ -44,7 +44,14 @@ class UserController extends Controller
                 return (object)['id' => $key, 'nombre' => $label];
             });
         }
-        return view('usuarios.create', compact('roles'));
+        // Cargar acudientes disponibles para asignar a estudiantes
+        $rolAcudiente = RolesModel::where('nombre', 'Acudiente')->first();
+        $acudientes = [];
+        if ($rolAcudiente) {
+            $acudientes = \App\Models\User::where('roles_id', $rolAcudiente->id)->orderBy('name')->get();
+        }
+
+        return view('usuarios.create', compact('roles', 'acudientes'));
     }
 
     public function store(Request $request)
@@ -90,6 +97,25 @@ class UserController extends Controller
             'celular' => $data['celular'] ?? null,
         ]);
 
+        // Si el rol asignado es Estudiante, requerimos que se haya enviado un acudiente válido
+        $rolEstudiante = RolesModel::where('nombre', 'Estudiante')->first();
+        if ($rolEstudiante && isset($data['roles_id']) && (int)$data['roles_id'] === (int)$rolEstudiante->id) {
+            $acudienteId = $request->input('acudiente_id');
+            $rolAcudiente = RolesModel::where('nombre','Acudiente')->first();
+            $acudienteValido = false;
+            if ($acudienteId && $rolAcudiente) {
+                $acudienteValido = \App\Models\User::where('id', $acudienteId)->where('roles_id', $rolAcudiente->id)->exists();
+            }
+            if (!$acudienteValido) {
+                // Borrar el usuario creado para no dejar registros inconsistentes
+                $user->delete();
+                return redirect()->back()->withInput()->withErrors(['acudiente_id' => 'Para el rol Estudiante es obligatorio seleccionar un acudiente válido.']);
+            }
+
+            $user->acudiente_id = $acudienteId;
+            $user->save();
+        }
+
         return redirect()->route('usuarios.index')->with('success', 'Usuario creado correctamente.');
     }
 
@@ -103,7 +129,14 @@ class UserController extends Controller
                 return (object)['id' => $key, 'nombre' => $label];
             });
         }
-        return view('usuarios.edit', compact('user', 'roles'));
+        // Cargar acudientes para permitir asignar/actualizar el acudiente de un estudiante
+        $rolAcudiente = RolesModel::where('nombre', 'Acudiente')->first();
+        $acudientes = [];
+        if ($rolAcudiente) {
+            $acudientes = \App\Models\User::where('roles_id', $rolAcudiente->id)->orderBy('name')->get();
+        }
+
+        return view('usuarios.edit', compact('user', 'roles', 'acudientes'));
     }
 
     public function update(Request $request, $id)
@@ -149,6 +182,26 @@ class UserController extends Controller
         $user->document_type = $data['document_type'] ?? null;
         $user->document_number = $data['document_number'] ?? null;
         $user->celular = $data['celular'] ?? null;
+        // Si el rol actualizado es Estudiante, requerimos acudiente válido
+        $rolEstudiante = RolesModel::where('nombre', 'Estudiante')->first();
+        if ($rolEstudiante && isset($data['roles_id']) && (int)$data['roles_id'] === (int)$rolEstudiante->id) {
+            $acudienteId = $request->input('acudiente_id');
+            $rolAcudiente = RolesModel::where('nombre','Acudiente')->first();
+            $acudienteValido = false;
+            if ($acudienteId && $rolAcudiente) {
+                $acudienteValido = \App\Models\User::where('id', $acudienteId)->where('roles_id', $rolAcudiente->id)->exists();
+            }
+            if (!$acudienteValido) {
+                return redirect()->back()->withInput()->withErrors(['acudiente_id' => 'Para el rol Estudiante es obligatorio seleccionar un acudiente válido.']);
+            }
+            $user->acudiente_id = $acudienteId;
+        } else {
+            // Si no es estudiante, limpiar campo acudiente si fue enviado vacío
+            if ($request->has('acudiente_id') && empty($request->input('acudiente_id'))) {
+                $user->acudiente_id = null;
+            }
+        }
+
         $user->save();
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado correctamente.');
