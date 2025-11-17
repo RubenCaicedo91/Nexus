@@ -255,15 +255,25 @@ class GestionFinancieraController extends Controller
                 if ($faltante <= 0) {
                     try {
                         // Crear notificación simple en la tabla notificaciones si existe
-                        if (class_exists(Notificacion::class)) {
-                            Notificacion::create([
-                                'usuario_id' => $matricula->user_id,
-                                'titulo' => 'Pago de matrícula completado',
-                                'mensaje' => 'Su matrícula ha sido registrada como pagada en su totalidad el ' . Carbon::now()->format('Y-m-d H:i') . '.',
-                                'leida' => false,
-                                'fecha' => Carbon::now(),
-                            ]);
-                        }
+                            if (class_exists(Notificacion::class)) {
+                                    try {
+                                        // Preferir notificar al acudiente registrado del estudiante
+                                        $studentUser = User::find($matricula->user_id);
+                                        $destUserId = $studentUser && $studentUser->acudiente_id ? $studentUser->acudiente_id : $matricula->user_id;
+
+                                        Notificacion::create([
+                                            'usuario_id' => $destUserId,
+                                            'titulo' => 'Pago de matrícula completado',
+                                            'mensaje' => 'La matrícula del estudiante ha sido registrada como pagada en su totalidad el ' . Carbon::now()->format('Y-m-d H:i') . '.',
+                                            'leida' => false,
+                                            'fecha' => Carbon::now(),
+                                            'solo_lectura' => true,
+                                            'tipo' => 'pago_matricula',
+                                        ]);
+                                    } catch (\Throwable $e) {
+                                        Log::warning('registrarPago: no se pudo crear notificación al acudiente', ['error' => $e->getMessage()]);
+                                    }
+                                }
                     } catch (\Exception $e) {
                         // No bloquear el flujo si falla la notificación
                         Log::warning('registrarPago: no se pudo crear notificación', ['error' => $e->getMessage()]);

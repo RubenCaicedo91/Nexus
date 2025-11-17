@@ -18,6 +18,8 @@ class Notificacion extends Model
         'fecha',
         'creador_id',
         'solo_acudiente_responde',
+        'solo_lectura',
+        'tipo',
         'group_key',
         'deleted_by_creador',
     ];
@@ -25,6 +27,7 @@ class Notificacion extends Model
     protected $casts = [
         'leida' => 'boolean',
         'solo_acudiente_responde' => 'boolean',
+        'solo_lectura' => 'boolean',
         'fecha' => 'datetime',
     ];
 

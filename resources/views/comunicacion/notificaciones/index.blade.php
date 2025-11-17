@@ -156,12 +156,17 @@
                                 @php
                                     $canReply = false;
                                     if (auth()->check() && (int)auth()->id() === (int)$notif->usuario_id) {
-                                        if (empty($notif->solo_acudiente_responde)) {
-                                            $canReply = true;
+                                        $roleName = optional(auth()->user()->role)->nombre ?? '';
+                                        $isAcudiente = stripos($roleName, 'acudiente') !== false;
+
+                                        // Si la notificación es un pago de matrícula, el acudiente no puede responder
+                                        if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
+                                            $canReply = false;
                                         } else {
-                                            $roleName = optional(auth()->user()->role)->nombre ?? '';
-                                            if (stripos($roleName, 'Acudiente') !== false || stripos($roleName, 'acudiente') !== false) {
+                                            if (empty($notif->solo_acudiente_responde)) {
                                                 $canReply = true;
+                                            } else {
+                                                if ($isAcudiente) $canReply = true;
                                             }
                                         }
                                     }

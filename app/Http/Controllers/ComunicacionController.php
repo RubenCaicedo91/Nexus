@@ -428,11 +428,18 @@ class ComunicacionController extends Controller
 
         $canReply = false;
         if ((int)$notif->usuario_id === (int)$user->id) {
-            if (! $notif->solo_acudiente_responde) {
-                $canReply = true;
+            $roleName = optional($user->role)->nombre ?? '';
+            $isAcudiente = stripos($roleName, 'acudiente') !== false;
+
+            // Si es notificación de pago de matrícula, los acudientes NO pueden responder
+            if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
+                $canReply = false;
             } else {
-                $roleName = optional($user->role)->nombre ?? '';
-                if (stripos($roleName, 'acudiente') !== false) $canReply = true;
+                if (! $notif->solo_acudiente_responde) {
+                    $canReply = true;
+                } else {
+                    if ($isAcudiente) $canReply = true;
+                }
             }
         }
 
@@ -464,10 +471,16 @@ class ComunicacionController extends Controller
             abort(403, 'Solo el destinatario puede responder esta notificación');
         }
 
+        // Si la notificación es de pago de matrícula, y quien intenta abrir es un acudiente, no permitir
+        $roleName = optional($user->role)->nombre ?? '';
+        $isAcudiente = stripos($roleName, 'acudiente') !== false;
+        if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
+            abort(403, 'Esta notificación no acepta respuestas');
+        }
+
         // Si la notificación está marcada como "solo acudiente puede responder", validar rol
         if ($notif->solo_acudiente_responde) {
-            $roleName = optional($user->role)->nombre ?? '';
-            if (stripos($roleName, 'acudiente') === false) {
+            if (! $isAcudiente) {
                 abort(403, 'Solo el acudiente puede responder esta notificación');
             }
         }
@@ -486,9 +499,15 @@ class ComunicacionController extends Controller
             abort(403, 'Solo el destinatario puede responder esta notificación');
         }
 
+        // Si la notificación es de pago y quien intenta enviar es un acudiente, no aceptar
+        $roleName = optional($user->role)->nombre ?? '';
+        $isAcudiente = stripos($roleName, 'acudiente') !== false;
+        if ($notif->tipo === 'pago_matricula' && $isAcudiente) {
+            abort(403, 'Esta notificación no acepta respuestas');
+        }
+
         if ($notif->solo_acudiente_responde) {
-            $roleName = optional($user->role)->nombre ?? '';
-            if (stripos($roleName, 'acudiente') === false) {
+            if (! $isAcudiente) {
                 abort(403, 'Solo el acudiente puede responder esta notificación');
             }
         }
