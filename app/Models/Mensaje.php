@@ -16,6 +16,7 @@ class Mensaje extends Model
         'contenido',
         'leido',
         'parent_id',
+        'notificacion_id',
         'deleted_by_remitente',
         'deleted_by_destinatario',
     ];
@@ -39,5 +40,10 @@ class Mensaje extends Model
     public function replies()
     {
         return $this->hasMany(\App\Models\Mensaje::class, 'parent_id');
+    }
+
+    public function notificacion()
+    {
+        return $this->belongsTo(\App\Models\Notificacion::class, 'notificacion_id');
     }
 }

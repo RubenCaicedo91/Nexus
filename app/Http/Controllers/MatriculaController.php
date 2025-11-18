@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 use App\Models\MatriculaComprobante;
+use App\Models\Notificacion;
 
 class MatriculaController extends Controller
 {
@@ -647,13 +648,30 @@ class MatriculaController extends Controller
         // Si se subió un comprobante de pago, registrar su metadata en la tabla de audit
         if (!empty($rutas['comprobante_pago'])) {
             try {
-                MatriculaComprobante::create([
+                $mc = MatriculaComprobante::create([
                     'matricula_id' => $matricula->id,
                     'filename' => basename($rutas['comprobante_pago']),
                     'path' => $rutas['comprobante_pago'],
                     'original_name' => $request->hasFile('comprobante_pago') ? $request->file('comprobante_pago')->getClientOriginalName() : null,
                     'uploaded_by' => Auth::id(),
                 ]);
+
+                // Crear notificación para el acudiente del estudiante (si existe)
+                try {
+                    $studentUser = User::find($matricula->user_id);
+                    $destUserId = $studentUser && $studentUser->acudiente_id ? $studentUser->acudiente_id : $matricula->user_id;
+
+                    Notificacion::create([
+                        'usuario_id' => $destUserId,
+                        'titulo' => 'Comprobante de matrícula subido',
+                        'mensaje' => 'Se ha subido un comprobante de matrícula: ' . ($mc->original_name ?? $mc->filename),
+                        'leida' => false,
+                        'fecha' => now(),
+                        'tipo' => 'comprobante_matricula',
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::warning('store(): no se pudo crear notificación por comprobante', ['error' => $e->getMessage()]);
+                }
             } catch (\Exception $e) {
                 \Log::warning('store(): no se pudo crear MatriculaComprobante', ['error' => $e->getMessage()]);
             }
@@ -848,13 +866,29 @@ class MatriculaController extends Controller
         // Si se subió un comprobante durante la actualización, registrar metadata
         if (!empty($uploadedComprobantePath)) {
             try {
-                MatriculaComprobante::create([
+                $mc = MatriculaComprobante::create([
                     'matricula_id' => $matricula->id,
                     'filename' => basename($uploadedComprobantePath),
                     'path' => $uploadedComprobantePath,
                     'original_name' => $uploadedComprobanteOriginal,
                     'uploaded_by' => Auth::id(),
                 ]);
+
+                // Notificar al acudiente del estudiante cuando se sube un comprobante
+                try {
+                    $studentUser = User::find($matricula->user_id);
+                    $destUserId = $studentUser && $studentUser->acudiente_id ? $studentUser->acudiente_id : $matricula->user_id;
+
+                    Notificacion::create([
+                        'usuario_id' => $destUserId,
+                        'titulo' => 'Comprobante de matrícula subido',
+                        'mensaje' => 'Se ha subido un comprobante de matrícula: ' . ($mc->original_name ?? $mc->filename),
+                        'leida' => false,
+                        'fecha' => now(),
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::warning('update(): no se pudo crear notificación por comprobante', ['error' => $e->getMessage()]);
+                }
             } catch (\Exception $e) {
                 \Log::warning('update(): no se pudo crear MatriculaComprobante', ['error' => $e->getMessage()]);
             }
