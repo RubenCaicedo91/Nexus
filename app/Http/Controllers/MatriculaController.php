@@ -17,6 +17,38 @@ use App\Models\Notificacion;
 
 class MatriculaController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+
+        $this->middleware(function ($request, $next) {
+            $user = auth()->user();
+            if (! $user) {
+                abort(403, 'Acceso no autorizado');
+            }
+
+            $roleName = optional($user->role)->nombre ?? '';
+
+            // Bloquear explícitamente al rol 'coordinador disciplina'
+            if ($roleName && stripos($roleName, 'coordinador disciplina') !== false) {
+                abort(403, 'Acceso no autorizado');
+            }
+
+            // Permitir usuarios con permiso gestionar_academica o roles administrativos
+            if ((method_exists($user, 'hasPermission') && $user->hasPermission('gestionar_academica')) ||
+                ($roleName && (
+                    stripos($roleName, 'admin') !== false ||
+                    stripos($roleName, 'administrador') !== false ||
+                    stripos($roleName, 'rector') !== false
+                )) ||
+                (isset($user->roles_id) && (int)$user->roles_id === 1)
+            ) {
+                return $next($request);
+            }
+
+            abort(403, 'Acceso no autorizado');
+        });
+    }
     /**
      * Display a listing of the resource.
      */

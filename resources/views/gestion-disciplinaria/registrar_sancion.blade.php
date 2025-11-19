@@ -232,7 +232,13 @@
                         <option value="{{ $t->id }}" {{ old('tipo_id') == $t->id ? 'selected' : '' }}>{{ $t->nombre }}</option>
                     @endforeach
                 @endif
+                <option value="otro" {{ old('tipo_id') == 'otro' ? 'selected' : '' }}>Otro (especificar)</option>
         </select>
+    </div>
+    <div class="mb-3" id="tipo_otro_wrap" style="display:none;">
+        <label for="tipo_otro" class="form-label">Especificar otro tipo</label>
+        <input type="text" name="tipo_otro" id="tipo_otro" class="form-control" value="{{ old('tipo_otro') }}" />
+        <small class="form-text text-muted">Si eliges "Otro", especifica el tipo de falta aquí.</small>
     </div>
     <div id="suspension_fields" class="mb-3" style="display:none">
         <label class="form-label">Fecha inicio sanción</label>
@@ -346,6 +352,23 @@
             if (tipoSelect.value) {
                 updateFieldsByTipoId(tipoSelect.value);
             }
+        }
+        // Manejo del campo 'otro'
+        const tipoOtroWrap = document.getElementById('tipo_otro_wrap');
+        const tipoOtroInput = document.getElementById('tipo_otro');
+        function toggleTipoOtro(val) {
+            if (val === 'otro') {
+                if (tipoOtroWrap) tipoOtroWrap.style.display = '';
+                if (tipoOtroInput) tipoOtroInput.required = true;
+            } else {
+                if (tipoOtroWrap) tipoOtroWrap.style.display = 'none';
+                if (tipoOtroInput) { tipoOtroInput.required = false; tipoOtroInput.value = ''; }
+            }
+        }
+
+        if (tipoSelect) {
+            tipoSelect.addEventListener('change', function(e){ toggleTipoOtro(e.target.value); });
+            toggleTipoOtro(tipoSelect.value);
         }
     })();
 </script>

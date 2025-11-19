@@ -20,6 +20,42 @@ use App\Models\User;
 
 class GestionFinancieraController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+
+        $this->middleware(function ($request, $next) {
+            $user = Auth::user();
+            if (! $user) {
+                abort(403, 'Acceso no autorizado');
+            }
+
+            $roleName = optional($user->role)->nombre ?? '';
+            // Normalizar nombre de rol para detectar variantes: espacios, guiones, guión bajo, 'de'
+            $rn = mb_strtolower($roleName);
+            $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+            $normalized = preg_replace('/[^a-z0-9\s]+/u', ' ', $rn);
+            $normalized = preg_replace('/\s+/u', ' ', trim($normalized));
+
+            $isCoordinadorDisciplina = false;
+            if ($normalized !== '') {
+                if ((mb_strpos($normalized, 'coordinador') !== false && mb_strpos($normalized, 'disciplina') !== false) ||
+                    mb_strpos($normalized, 'coordinador disciplina') !== false ||
+                    mb_strpos($normalized, 'coordinador_de_disciplina') !== false ||
+                    mb_strpos($normalized, 'coordinador-disciplina') !== false ||
+                    mb_strpos($normalized, 'coordinador de disciplina') !== false) {
+                    $isCoordinadorDisciplina = true;
+                }
+            }
+
+            if ($isCoordinadorDisciplina) {
+                // El rol 'coordinador disciplina' no debe tener acceso al módulo financiero
+                abort(403, 'Acceso no autorizado');
+            }
+
+            return $next($request);
+        });
+    }
     public function mostrarFormularioPago()
     {
         // Si el usuario es coordinador académico, sólo puede consultar estado; prohibimos abrir formulario de registro
@@ -514,7 +550,8 @@ class GestionFinancieraController extends Controller
             $role = optional($user->role)->nombre ?? '';
             $roleName = mb_strtolower($role);
             $roleName = strtr($roleName, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
-            if (mb_stripos($roleName, 'coordinador') !== false || mb_stripos($roleName, 'cordinador') !== false) {
+            // Detectar solamente 'Coordinador Académico' variantes
+            if (mb_stripos($roleName, 'coordinador academ') !== false || mb_stripos($roleName, 'cordinador academ') !== false || mb_stripos($roleName, 'coordinador academico') !== false) {
                 return true;
             }
         } catch (\Throwable $e) {
@@ -526,21 +563,7 @@ class GestionFinancieraController extends Controller
 
     public function index()
     {
-        $isCoordinator = false;
-        try {
-            $user = Auth::user();
-            if ($user) {
-                $role = optional($user->role)->nombre ?? '';
-                $roleNorm = mb_strtolower($role);
-                $roleNorm = strtr($roleNorm, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
-                if (mb_stripos($roleNorm, 'coordinador') !== false || mb_stripos($roleNorm, 'cordinador') !== false) {
-                    $isCoordinator = true;
-                }
-            }
-        } catch (\Throwable $e) {
-            $isCoordinator = false;
-        }
-
+        $isCoordinator = $this->isCoordinadorAcademico();
         return view('financiera.index', compact('isCoordinator'));
     }
     //

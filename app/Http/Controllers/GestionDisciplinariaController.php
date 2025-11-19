@@ -40,6 +40,33 @@ class GestionDisciplinariaController extends Controller
 
         // Cargar tipos de sanción activos para el select
         $tipos = \App\Models\SancionTipo::where('activo', true)->orderBy('nombre')->get();
+
+        // Lista por defecto de tipos de faltas que deberían aparecer en el select.
+        // Si no existen, creamos los registros por primera vez (activo = true).
+        $defaultTipos = [
+            'Falta leve',
+            'Falta grave',
+            'Retardo',
+            'Inasistencia injustificada',
+            'Vandalismo',
+            'Acoso',
+            'Agresión',
+            'Desobediencia'
+        ];
+
+        foreach ($defaultTipos as $dt) {
+            $exists = \App\Models\SancionTipo::whereRaw('LOWER(nombre) = ?', [mb_strtolower($dt)])->first();
+            if (! $exists) {
+                try {
+                    \App\Models\SancionTipo::create(['nombre' => $dt, 'activo' => true, 'categoria' => 'normal']);
+                } catch (\Throwable $e) {
+                    // No detener el flujo si la creación falla (posible esquema diferente), continuar
+                }
+            }
+        }
+
+        // Recargar tipos (incluyendo los creados) y preparar datos para JS
+        $tipos = \App\Models\SancionTipo::where('activo', true)->orderBy('nombre')->get();
         $tiposForJs = $tipos->map(function($t){ return ['id' => $t->id, 'nombre' => $t->nombre, 'categoria' => $t->categoria ?? 'normal']; })->values();
 
         $isCoordinator = $this->isCoordinadorAcademico();
@@ -58,15 +85,21 @@ class GestionDisciplinariaController extends Controller
         }
 
 
+
         $baseRules = [
             'usuario_id' => 'required|exists:users,id',
             'descripcion' => 'required|string|max:1000',
-            'tipo_id' => 'required|exists:sancion_tipos,id',
+            // permitimos elegir 'otro' por lo que validamos exists condicionalmente más abajo
+            'tipo_id' => 'required',
             'fecha' => 'required|date',
         ];
 
         // Validación condicional según el tipo seleccionado
-        $tipoModel = \App\Models\SancionTipo::find($request->input('tipo_id'));
+        // Si el usuario selecciona un tipo existente lo cargamos; si selecciona 'otro' dejamos tipoModel null
+        $tipoModel = null;
+        if ($request->input('tipo_id') && $request->input('tipo_id') !== 'otro') {
+            $tipoModel = \App\Models\SancionTipo::find($request->input('tipo_id'));
+        }
 
         $extraRules = [];
         $isSuspension = false;
@@ -113,12 +146,25 @@ class GestionDisciplinariaController extends Controller
 
         $rules = array_merge($baseRules, $extraRules);
 
+        // Si se seleccionó 'otro', requerir el campo 'tipo_otro'; si no, validar existencia en la tabla
+        $tipoIdInput = $request->input('tipo_id');
+        if ($tipoIdInput === 'otro') {
+            $rules['tipo_otro'] = 'required|string|max:255';
+        } else {
+            $rules['tipo_id'] = 'required|exists:sancion_tipos,id';
+        }
+
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), $rules);
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        $tipoNombre = $tipoModel ? $tipoModel->nombre : null;
+        // Si se eligió 'otro', usar el texto provisto en 'tipo_otro', de lo contrario usar el nombre del tipo
+        if ($request->input('tipo_id') === 'otro') {
+            $tipoNombre = trim($request->input('tipo_otro')) ?: null;
+        } else {
+            $tipoNombre = $tipoModel ? $tipoModel->nombre : null;
+        }
 
         $data = [
             'usuario_id' => $request->input('usuario_id'),
@@ -365,8 +411,9 @@ class GestionDisciplinariaController extends Controller
             $roleName = mb_strtolower($role->nombre ?? '');
             // Normalizar acentos para evitar fallos por tildes
             $roleNameNormalized = strtr($roleName, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
-            // Aceptar variantes con/ sin 'o' en 'coordinador' y con/ sin 'academico' acentuado
-            if (mb_stripos($roleNameNormalized, 'coordinador') !== false || mb_stripos($roleNameNormalized, 'cordinador') !== false || mb_stripos($roleNameNormalized, 'coordinador academ') !== false || mb_stripos($roleNameNormalized, 'cordinador academ') !== false) {
+            // Detectar explícitamente variantes de 'Coordinador Académico' únicamente.
+            // Evitar detectar otros coordinadores como 'Coordinador Disciplina'.
+            if (mb_stripos($roleNameNormalized, 'coordinador academ') !== false || mb_stripos($roleNameNormalized, 'cordinador academ') !== false || mb_stripos($roleNameNormalized, 'coordinador academico') !== false) {
                 return true;
             }
         } catch (\Throwable $e) {

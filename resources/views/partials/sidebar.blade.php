@@ -11,25 +11,43 @@
             </a>
 
             <!-- Gestión Académica -->
-            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuAcademica" role="button" aria-expanded="false" aria-controls="submenuAcademica">
-                <span><i class="fas fa-chalkboard-teacher me-2"></i>Gestión Académica</span>
-                <i class="fas fa-chevron-down small"></i>
-            </a>
-            <div class="collapse ps-4" id="submenuAcademica">
-                <a class="nav-link" href="{{ route('gestion.index') }}">Dashboard Horarios</a>
-                <a class="nav-link" href="{{ route('matriculas.index') }}">Dashboard Matrículas</a>
-            </div>
+            @if(auth()->check() && (
+                (method_exists(auth()->user(), 'hasPermission') && auth()->user()->hasPermission('gestionar_academica')) ||
+                (optional(auth()->user()->role)->nombre && (
+                    stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
+                )) || auth()->user()->roles_id == 1
+            ) && !(optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'coordinador disciplina') !== false))
+                <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuAcademica" role="button" aria-expanded="false" aria-controls="submenuAcademica">
+                    <span><i class="fas fa-chalkboard-teacher me-2"></i>Gestión Académica</span>
+                    <i class="fas fa-chevron-down small"></i>
+                </a>
+                <div class="collapse ps-4" id="submenuAcademica">
+                    <a class="nav-link" href="{{ route('gestion.index') }}">Dashboard Horarios</a>
+                    <a class="nav-link" href="{{ route('matriculas.index') }}">Dashboard Matrículas</a>
+                </div>
+            @endif
 
             <!-- Gestión de Notas -->
-            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuNotasMain" role="button" aria-expanded="false" aria-controls="submenuNotasMain">
-                <span><i class="fas fa-clipboard-list me-2"></i>Gestión de Notas</span>
-                <i class="fas fa-chevron-down small"></i>
-            </a>
-            <div class="collapse ps-4" id="submenuNotasMain">
-                <a class="nav-link" href="{{ route('notas.index') }}">
-                    <i class="fas fa-edit me-2"></i>Dashboard Notas
+            @if(auth()->check() && (
+                (method_exists(auth()->user(), 'hasAnyPermission') && auth()->user()->hasAnyPermission(['ver_notas','registrar_notas','consultar_reporte_academicos'])) ||
+                (optional(auth()->user()->role)->nombre && (
+                    stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
+                )) || auth()->user()->roles_id == 1
+            ) && !(optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'coordinador disciplina') !== false))
+                <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuNotasMain" role="button" aria-expanded="false" aria-controls="submenuNotasMain">
+                    <span><i class="fas fa-clipboard-list me-2"></i>Gestión de Notas</span>
+                    <i class="fas fa-chevron-down small"></i>
                 </a>
-            </div>
+                <div class="collapse ps-4" id="submenuNotasMain">
+                    <a class="nav-link" href="{{ route('notas.index') }}">
+                        <i class="fas fa-edit me-2"></i>Dashboard Notas
+                    </a>
+                </div>
+            @endif
 
             <!-- Gestión Disciplinaria -->
             @if(auth()->check() && (
@@ -41,7 +59,8 @@
                 (optional(auth()->user()->role)->nombre && (
                     stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
                     stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
-                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
+                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'coordinador disciplina') !== false
                 )) || auth()->user()->roles_id == 1
             ))
                 <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuDisciplinaria" role="button" aria-expanded="false" aria-controls="submenuDisciplinaria">
@@ -56,15 +75,25 @@
             @endif
 
             <!-- Gestión Financiera -->
-            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuFinanciera" role="button" aria-expanded="false" aria-controls="submenuFinanciera">
-                <span><i class="fas fa-chart-line me-2"></i>Gestión Financiera</span>
-                <i class="fas fa-chevron-down small"></i>
-            </a>
-            <div class="collapse ps-4" id="submenuFinanciera">
-                <a class="nav-link" href="{{ route('financiera.index') }}">
-                    <i class="fas fa-chart-bar me-2"></i>Dashboard Financiero
+            @if(auth()->check() && (
+                (method_exists(auth()->user(), 'hasPermission') && auth()->user()->hasPermission('generar_reportes_financieros')) ||
+                (optional(auth()->user()->role)->nombre && (
+                    stripos(optional(auth()->user()->role)->nombre, 'tesor') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
+                )) || auth()->user()->roles_id == 1
+            ) && !(optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'coordinador disciplina') !== false))
+                <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuFinanciera" role="button" aria-expanded="false" aria-controls="submenuFinanciera">
+                    <span><i class="fas fa-chart-line me-2"></i>Gestión Financiera</span>
+                    <i class="fas fa-chevron-down small"></i>
                 </a>
-            </div>
+                <div class="collapse ps-4" id="submenuFinanciera">
+                    <a class="nav-link" href="{{ route('financiera.index') }}">
+                        <i class="fas fa-chart-bar me-2"></i>Dashboard Financiero
+                    </a>
+                </div>
+            @endif
 
             <!-- Comunicaciones -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuComunicacion" role="button" aria-expanded="false" aria-controls="submenuComunicacion">

@@ -18,7 +18,8 @@ class GestionOrientacionController extends Controller
     {
         $user = Auth::user();
         $isCoordinator = $this->isCoordinadorAcademico($user);
-        return view('orientacion.index', compact('isCoordinator'));
+        $isCoordinadorDisciplina = $this->isCoordinadorDisciplina($user);
+        return view('orientacion.index', compact('isCoordinator', 'isCoordinadorDisciplina'));
     }
 
     // ---------------- Citas ----------------
@@ -776,5 +777,42 @@ class GestionOrientacionController extends Controller
         ];
 
         return in_array($normalized, $valids, true);
+    }
+
+    /**
+     * Detecta si el usuario tiene el rol 'Coordinador Disciplina' (variantes).
+     */
+    private function isCoordinadorDisciplina($user = null)
+    {
+        if (! $user) return false;
+
+        $roleName = null;
+        if (isset($user->roles) && is_object($user->roles) && isset($user->roles->nombre)) {
+            $roleName = $user->roles->nombre;
+        } elseif (method_exists($user, 'role') && optional($user->role)->nombre) {
+            $roleName = optional($user->role)->nombre;
+        } elseif (isset($user->roles_id)) {
+            try {
+                $r = RolesModel::find($user->roles_id);
+                $roleName = $r ? $r->nombre : null;
+            } catch (\Throwable $e) {
+                $roleName = null;
+            }
+        }
+
+        if (! $roleName) return false;
+
+        $normalized = strtolower($roleName);
+        $normalized = str_replace(['á','é','í','ó','ú','Á','É','Í','Ó','Ú'], ['a','e','i','o','u','a','e','i','o','u'], $normalized);
+        // reemplazar caracteres no alfanum por espacio y colapsar espacios
+        $normalized = preg_replace('/[^a-z0-9\s]/u', ' ', $normalized);
+        $normalized = preg_replace('/\s+/u', ' ', trim($normalized));
+
+        // detectar presencia de ambas palabras
+        if (mb_strpos($normalized, 'coordinador') !== false && mb_strpos($normalized, 'disciplina') !== false) {
+            return true;
+        }
+
+        return false;
     }
 }

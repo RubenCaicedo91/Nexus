@@ -9,11 +9,21 @@
         <p class="mb-0">Acompañando el bienestar estudiantil con citas, informes y seguimientos 🤝✨</p>
     </div>
 
-    @php $isCoordinator = $isCoordinator ?? false; @endphp
+    @php
+        $isCoordinator = $isCoordinator ?? false;
+        $isCoordinadorDisciplina = $isCoordinadorDisciplina ?? false;
+        $isRestricted = $isCoordinator || $isCoordinadorDisciplina;
+    @endphp
 
-    @if($isCoordinator)
+    @if($isRestricted)
         <div class="alert alert-warning">
-            <strong>Acceso restringido:</strong> Como <em>Coordinador Académico</em> sólo puedes usar el submódulo <strong>Citas</strong>. El resto de opciones están deshabilitadas.
+            <strong>Acceso restringido:</strong>
+            @if($isCoordinator)
+                Como <em>Coordinador Académico</em> sólo puedes usar el submódulo <strong>Citas</strong>.
+            @elseif($isCoordinadorDisciplina)
+                Como <em>Coordinador Disciplina</em> sólo puedes usar el submódulo <strong>Citas</strong>.
+            @endif
+            El resto de opciones están deshabilitadas.
         </div>
     @endif
 
@@ -38,8 +48,8 @@
                 <div class="card-header bg-success text-white">📝 Informes</div>
                 <div class="card-body">
                     <p class="mb-3">📖 Generar informes psicosociales vinculados a citas atendidas.</p>
-                    @if($isCoordinator)
-                        <button class="btn btn-success w-100" disabled title="Acceso restringido: sólo Citas">Ir a Informes ➡️</button>
+                    @if($isRestricted)
+                        <a href="#" class="btn btn-success w-100 disabled" onclick="alert('Acceso restringido: sólo Citas'); return false;">Ir a Informes ➡️</a>
                     @else
                         <a href="{{ route('orientacion.informes') }}" class="btn btn-success w-100">Ir a Informes ➡️</a>
                     @endif
@@ -53,8 +63,8 @@
                 <div class="card-header bg-info text-white">📊 Seguimientos</div>
                 <div class="card-body">
                     <p class="mb-3">🔍 Registrar y consultar seguimientos para dar continuidad al proceso.</p>
-                    @if($isCoordinator)
-                        <button class="btn btn-info w-100" disabled title="Acceso restringido: sólo Citas">Ir a Seguimientos ➡️</button>
+                    @if($isRestricted)
+                        <a href="#" class="btn btn-info w-100 disabled" onclick="alert('Acceso restringido: sólo Citas'); return false;">Ir a Seguimientos ➡️</a>
                     @else
                         <a href="{{ route('orientacion.seguimientos') }}" class="btn btn-info w-100">Ir a Seguimientos ➡️</a>
                     @endif
