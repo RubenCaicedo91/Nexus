@@ -7,6 +7,7 @@ use App\Models\Sancion;
 use App\Models\User;
 use App\Models\RolesModel;
 use App\Models\Matricula;
+use Illuminate\Support\Facades\Auth;
 
 class GestionDisciplinariaController extends Controller
 {
@@ -15,8 +16,8 @@ class GestionDisciplinariaController extends Controller
      */
     public function mostrarFormularioSancion()
     {
-        // Evitar que el rol "cordinador academico" acceda al formulario
-        if ($this->isCoordinadorAcademico()) {
+        // Evitar que el rol "cordinador academico" o "docente" acceda al formulario
+        if ($this->isCoordinadorAcademico() || $this->isDocente()) {
             return redirect()->route('gestion-disciplinaria.index')->with('error', 'No tienes permiso para acceder a esta acción.');
         }
         // Obtener estudiantes (rol 'Estudiante') para mostrar por nombre en el select
@@ -79,8 +80,8 @@ class GestionDisciplinariaController extends Controller
     public function registrarSancion(Request $request)
     {
 
-        // Server-side: prohibir acción si el usuario es coordinador académico
-        if ($this->isCoordinadorAcademico()) {
+        // Server-side: prohibir acción si el usuario es coordinador académico o docente
+        if ($this->isCoordinadorAcademico() || $this->isDocente()) {
             abort(403, 'No tienes permiso para registrar sanciones.');
         }
 
@@ -211,8 +212,8 @@ class GestionDisciplinariaController extends Controller
      */
     public function generarReporte()
     {
-        // Evitar que coordinador académico use el reporte desde este módulo
-        if ($this->isCoordinadorAcademico()) {
+        // Evitar que coordinador académico o docentes usen el reporte desde este módulo
+        if ($this->isCoordinadorAcademico() || $this->isDocente()) {
             return redirect()->route('gestion-disciplinaria.index')->with('error', 'No tienes permiso para acceder a esta acción.');
         }
         // Aceptar filtros por query string: start_date, end_date, tipo_id
@@ -339,6 +340,11 @@ class GestionDisciplinariaController extends Controller
      */
     public function index()
     {
+        // Si el usuario es docente, redirigirlo a su propio historial de sanciones
+        if ($this->isDocente()) {
+            return redirect()->route('historial.sanciones', Auth::id());
+        }
+
         $sanciones = Sancion::with('usuario')->get();
 
         // Pasar flag a la vista para deshabilitar botones si el usuario es coordinador académico
@@ -387,6 +393,22 @@ class GestionDisciplinariaController extends Controller
         // Obtener la matrícula más reciente (por fecha) junto con el curso
         $matricula = $user->matriculas()->with('curso')->orderByDesc('fecha_matricula')->first();
 
+        // Si el solicitante es docente, permitimos la búsqueda para todos los estudiantes.
+        // Dejamos un log informativo para auditoría/debug.
+        if ($this->isDocente()) {
+            try {
+                $docenteId = \Illuminate\Support\Facades\Auth::id();
+                $cursoId = $matricula && $matricula->curso ? $matricula->curso->id : null;
+                \Log::info('buscarPorDocumento docente acceso permitido', [
+                    'docente_id' => $docenteId,
+                    'usuario_busqueda_id' => $user->id ?? null,
+                    'curso_id' => $cursoId,
+                ]);
+            } catch (\Throwable $__e) {
+                // No interrumpir en caso de fallo de logging
+            }
+        }
+
         // Obtener sanciones del estudiante
         $sanciones = \App\Models\Sancion::with('usuario')->where('usuario_id', $user->id)->get();
 
@@ -403,7 +425,7 @@ class GestionDisciplinariaController extends Controller
      */
     private function isCoordinadorAcademico()
     {
-        $user = auth()->user();
+        $user = Auth::user();
         if (! $user) return false;
 
         try {
@@ -422,6 +444,84 @@ class GestionDisciplinariaController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Determina si el usuario autenticado tiene rol 'Docente'.
+     */
+    private function isDocente()
+    {
+        $user = Auth::user();
+        if (! $user) return false;
+        try {
+            $role = RolesModel::find($user->roles_id);
+            $roleName = mb_strtolower($role->nombre ?? '');
+            $roleNameNormalized = strtr($roleName, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
+            if (mb_stripos($roleNameNormalized, 'docente') !== false) return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+        return false;
+    }
+
+    /**
+     * Endpoint temporal de depuración que comprueba si un docente puede acceder
+     * a la información de un estudiante según pivot curso_docente o materias.
+     *
+     * Query params aceptados: docente_id (opcional, por defecto Auth::id()), usuario_busqueda_id (requerido)
+     */
+    public function debugCheckAssignment(Request $request)
+    {
+        $docenteId = $request->query('docente_id') ?? Auth::id();
+        $usuarioBusquedaId = $request->query('usuario_busqueda_id');
+
+        if (! $usuarioBusquedaId) {
+            return response()->json(['success' => false, 'message' => 'Parámetro usuario_busqueda_id requerido'], 400);
+        }
+
+        $user = User::find($usuarioBusquedaId);
+        if (! $user) {
+            return response()->json(['success' => false, 'message' => 'Usuario no encontrado'], 404);
+        }
+
+        $matricula = $user->matriculas()->with('curso')->orderByDesc('fecha_matricula')->first();
+
+        $cursoId = null;
+        $matriculaId = null;
+        $pivotExists = false;
+        $materiaExists = false;
+
+        if ($matricula && $matricula->curso) {
+            $cursoId = $matricula->curso->id;
+            $matriculaId = $matricula->id;
+            try {
+                $pivotExists = $matricula->curso->docentes()->where('id', $docenteId)->exists();
+            } catch (\Throwable $__e) {
+                $pivotExists = false;
+            }
+
+            try {
+                $materiaExists = \App\Models\Materia::where('curso_id', $cursoId)
+                    ->where('docente_id', $docenteId)
+                    ->exists();
+            } catch (\Throwable $__e) {
+                $materiaExists = false;
+            }
+        }
+
+        $pertenece = ($pivotExists || $materiaExists);
+
+        return response()->json([
+            'success' => true,
+            'docente_id' => (int)$docenteId,
+            'usuario_busqueda_id' => (int)$usuarioBusquedaId,
+            'curso_id' => $cursoId,
+            'matricula_id' => $matriculaId,
+            'pivotExists' => (bool)$pivotExists,
+            'materiaExists' => (bool)$materiaExists,
+            'pertenece' => (bool)$pertenece,
+            'matricula' => $matricula ? ['id' => $matricula->id, 'curso_id' => $matricula->curso->id ?? null] : null,
+        ]);
     }
 
 }

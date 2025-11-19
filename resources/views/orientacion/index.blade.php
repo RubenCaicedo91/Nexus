@@ -12,13 +12,15 @@
     @php
         $isCoordinator = $isCoordinator ?? false;
         $isCoordinadorDisciplina = $isCoordinadorDisciplina ?? false;
-        $isRestricted = $isCoordinator || $isCoordinadorDisciplina;
+        $isDocente = $isDocente ?? false;
+        $isRestricted = $isCoordinator || $isCoordinadorDisciplina || $isDocente;
     @endphp
-
     @if($isRestricted)
         <div class="alert alert-warning">
             <strong>Acceso restringido:</strong>
-            @if($isCoordinator)
+            @if($isDocente)
+                Como <em>Docente</em> sólo puedes usar el submódulo <strong>Citas</strong>.
+            @elseif($isCoordinator)
                 Como <em>Coordinador Académico</em> sólo puedes usar el submódulo <strong>Citas</strong>.
             @elseif($isCoordinadorDisciplina)
                 Como <em>Coordinador Disciplina</em> sólo puedes usar el submódulo <strong>Citas</strong>.

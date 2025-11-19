@@ -215,6 +215,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/registrar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'mostrarFormularioSancion'])->name('registrar');
         Route::post('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'registrarSancion'])->name('store');
         Route::get('/buscar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'buscarPorDocumento'])->name('buscar');
+        // Endpoint temporal de depuración: comprobar si un docente puede ver al estudiante
+        Route::get('/debug-check-assignment', [\App\Http\Controllers\GestionDisciplinariaController::class, 'debugCheckAssignment'])->name('debug.check_assignment');
         Route::get('/reporte', [\App\Http\Controllers\GestionDisciplinariaController::class, 'generarReporte'])->name('reporte');
         // CRUD para tipos de sanción
         Route::resource('tipos', \App\Http\Controllers\SancionTipoController::class)->names('tipos');

@@ -52,6 +52,9 @@
             @endif
 
             <!-- Gestión Disciplinaria -->
+            @php
+                $isDocenteMenu = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'docente') !== false;
+            @endphp
             @if(auth()->check() && (
                 auth()->user()->hasAnyPermission([
                     'registrar_reporte_disciplinario',
@@ -62,7 +65,8 @@
                     stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
                     stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
                     stripos(optional(auth()->user()->role)->nombre, 'rector') !== false ||
-                    stripos(optional(auth()->user()->role)->nombre, 'coordinador disciplina') !== false
+                    stripos(optional(auth()->user()->role)->nombre, 'coordinador disciplina') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'docente') !== false
                 )) || auth()->user()->roles_id == 1
             ))
                 <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuDisciplinaria" role="button" aria-expanded="false" aria-controls="submenuDisciplinaria">
@@ -70,9 +74,15 @@
                     <i class="fas fa-chevron-down small"></i>
                 </a>
                 <div class="collapse ps-4" id="submenuDisciplinaria">
-                    <a class="nav-link" href="{{ route('gestion-disciplinaria.index') }}">
-                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard Disciplinario
-                    </a>
+                    @if($isDocenteMenu)
+                        <a class="nav-link" href="{{ route('historial.sanciones', auth()->id()) }}">
+                            <i class="fas fa-history me-2"></i>Historial de sanciones
+                        </a>
+                    @else
+                        <a class="nav-link" href="{{ route('gestion-disciplinaria.index') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard Disciplinario
+                        </a>
+                    @endif
                 </div>
             @endif
 
