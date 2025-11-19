@@ -26,75 +26,7 @@
             /* Valores por defecto (fallback) */
             --sidebar-bg: #07315eff;
             --sidebar-text: #ecf0f1;
-            --sidebar-hover: #34495e;
-            --sidebar-active: #3498db;
-            --main-bg: #f8f9fa;
-            --brand-color: #ebeef1;
-            --btn-hover-shadow: 0 8px 20px rgba(0,0,0,0.08);
-        }
-
-        /* Mapear módulos a paletas: un color (primario) por módulo y submódulos lo heredan. */
-        body[data-module="comunicacion"] {
-            --sidebar-bg: #040f53ff; /* gris oscuro */
-            --sidebar-text: #f8fafc;
-            --sidebar-hover: #374151;
-            --sidebar-active: #0ea5e9; /* azul claro característico de comunicaciones */
-            --main-bg: #f8fafc;
-        }
-
-        body[data-module="gestion-academica"] {
-            --sidebar-bg: #1f0535ff;
-            --sidebar-text: #f1f5f9;
-            --sidebar-hover: #111827;
-            --sidebar-active: #16a34a; /* verde */
-            --main-bg: #f8fafc;
-        }
-
-        body[data-module="gestion-financiera"] {
-            --sidebar-bg: #3a0b3aff;
-            --sidebar-text: #fff5f7;
-            --sidebar-hover: #3a0f4c;
-            --sidebar-active: #7c3aed; /* morado */
-            --main-bg: #fffafc;
-        }
-
-        body[data-module="gestion-disciplinaria"] {
-            --sidebar-bg: #2d1b3dff;
-            --sidebar-text: #f1fffcff;
-            --sidebar-hover: #4b351c;
-            --sidebar-active: #4043e8ff; /* ámbar/orange */
-            --main-bg: #fffbf7;
-        }
-
-        body[data-module="orientacion"] {
-            --sidebar-bg: #042075ff;
-            --sidebar-text: #e6f6fb;
-            --sidebar-hover: #0b4f61;
-            --sidebar-active: #06b6d4; /* teal */
-            --main-bg: #f7feff;
-        }
-
-        body[data-module="configuracion"] {
-            --sidebar-bg: #023621ff;
-            --sidebar-text: #e6e6e6;
-            --sidebar-hover: #3b3b3b;
-            --sidebar-active: #64748b; /* gris azulado */
-            --main-bg: #f8fafc;
-        }
-
-        /* Login / tarjetas */
-        .login-container {
-            min-height: 100vh;
-            background: url("{{ asset('images/basecolegio.png') }}") no-repeat center center fixed;
-        }
-
-        .login-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-        }
-
-        .navbar-brand {
+            
             font-weight: bold;
             color: var(--brand-color) !important;
         }
@@ -181,14 +113,32 @@
             border: none;
         }
 
+        /* Floating panel removed — using Bootstrap modals for revision/motivo */
+
         .navbar-gradient .dropdown-divider {
         border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Forzar apariencia consistente para botones de revisión */
+        .btn-revision {
+            background-color: #198754 !important; /* bootstrap success */
+            color: #fff !important;
+            border-color: #198754 !important;
+        }
+        .btn-revision:hover {
+            background-color: #157347 !important;
+            border-color: #157347 !important;
+            color: #fff !important;
+        }
+        .dropdown-item.btn-revision {
+            color: #198754 !important;
         }
 
 
 
 
     </style>
+    <!-- Floating panel removed; keep bootstrap modals for AJAX content -->
     
     @stack('styles')
 </head>
@@ -222,6 +172,28 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     @yield('scripts')
+        {{-- Reusable AJAX modal for Citas revision --}}
+        <div class="modal fade" id="ajaxRevisionModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Revisión</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="ajaxRevisionModalBody">
+                        {{-- content loaded via AJAX --}}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Legacy AJAX handler for .btn-revision removed.
+            // Revisión ahora usa navegación a la página completa `citas.show`.
+        </script>
     @stack('scripts')
 </body>
 </html>

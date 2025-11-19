@@ -294,6 +294,11 @@ Route::middleware(['auth'])->group(function () {
     Route::get('gestion-orientacion/citas/crear', [GestionOrientacionController::class, 'crearCita'])->name('orientacion.citas.create');
     Route::post('gestion-orientacion/citas', [GestionOrientacionController::class, 'guardarCita'])->name('orientacion.citas.store');
     Route::patch('gestion-orientacion/citas/{id}/estado', [GestionOrientacionController::class, 'cambiarEstadoCita'])->name('orientacion.citas.estado');
+    // Acciones específicas desde el módulo de orientación (completar/cancelar con observaciones)
+    Route::post('gestion-orientacion/citas/{id}/completar', [GestionOrientacionController::class, 'completarCita'])->name('orientacion.citas.completar');
+    Route::post('gestion-orientacion/citas/{id}/cancelar', [GestionOrientacionController::class, 'cancelarCita'])->name('orientacion.citas.cancelar');
+    // Asignar / cambiar orientador responsable de la cita
+    Route::post('gestion-orientacion/citas/{id}/asignar-orientador', [GestionOrientacionController::class, 'asignarOrientador'])->name('orientacion.citas.asignar_orientador');
 
     // Informes
     Route::get('gestion-orientacion/informes', [GestionOrientacionController::class, 'listarInformes'])->name('orientacion.informes');
@@ -366,6 +371,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/{cita}/completar', [\App\Http\Controllers\CitasController::class, 'completar'])->name('completar');
         Route::post('/{cita}/cancelar', [\App\Http\Controllers\CitasController::class, 'cancelar'])->name('cancelar');
         Route::post('/{cita}/reprogramar', [\App\Http\Controllers\CitasController::class, 'reprogramar'])->name('reprogramar');
+        // Endpoint AJAX para cargar la revisión (resumen/recomendaciones/plan)
+        Route::get('/{cita}/revision', [\App\Http\Controllers\CitasController::class, 'revision'])->name('revision');
         
         // Vista de calendario
         Route::get('/calendario/vista', [\App\Http\Controllers\CitasController::class, 'calendario'])->name('calendario');
