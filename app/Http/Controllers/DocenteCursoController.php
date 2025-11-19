@@ -112,4 +112,14 @@ class DocenteCursoController extends Controller
 
         return \redirect()->route('docentes.edit', $docenteId)->with('success', 'Se quitaron todas las asignaciones del docente.');
     }
+
+    // Endpoint JSON: devuelve cursos asignados a un docente (usado por AJAX)
+    public function cursosJson($docenteId)
+    {
+        // Permitir acceso a cualquier usuario autenticado para uso en filtros UI
+        if (!Auth::check()) abort(403);
+        $docente = User::findOrFail($docenteId);
+        $cursos = $docente->cursosAsignados()->select('id', 'nombre')->get();
+        return response()->json($cursos);
+    }
 }

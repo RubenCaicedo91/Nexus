@@ -172,7 +172,16 @@ class GestionAcademicaController extends Controller
 
     public function horarios()
     {
-        $this->authorizeAcademica();
+        // Permitir que usuarios con rol 'Docente' accedan a la vista de horarios (solo vista).
+        // Otros usuarios deben pasar por authorizeAcademica().
+        $user = Auth::user();
+        $isDocente = false;
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'docente') !== false) {
+            $isDocente = true;
+        } else {
+            $this->authorizeAcademica();
+        }
+
         $horarios = Horario::all();
         // Enviamos también la lista de cursos para permitir accesos relacionados (ej. asignar docentes)
         try {
@@ -180,6 +189,32 @@ class GestionAcademicaController extends Controller
         } catch (\Throwable $e) {
             logger()->warning('No se pudieron cargar cursos al mostrar horarios: ' . $e->getMessage());
             $cursos = collect();
+        }
+
+        // Cargar docentes para el filtro (rol 'Docente'). Si el usuario actual es docente,
+        // solo le permitimos ver/seleccionar su propia identidad en el filtro.
+        try {
+            $docenteRole = \App\Models\RolesModel::where('nombre', 'Docente')->first();
+            if ($docenteRole) {
+                // Si el usuario logueado tiene el rol docente, limitamos la lista a su usuario
+                if ($isDocente && Auth::check() && Auth::user()->roles_id == $docenteRole->id) {
+                    $docentes = collect([Auth::user()]);
+                } else {
+                    $docentes = \App\Models\User::where('roles_id', $docenteRole->id)->get();
+                }
+            } else {
+                $allDocentes = \App\Models\User::whereHas('role', function($q){ $q->where('nombre', 'LIKE', '%Docente%'); })->get();
+                if ($isDocente && Auth::check()) {
+                    // buscar al usuario autenticado dentro de la colección, si no está, usar solo su modelo
+                    $mine = $allDocentes->where('id', Auth::id())->first();
+                    $docentes = $mine ? collect([$mine]) : collect([Auth::user()]);
+                } else {
+                    $docentes = $allDocentes;
+                }
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('No se pudieron cargar docentes en horarios: ' . $e->getMessage());
+            $docentes = collect();
         }
 
         // Parsear cada horario para separar hora_inicio, hora_fin y materia (si existe metadata)
@@ -192,7 +227,19 @@ class GestionAcademicaController extends Controller
             $h->materia_nombre = null;
 
             if (!empty($h->materia_id)) {
-                $h->materia_nombre = optional(Materia::find($h->materia_id))->nombre;
+                $materia = Materia::find($h->materia_id);
+                $h->materia_nombre = $materia ? $materia->nombre : null;
+                // Asignar info del docente si la materia tiene asignado uno
+                $h->docente_id = $materia && !empty($materia->docente_id) ? $materia->docente_id : null;
+                $h->docente_nombre = $materia && $materia->docente ? $materia->docente->name : null;
+            }
+
+            // Intentar encontrar el id del curso por el nombre guardado en el horario
+            try {
+                $cursoModel = Curso::where('nombre', $h->curso)->first();
+                $h->curso_id = $cursoModel ? $cursoModel->id : null;
+            } catch (\Throwable $e) {
+                $h->curso_id = null;
             }
 
             // Si no hay hora_fin o materia_nombre, intentar extraer desde hora_text (compatibilidad)
@@ -219,7 +266,29 @@ class GestionAcademicaController extends Controller
             return $h;
         });
 
-        return view('gestion.horarios', compact('horarios', 'cursos'));
+        return view('gestion.horarios', compact('horarios', 'cursos', 'docentes', 'isDocente'));
+    }
+
+    // Endpoint JSON: devolver docentes asignados a un curso
+    public function docentesPorCurso($cursoId)
+    {
+        // Permitir acceso a cualquier usuario autenticado (para filtros de UI)
+        if (!Auth::check()) abort(403);
+        try {
+            $curso = Curso::findOrFail($cursoId);
+            $docentesQuery = $curso->docentes()->select('id', 'name');
+            // Si el usuario autenticado es un docente, devolver sólo su propia entrada (si pertenece al curso)
+            $docenteRole = \App\Models\RolesModel::where('nombre', 'Docente')->first();
+            if ($docenteRole && Auth::user()->roles_id == $docenteRole->id) {
+                $mine = $docentesQuery->where('id', Auth::id())->get();
+                return response()->json($mine);
+            }
+
+            $docentes = $docentesQuery->get();
+            return response()->json($docentes);
+        } catch (\Throwable $e) {
+            return response()->json([], 404);
+        }
     }
 
     // Guardar nuevo horario

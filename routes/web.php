@@ -273,6 +273,10 @@ Route::middleware(['auth'])->group(function () {
     Route::post('gestion-academica/docentes/asignar', [DocenteCursoController::class, 'assign'])->name('docentes.asignar');
     // Ruta para quitar todas las asignaciones de cursos a un docente
     Route::post('gestion-academica/docentes/{id}/quitar-todos', [DocenteCursoController::class, 'removeAll'])->name('docentes.quitarTodos');
+    // Endpoint JSON para obtener cursos asignados a un docente (usado por AJAX en filtros)
+    Route::get('gestion-academica/docentes/{id}/cursos-json', [DocenteCursoController::class, 'cursosJson'])->name('docentes.cursos.json');
+    // Endpoint para obtener docentes por curso (usado por filtro)
+    Route::get('gestion-academica/cursos/{id}/docentes-json', [\App\Http\Controllers\GestionAcademicaController::class, 'docentesPorCurso'])->name('cursos.docentes.json');
 
 
     // Vista para gestionar la institución

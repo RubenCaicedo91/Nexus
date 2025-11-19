@@ -16,7 +16,8 @@
                 (optional(auth()->user()->role)->nombre && (
                     stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
                     stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
-                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
+                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'docente') !== false
                 )) || auth()->user()->roles_id == 1
             ) && !(optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'coordinador disciplina') !== false))
                 <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuAcademica" role="button" aria-expanded="false" aria-controls="submenuAcademica">
@@ -26,6 +27,7 @@
                 <div class="collapse ps-4" id="submenuAcademica">
                     <a class="nav-link" href="{{ route('gestion.index') }}">Dashboard Horarios</a>
                     <a class="nav-link" href="{{ route('matriculas.index') }}">Dashboard Matrículas</a>
+                   
                 </div>
             @endif
 
