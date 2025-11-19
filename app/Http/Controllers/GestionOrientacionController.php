@@ -16,7 +16,9 @@ class GestionOrientacionController extends Controller
     // Vista principal del módulo
     public function index()
     {
-        return view('orientacion.index');
+        $user = Auth::user();
+        $isCoordinator = $this->isCoordinadorAcademico($user);
+        return view('orientacion.index', compact('isCoordinator'));
     }
 
     // ---------------- Citas ----------------
@@ -81,12 +83,14 @@ class GestionOrientacionController extends Controller
             $orientadores = [];
         }
 
-        return view('orientacion.citas.index', compact('citas', 'students', 'orientadores'));
+        $isCoordinator = $this->isCoordinadorAcademico($user);
+        return view('orientacion.citas.index', compact('citas', 'students', 'orientadores', 'isCoordinator'));
     }
 
     public function crearCita()
     {
-        return view('orientacion.citas.create');
+        $isCoordinator = $this->isCoordinadorAcademico(Auth::user());
+        return view('orientacion.citas.create', compact('isCoordinator'));
     }
 
     public function guardarCita(Request $request)
@@ -407,6 +411,10 @@ class GestionOrientacionController extends Controller
     // ---------------- Informes ----------------
     public function listarInformes(Request $request)
     {
+        // Denegar acceso a Coordinador Académico: sólo puede usar el submódulo de citas
+        if ($this->isCoordinadorAcademico(Auth::user())) {
+            abort(403, 'Acceso restringido: el Coordinador Académico sólo puede gestionar citas en este módulo.');
+        }
         // Construir consulta sobre citas completadas (quienes fueron atendidas)
         $query = Cita::with(['solicitante.role', 'orientador.role'])->where('estado', 'completada');
 
@@ -465,6 +473,9 @@ class GestionOrientacionController extends Controller
      */
     public function exportarInformesPdf(Request $request)
     {
+        if ($this->isCoordinadorAcademico(Auth::user())) {
+            abort(403, 'Acceso restringido: el Coordinador Académico sólo puede gestionar citas en este módulo.');
+        }
         // Reusar la misma lógica de filtros de listarInformes
         $query = Cita::with(['solicitante.role', 'orientador.role'])->where('estado', 'completada');
 
@@ -509,6 +520,9 @@ class GestionOrientacionController extends Controller
      */
     public function exportarInformesExcel(Request $request)
     {
+        if ($this->isCoordinadorAcademico(Auth::user())) {
+            abort(403, 'Acceso restringido: el Coordinador Académico sólo puede gestionar citas en este módulo.');
+        }
         $query = Cita::with(['solicitante.role', 'orientador.role'])->where('estado', 'completada');
 
         if ($request->filled('solicitante_id')) {
@@ -566,6 +580,9 @@ class GestionOrientacionController extends Controller
 
     public function guardarInforme(Request $request)
     {
+        if ($this->isCoordinadorAcademico(Auth::user())) {
+            abort(403, 'Acceso restringido: el Coordinador Académico sólo puede gestionar citas en este módulo.');
+        }
         $request->validate([
             'cita_id' => 'required|exists:citas,id',
             'descripcion' => 'required|string'
@@ -582,6 +599,10 @@ class GestionOrientacionController extends Controller
     // ---------------- Seguimientos ----------------
     public function listarSeguimientos(Request $request)
     {
+        // Denegar acceso a Coordinador Académico: sólo puede usar Citas
+        if ($this->isCoordinadorAcademico(Auth::user())) {
+            abort(403, 'Acceso restringido: el Coordinador Académico sólo puede gestionar citas en este módulo.');
+        }
         // Construir la consulta base incluyendo relaciones útiles
         $query = Seguimiento::with(['estudiante', 'responsable', 'cita'])->orderBy('fecha', 'desc');
 
@@ -700,6 +721,9 @@ class GestionOrientacionController extends Controller
 
     public function guardarSeguimiento(Request $request)
     {
+        if ($this->isCoordinadorAcademico(Auth::user())) {
+            abort(403, 'Acceso restringido: el Coordinador Académico sólo puede gestionar citas en este módulo.');
+        }
         $request->validate([
             'estudiante_id' => 'required|integer',
             'observaciones' => 'required|string'
@@ -712,5 +736,45 @@ class GestionOrientacionController extends Controller
         ]);
 
         return redirect()->route('orientacion.seguimientos')->with('success', 'Seguimiento registrado correctamente');
+    }
+
+    /**
+     * Determina si el usuario tiene rol "Coordinador Académico".
+     * Normaliza tildes y posibles variantes ortográficas.
+     */
+    private function isCoordinadorAcademico($user = null)
+    {
+        if (! $user) return false;
+
+        $roleName = null;
+        if (isset($user->roles) && is_object($user->roles) && isset($user->roles->nombre)) {
+            $roleName = $user->roles->nombre;
+        } elseif (method_exists($user, 'role') && optional($user->role)->nombre) {
+            $roleName = optional($user->role)->nombre;
+        } elseif (isset($user->roles_id)) {
+            try {
+                $r = RolesModel::find($user->roles_id);
+                $roleName = $r ? $r->nombre : null;
+            } catch (\Throwable $e) {
+                $roleName = null;
+            }
+        }
+
+        if (! $roleName) return false;
+
+        // Normalizar: quitar tildes, pasar a minúsculas y eliminar caracteres no alfabéticos excepto espacios
+        $normalized = strtolower($roleName);
+        $normalized = str_replace(['á','é','í','ó','ú','Á','É','Í','Ó','Ú','ñ','Ñ'], ['a','e','i','o','u','A','E','I','O','U','n','N'], $normalized);
+        $normalized = preg_replace('/[^a-z0-9\s]/u', '', $normalized);
+        $normalized = trim($normalized);
+
+        $valids = [
+            'coordinador academico',
+            'coordinador academico', // duplicate to be explicit
+            'coordinador academico',
+            'cordinador academico'
+        ];
+
+        return in_array($normalized, $valids, true);
     }
 }

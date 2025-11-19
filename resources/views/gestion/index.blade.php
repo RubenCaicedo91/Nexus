@@ -26,9 +26,29 @@
                     <i class="fas fa-book fa-2x"></i>
                 </div>
                 <h5 class="card-title mb-3">Gestionar Cursos</h5>
-                <a href="{{ route('cursos.panel') }}" class="btn btn-outline-primary w-100">
-                    <i class="fas fa-edit me-2"></i>Ver y Crear Cursos
-                </a>
+                @php
+                    $u = auth()->user();
+                    $roleNombre = optional($u->role)->nombre ?? '';
+                    $roleNorm = strtr(mb_strtolower($roleNombre), ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+                    $canManageAcademica = false;
+                    if ($u && method_exists($u, 'hasPermission') && $u->hasPermission('gestionar_academica')) {
+                        $canManageAcademica = true;
+                    }
+                    if ($u && ($u->roles_id == 1 || stripos($roleNombre, 'admin') !== false || stripos($roleNombre, 'administrador') !== false || stripos($roleNombre, 'rector') !== false)) {
+                        $canManageAcademica = true;
+                    }
+                    // Permitir Coordinador Académico específicamente
+                    if (mb_stripos($roleNorm, 'coordinador academ') !== false || mb_stripos($roleNorm, 'cordinador academ') !== false) {
+                        $canManageAcademica = true;
+                    }
+                @endphp
+                @if($canManageAcademica)
+                    <a href="{{ route('cursos.panel') }}" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-edit me-2"></i>Ver y Crear Cursos
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled title="No tienes permiso para gestionar cursos">Ver y Crear Cursos (sin permiso)</button>
+                @endif
             </div>
         </div>
     </div>
@@ -41,9 +61,13 @@
                     <i class="fas fa-clock fa-2x"></i>
                 </div>
                 <h5 class="card-title mb-3">Horarios</h5>
-                <a href="{{ route('gestion.horarios') }}" class="btn btn-info w-100">
-                    <i class="fas fa-clock me-2"></i>Gestionar Horarios
-                </a>
+                @if($canManageAcademica)
+                    <a href="{{ route('gestion.horarios') }}" class="btn btn-info w-100">
+                        <i class="fas fa-clock me-2"></i>Gestionar Horarios
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled title="No tienes permiso para gestionar horarios">Gestionar Horarios (sin permiso)</button>
+                @endif
             </div>
         </div>
     </div>

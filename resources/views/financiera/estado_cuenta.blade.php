@@ -17,6 +17,11 @@
 
         <!-- Contenido -->
         <div class="p-4 bg-light">
+            @if(!empty($isCoordinator) && $isCoordinator)
+                <div class="alert alert-warning">
+                    <strong>Nota:</strong> Tu perfil es <strong>Coordinador Académico</strong>. Puedes consultar el estado de cuenta del estudiante, pero no puedes registrar pagos ni generar reportes financieros desde este módulo.
+                </div>
+            @endif
             <form class="row g-2 mb-3" method="get" action="{{ route('financiera.estadoCuenta.search') }}">
                 <div class="col-auto">
                     <input type="text" name="documento" class="form-control" placeholder="Número de documento" value="{{ old('documento', $documento ?? '') }}">
@@ -104,9 +109,13 @@
             @endif
 
             <div class="text-end mt-4">
-                <a href="{{ route('financiera.formularioPago') }}" class="btn btn-secondary">
-                    <i class="bi bi-plus-circle me-1"></i> Registrar otro pago
-                </a>
+                @if(!empty($isCoordinator) && $isCoordinator)
+                    <button type="button" class="btn btn-secondary" disabled title="No tienes permiso para registrar pagos"> <i class="bi bi-plus-circle me-1"></i> Registrar otro pago</button>
+                @else
+                    <a href="{{ route('financiera.formularioPago') }}" class="btn btn-secondary">
+                        <i class="bi bi-plus-circle me-1"></i> Registrar otro pago
+                    </a>
+                @endif
             </div>
         </div>
     </div>

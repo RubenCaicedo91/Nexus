@@ -21,6 +21,16 @@
                 <div class="alert alert-success">{{ session('success') }}</div>
             @endif
 
+            @php
+                $roleNameBanner = optional(Auth::user()->role)->nombre ?? '';
+                $roleNameBannerNorm = strtr(mb_strtolower($roleNameBanner), ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+                $isCoordinatorBanner = (stripos($roleNameBannerNorm, 'coordinador') !== false || stripos($roleNameBannerNorm, 'cordinador') !== false);
+            @endphp
+
+            @if(!empty($isCoordinatorBanner) && $isCoordinatorBanner)
+                <div class="alert alert-warning">Como <strong>Coordinador Académico</strong> puedes <strong>quitar</strong> el estado <em>definitiva</em> de una nota, pero no puedes crear nuevas notas.</div>
+            @endif
+
             <table class="table table-striped">
                 <thead>
                     <tr>
@@ -77,7 +87,7 @@
                             <td class="text-end">
                                 @php
                                     $roleName = optional(Auth::user()->role)->nombre ?? null;
-                                    $isPrivileged = ($roleName === 'Rector' || $roleName === 'Coordinador Académico' || optional(Auth::user())->roles_id == 1);
+                                    $isPrivileged = ($roleName === 'Rector' || stripos($roleName, 'cordinador') !== false || optional(Auth::user())->roles_id == 1);
                                 @endphp
 
                                 @if(! $nota->definitiva || $isPrivileged)
@@ -96,7 +106,7 @@
                                     </form>
                                 @endif
                                 @php
-                                    $canUnmark = ($roleName === 'Rector' || $roleName === 'Administrador_sistema' || optional(Auth::user())->roles_id == 1);
+                                    $canUnmark = ($roleName === 'Rector' || stripos($roleName, 'cordinador') !== false || $roleName === 'Administrador_sistema' || optional(Auth::user())->roles_id == 1);
                                 @endphp
                                 @if($nota->definitiva && $canUnmark)
                                     <form action="{{ route('notas.definitiva.quitar', $nota) }}" method="POST" class="d-inline" onsubmit="return confirm('Quitar estado de nota definitiva? Esta acción permitirá editar la nota nuevamente.')">

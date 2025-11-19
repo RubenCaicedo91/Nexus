@@ -55,9 +55,14 @@
                 </form>
             </div>
 
+            @php
+                $canSeeSeguimientos = Auth::check() && method_exists(Auth::user(), 'hasAnyPermission') && Auth::user()->hasAnyPermission(['registrar_sesiones_orientacion','registrar_sesiones_orientacion']);
+            @endphp
             <div class="card shadow-sm">
                 <div class="card-body p-0">
-                    @if(isset($seguimientosGrouped) && $seguimientosGrouped->count())
+                    @if(! $canSeeSeguimientos)
+                        <div class="p-4 text-center text-warning">Acceso restringido: no tienes permisos para ver o registrar seguimientos en este módulo.</div>
+                    @elseif(isset($seguimientosGrouped) && $seguimientosGrouped->count())
                         <table class="table table-hover table-striped mb-0 align-middle">
                             <thead class="table-secondary">
                                 <tr>

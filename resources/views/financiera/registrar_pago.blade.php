@@ -2,30 +2,8 @@
 
 @section('content')
 @php
-    $canEditValor = false;
-    if (Auth::check()) {
-        $userTmp = Auth::user();
-        $roleNombreTmp = optional($userTmp->role)->nombre ?? '';
-        $allowedRolesTmp = ['Tesorero', 'tesorero', 'Administrador_sistema', 'Administrador de sistema', 'Administrador'];
-        foreach ($allowedRolesTmp as $arTmp) {
-            if ($roleNombreTmp === $arTmp || stripos($roleNombreTmp, $arTmp) !== false) { $canEditValor = true; break; }
-        }
-    }
-    // Determinar si el usuario puede registrar pagos (ser tesorero/administrador o tener permiso)
-    $canRegister = false;
-    if (Auth::check()) {
-        $u = Auth::user();
-        $roleNombreTmp2 = optional($u->role)->nombre ?? '';
-        if (method_exists($u, 'hasPermission') && $u->hasPermission('registrar_pagos')) {
-            $canRegister = true;
-        }
-        if (stripos($roleNombreTmp2, 'tesor') !== false || stripos($roleNombreTmp2, 'administrador') !== false || stripos($roleNombreTmp2, 'admin') !== false) {
-            $canRegister = true;
-        }
-        if ($u->roles_id == 1) {
-            $canRegister = true;
-        }
-    }
+    $canEditValor = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_pagos');
+    $canRegister = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_pagos');
 @endphp
 <div class="container py-4">
     <div class="card shadow-sm rounded overflow-hidden">
@@ -52,8 +30,7 @@
 
             {{-- Lista de matrículas con pago pendiente de validación --}}
             @php
-                $roleNombreTmp = optional(Auth::user()->role)->nombre ?? '';
-                $isPrivilegedView = (stripos($roleNombreTmp, 'tesor') !== false) || (stripos($roleNombreTmp, 'administrador') !== false) || (stripos($roleNombreTmp, 'admin') !== false) || (isset($isPrivileged) && $isPrivileged);
+                $isPrivilegedView = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_pagos');
             @endphp
 
             @if(isset($pendientes) && count($pendientes) > 0)
@@ -174,9 +151,9 @@
                         <span class="text-uppercase text-secondary small">Valor matrícula (sistema)</span>
                         <div class="input-group mt-1">
                             <input type="text" id="valor_matricula_display" class="form-control" value="{{ number_format($valorMatricula, 0, ',', '.') }}" readonly>
-                            @if($canEditValor)
-                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarValor">Editar</button>
-                            @endif
+                                @if($canEditValor)
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarValor">Editar</button>
+                                @endif
                         </div>
                         <input type="hidden" id="valor_matricula" value="{{ $valorMatricula }}">
                     </div>

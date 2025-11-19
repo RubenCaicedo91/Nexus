@@ -32,15 +32,28 @@
             </div>
 
             <!-- Gestión Disciplinaria -->
-            <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuDisciplinaria" role="button" aria-expanded="false" aria-controls="submenuDisciplinaria">
-                <span><i class="fas fa-user-graduate me-2"></i>Gestión Disciplinaria</span>
-                <i class="fas fa-chevron-down small"></i>
-            </a>
-            <div class="collapse ps-4" id="submenuDisciplinaria">
-                <a class="nav-link" href="{{ route('gestion-disciplinaria.index') }}">
-                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard Disciplinario
+            @if(auth()->check() && (
+                auth()->user()->hasAnyPermission([
+                    'registrar_reporte_disciplinario',
+                    'asignar_sanciones',
+                    'consultar_informes_disciplinarios'
+                ]) ||
+                (optional(auth()->user()->role)->nombre && (
+                    stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
+                    stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
+                )) || auth()->user()->roles_id == 1
+            ))
+                <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuDisciplinaria" role="button" aria-expanded="false" aria-controls="submenuDisciplinaria">
+                    <span><i class="fas fa-user-graduate me-2"></i>Gestión Disciplinaria</span>
+                    <i class="fas fa-chevron-down small"></i>
                 </a>
-            </div>
+                <div class="collapse ps-4" id="submenuDisciplinaria">
+                    <a class="nav-link" href="{{ route('gestion-disciplinaria.index') }}">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard Disciplinario
+                    </a>
+                </div>
+            @endif
 
             <!-- Gestión Financiera -->
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuFinanciera" role="button" aria-expanded="false" aria-controls="submenuFinanciera">

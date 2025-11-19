@@ -146,6 +146,20 @@ class User extends Authenticatable
     }
 
     /**
+     * Comprueba si el usuario tiene ALGUNO de los permisos del array.
+     * Útil para decidir visibilidad de menús cuando basta con un permiso.
+     * @param array $permisos
+     * @return bool
+     */
+    public function hasAnyPermission(array $permisos): bool
+    {
+        foreach ($permisos as $p) {
+            if ($this->hasPermission((string)$p)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Mutator para normalizar el tipo de documento al guardarlo.
      * Guardaremos sin puntos y en mayúsculas (RC, CC, TI) para búsquedas y consistencia.
      * Acepta valores como "R.C", "RC", "r.c" y los normaliza a "RC".

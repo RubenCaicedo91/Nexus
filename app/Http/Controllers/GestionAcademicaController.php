@@ -50,13 +50,24 @@ class GestionAcademicaController extends Controller
             Log::info('authorizeAcademica: legacy admin roles_id==1', ['user_id' => $user->id ?? null]);
             return true;
         }
-        // Permitir si el nombre del rol contiene 'admin' o 'administrador' o 'rector'
+        // Permitir si el nombre del rol contiene 'admin', 'administrador', 'rector'
+        // o si es específicamente 'coordinador academico' (aceptando variantes sin tildes/ortográficas)
         if ($user && optional($user->role)->nombre) {
             $n = optional($user->role)->nombre;
+            $nNorm = mb_strtolower($n);
+            $nNorm = strtr($nNorm, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
+
             if (stripos($n, 'admin') !== false || stripos($n, 'administrador') !== false || stripos($n, 'rector') !== false) {
                 Log::info('authorizeAcademica: rol name matched allow', ['user_id' => $user->id ?? null, 'role_nombre' => $n]);
                 return true;
             }
+
+            // Permitir coordinador academico (acepta 'coordinador academico', 'cordinador academico', etc.)
+            if (mb_stripos($nNorm, 'coordinador academ') !== false || mb_stripos($nNorm, 'cordinador academ') !== false) {
+                Log::info('authorizeAcademica: rol name matched coordinador academico allow', ['user_id' => $user->id ?? null, 'role_nombre' => $n]);
+                return true;
+            }
+
             Log::info('authorizeAcademica: rol name did not match', ['user_id' => $user->id ?? null, 'role_nombre' => $n]);
         } else {
             Log::info('authorizeAcademica: no role present or user null', ['user_id' => $user->id ?? null]);

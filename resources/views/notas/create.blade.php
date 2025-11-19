@@ -11,14 +11,14 @@
                 <div class="card-body">
                                 @php
                                     $roleNameCreate = optional(Auth::user()->role)->nombre ?? '';
-                                    $isRectorCreate = stripos($roleNameCreate, 'rector') !== false;
+                                    $isBlockedCreator = (stripos($roleNameCreate, 'rector') !== false) || (stripos($roleNameCreate, 'cordinador') !== false);
                                 @endphp
                     @php
                         $hideSearch = request()->filled('matricula_id') || (request()->filled('curso_id') && request()->filled('materia_id'));
                     @endphp
 
                                 @unless($hideSearch)
-                                @if($isRectorCreate)
+                                @if($isBlockedCreator)
                                     <div class="alert alert-warning">No tienes permiso para crear notas.</div>
                                 @else
                                 <form method="GET" action="{{ route('notas.create') }}" class="mb-3">
@@ -92,7 +92,7 @@
                         </div>
                     @endif
 
-                    @if($isRectorCreate)
+                    @if($isBlockedCreator)
                         <div class="alert alert-warning">No tienes permiso para crear notas.</div>
                     @else
                     <form method="POST" action="{{ route('notas.store') }}">

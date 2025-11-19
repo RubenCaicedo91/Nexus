@@ -42,12 +42,17 @@ class RolesSeeder extends Seeder
                 'nombre' => 'Coordinador Académico',
                 'descripcion' => 'Encargado de coordinar actividades académicas y disciplinarias',
                 'permisos' => [
+                    // Permisos académicos explícitos
+                    'gestionar_academica',
                     'asignar_docentes',
                     'consultar_reportes_academicos',
                     'crear_horarios',
                     'editar_horarios',
                     'crear_cursos',
                     'editar_cursos',
+                    'crear_materias',
+                    'editar_materias',
+                    'gestionar_asignaciones',
                 ]
             ],
             [

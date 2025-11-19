@@ -23,7 +23,13 @@
 
         <!-- Contenido: filtros y resultados -->
         <div class="p-4 bg-light">
-            <div class="mb-3">
+                    @php
+                        $canSeeInformes = Auth::check() && method_exists(Auth::user(), 'hasAnyPermission') && Auth::user()->hasAnyPermission(['generar_reportes_orientacion','registrar_sesiones_orientacion']);
+                    @endphp
+                    <div class="mb-3">
+                        @if(! $canSeeInformes)
+                            <div class="alert alert-warning">Acceso restringido: tu rol no tiene permisos sobre Informes de Orientación. Si necesitas acceso, solicita al administrador que asigne el permiso correspondiente.</div>
+                        @endif
                 <form action="{{ route('orientacion.informes') }}" method="GET" class="row g-2">
                     <div class="col-md-4">
                         <select name="solicitante_id" class="form-select">
@@ -80,7 +86,8 @@
 
             <div class="card shadow-sm">
                 <div class="card-body p-0">
-                    <table class="table table-hover table-striped mb-0 align-middle">
+                    @if($canSeeInformes)
+                        <table class="table table-hover table-striped mb-0 align-middle">
                         <thead class="table-secondary">
                             <tr>
                                 <th>ID</th>
@@ -109,7 +116,8 @@
                                 </tr>
                             @endforelse
                         </tbody>
-                    </table>
+                        </table>
+                    @endif
                 </div>
             </div>
 

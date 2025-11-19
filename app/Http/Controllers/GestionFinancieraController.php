@@ -22,6 +22,10 @@ class GestionFinancieraController extends Controller
 {
     public function mostrarFormularioPago()
     {
+        // Si el usuario es coordinador académico, sólo puede consultar estado; prohibimos abrir formulario de registro
+        if ($this->isCoordinadorAcademico()) {
+            abort(403, 'No tienes permiso para registrar pagos.');
+        }
         // Obtener matrículas que tienen algún comprobante o registro de pago
         // pero aún no han sido validadas (pago_validado = false/null)
         $pendientes = Matricula::with(['user', 'curso'])
@@ -100,6 +104,9 @@ class GestionFinancieraController extends Controller
     public function actualizarValorMatricula(Request $request)
     {
         $user = Auth::user();
+        if ($this->isCoordinadorAcademico()) {
+            abort(403, 'No tienes permiso para esta acción.');
+        }
         if (! $user) {
             abort(403, 'Acceso no autorizado');
         }
@@ -157,6 +164,10 @@ class GestionFinancieraController extends Controller
         // Authorization: only users with explicit permission 'registrar_pagos',
         // or roles like tesorero/administrador (or super admin roles_id==1) may register payments.
         $user = Auth::user();
+        // Si es coordinador academico no puede registrar pagos
+        if ($this->isCoordinadorAcademico()) {
+            abort(403, 'No tienes permiso para registrar pagos.');
+        }
         $roleNombre = optional($user->role)->nombre ?? '';
         $isAllowed = false;
         if ($user) {
@@ -327,7 +338,8 @@ class GestionFinancieraController extends Controller
         $faltante = max(0, floatval($valorMatricula) - $montoPagado);
 
         $searched = true; // acceso por id se considera como búsqueda/consulta
-        return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'searched'));
+        $isCoordinator = $this->isCoordinadorAcademico();
+        return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'searched', 'isCoordinator'));
     }
 
     /**
@@ -359,11 +371,16 @@ class GestionFinancieraController extends Controller
         }
 
         $searched = !empty($documento);
-        return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched'));
+        $isCoordinator = $this->isCoordinadorAcademico();
+        return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched', 'isCoordinator'));
     }
 
     public function generarReporte(Request $request)
     {
+        // Si el usuario es coordinador académico, no permitir generar reportes (solo consulta de estado)
+        if ($this->isCoordinadorAcademico()) {
+            abort(403, 'No tienes permiso para generar reportes financieros.');
+        }
         $query = Pago::with(['estudiante.matriculas.curso']);
 
         // filtro por curso (se busca en las matrículas del estudiante)
@@ -486,9 +503,46 @@ class GestionFinancieraController extends Controller
         return view('financiera.reporte', compact('reporte', 'conceptos', 'cursos', 'estados'));
     }
 
+    /**
+     * Determina si el usuario autenticado es coordinador académico.
+     */
+    private function isCoordinadorAcademico()
+    {
+        try {
+            $user = Auth::user();
+            if (! $user) return false;
+            $role = optional($user->role)->nombre ?? '';
+            $roleName = mb_strtolower($role);
+            $roleName = strtr($roleName, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
+            if (mb_stripos($roleName, 'coordinador') !== false || mb_stripos($roleName, 'cordinador') !== false) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            return false;
+        }
+
+        return false;
+    }
+
     public function index()
     {
-        return view('financiera.index');
+        $isCoordinator = false;
+        try {
+            $user = Auth::user();
+            if ($user) {
+                $role = optional($user->role)->nombre ?? '';
+                $roleNorm = mb_strtolower($role);
+                $roleNorm = strtr($roleNorm, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
+                if (mb_stripos($roleNorm, 'coordinador') !== false || mb_stripos($roleNorm, 'cordinador') !== false) {
+                    $isCoordinator = true;
+                }
+            }
+        } catch (\Throwable $e) {
+            $isCoordinator = false;
+        }
+
+        return view('financiera.index', compact('isCoordinator'));
     }
     //
 }
+

@@ -125,10 +125,10 @@ class NotasController extends Controller
     // Mostrar formulario para crear notas (soporta matricula_id o curso_id+materia_id)
     public function create(Request $request)
     {
-        // Prohibir creación de notas por parte del rol Rector
+        // Prohibir creación de notas por parte del rol Rector o Coordinador Académico
         $user = Auth::user();
         $roleName = optional($user->role)->nombre ?? '';
-        if ($user && stripos($roleName, 'rector') !== false) {
+        if ($user && (stripos($roleName, 'rector') !== false || stripos($roleName, 'coordinador') !== false)) {
             abort(403, 'No tienes permiso para crear notas.');
         }
 
@@ -176,10 +176,10 @@ class NotasController extends Controller
     // Guardar notas (array de notas por matricula)
     public function store(Request $request)
     {
-        // Prohibir guardar/crear notas por parte del rol Rector
+        // Prohibir guardar/crear notas por parte del rol Rector o Coordinador Académico
         $user = Auth::user();
         $roleName = optional($user->role)->nombre ?? '';
-        if ($user && stripos($roleName, 'rector') !== false) {
+        if ($user && (stripos($roleName, 'rector') !== false || stripos($roleName, 'coordinador') !== false)) {
             abort(403, 'No tienes permiso para crear notas.');
         }
 
@@ -330,7 +330,7 @@ class NotasController extends Controller
 
         $canUnmark = false;
         if ($user) {
-            if (stripos($roleName, 'rector') !== false) {
+            if (stripos($roleName, 'rector') !== false || stripos($roleName, 'coordinador') !== false) {
                 $canUnmark = true;
             }
             if ($roleName === 'Administrador_sistema' || (isset($user->roles_id) && (int)$user->roles_id === 1)) {

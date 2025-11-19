@@ -15,6 +15,10 @@ class GestionDisciplinariaController extends Controller
      */
     public function mostrarFormularioSancion()
     {
+        // Evitar que el rol "cordinador academico" acceda al formulario
+        if ($this->isCoordinadorAcademico()) {
+            return redirect()->route('gestion-disciplinaria.index')->with('error', 'No tienes permiso para acceder a esta acción.');
+        }
         // Obtener estudiantes (rol 'Estudiante') para mostrar por nombre en el select
         $studentRole = RolesModel::where('nombre', 'Estudiante')->first();
         if ($studentRole) {
@@ -38,7 +42,8 @@ class GestionDisciplinariaController extends Controller
         $tipos = \App\Models\SancionTipo::where('activo', true)->orderBy('nombre')->get();
         $tiposForJs = $tipos->map(function($t){ return ['id' => $t->id, 'nombre' => $t->nombre, 'categoria' => $t->categoria ?? 'normal']; })->values();
 
-        return view('gestion-disciplinaria.registrar_sancion', compact('students', 'studentArray', 'tipos', 'tiposForJs'));
+        $isCoordinator = $this->isCoordinadorAcademico();
+        return view('gestion-disciplinaria.registrar_sancion', compact('students', 'studentArray', 'tipos', 'tiposForJs', 'isCoordinator'));
     }
     
     /**
@@ -46,6 +51,12 @@ class GestionDisciplinariaController extends Controller
      */
     public function registrarSancion(Request $request)
     {
+
+        // Server-side: prohibir acción si el usuario es coordinador académico
+        if ($this->isCoordinadorAcademico()) {
+            abort(403, 'No tienes permiso para registrar sanciones.');
+        }
+
 
         $baseRules = [
             'usuario_id' => 'required|exists:users,id',
@@ -141,6 +152,10 @@ class GestionDisciplinariaController extends Controller
      */
     public function historialSanciones($id)
     {
+        // Evitar que coordinador académico acceda a acciones desde esta vista
+        if ($this->isCoordinadorAcademico()) {
+            return redirect()->route('gestion-disciplinaria.index')->with('error', 'No tienes permiso para acceder a esta acción.');
+        }
         $sanciones = \App\Models\Sancion::with('usuario')->where('usuario_id', $id)->get();
         return view('gestion-disciplinaria.historial_sanciones', compact('sanciones'));
     }
@@ -150,6 +165,10 @@ class GestionDisciplinariaController extends Controller
      */
     public function generarReporte()
     {
+        // Evitar que coordinador académico use el reporte desde este módulo
+        if ($this->isCoordinadorAcademico()) {
+            return redirect()->route('gestion-disciplinaria.index')->with('error', 'No tienes permiso para acceder a esta acción.');
+        }
         // Aceptar filtros por query string: start_date, end_date, tipo_id
         $request = request();
         $query = Sancion::with('usuario');
@@ -275,7 +294,11 @@ class GestionDisciplinariaController extends Controller
     public function index()
     {
         $sanciones = Sancion::with('usuario')->get();
-        return view('gestion-disciplinaria.index', compact('sanciones'));
+
+        // Pasar flag a la vista para deshabilitar botones si el usuario es coordinador académico
+        $isCoordinator = $this->isCoordinadorAcademico();
+
+        return view('gestion-disciplinaria.index', compact('sanciones', 'isCoordinator'));
     }
 
     /**
@@ -283,6 +306,10 @@ class GestionDisciplinariaController extends Controller
      */
     public function buscarPorDocumento(Request $request)
     {
+        // Evitar búsqueda por documento si es coordinador académico
+        if ($this->isCoordinadorAcademico()) {
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar búsquedas.'], 403);
+        }
         $document = $request->query('document') ?? $request->input('document');
         if (! $document) {
             return response()->json(['success' => false, 'message' => 'Documento requerido'], 400);
@@ -323,6 +350,31 @@ class GestionDisciplinariaController extends Controller
             'matricula' => $matricula,
             'sanciones' => $sanciones
         ]);
+    }
+
+    /**
+     * Determina si el usuario autenticado es 'cordinador academico'.
+     */
+    private function isCoordinadorAcademico()
+    {
+        $user = auth()->user();
+        if (! $user) return false;
+
+        try {
+            $role = RolesModel::find($user->roles_id);
+            $roleName = mb_strtolower($role->nombre ?? '');
+            // Normalizar acentos para evitar fallos por tildes
+            $roleNameNormalized = strtr($roleName, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
+            // Aceptar variantes con/ sin 'o' en 'coordinador' y con/ sin 'academico' acentuado
+            if (mb_stripos($roleNameNormalized, 'coordinador') !== false || mb_stripos($roleNameNormalized, 'cordinador') !== false || mb_stripos($roleNameNormalized, 'coordinador academ') !== false || mb_stripos($roleNameNormalized, 'cordinador academ') !== false) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // En caso de error, no bloquear por defecto
+            return false;
+        }
+
+        return false;
     }
 
 }

@@ -13,8 +13,59 @@
     </div>
 @endif
 
-<form action="{{ route('gestion-disciplinaria.store') }}" method="POST">
-    @csrf
+@if(!empty($isCoordinator) && $isCoordinator)
+    <div class="alert alert-warning">No tienes permiso para registrar sanciones desde este perfil.</div>
+    <form action="#" method="POST" onsubmit="return false;">
+        <fieldset disabled>
+            @csrf
+            <div class="mb-3">
+                <label for="buscador_documento_registrar" class="form-label">Número de documento</label>
+                <input id="buscador_documento_registrar" class="form-control" placeholder="Escribe el número de documento..." autocomplete="off">
+                <small class="form-text text-muted">Introduce al menos 4 dígitos para buscar por documento.</small>
+            </div>
+            <div class="mb-3">
+                <label for="buscador_estudiante_registrar" class="form-label">Estudiante</label>
+                {{-- Campo de texto con sugerencias; el id real se guarda en el input hidden usuario_id --}}
+                <input id="buscador_estudiante_registrar" list="lista_estudiantes_registrar" class="form-control" placeholder="Escribe un nombre..." autocomplete="off" required>
+                <datalist id="lista_estudiantes_registrar">
+                    @if(isset($students) && count($students))
+                        @foreach($students as $stu)
+                            @php $disp = $stu->name . ' (ID: ' . $stu->id . ')'; @endphp
+                            <option value="{{ $disp }}"></option>
+                        @endforeach
+                    @endif
+                </datalist>
+                <input type="hidden" name="usuario_id" id="usuario_id_hidden">
+                <div id="student_info" class="mt-2 text-muted"></div>
+                <small class="form-text text-muted">Selecciona un estudiante de la lista. Si no se selecciona, el formulario no enviará el id.</small>
+            </div>
+            <!-- campos restantes (deshabilitados) -->
+            <div class="mb-3">
+                <label for="descripcion" class="form-label">Descripción</label>
+                <input type="text" name="descripcion" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="tipo_id" class="form-label">Tipo</label>
+                <select name="tipo_id" id="tipo_id" class="form-control" required>
+                    <option value="">-- Selecciona un tipo --</option>
+                        @if(isset($tipos) && count($tipos))
+                            @foreach($tipos as $t)
+                                <option value="{{ $t->id }}" {{ old('tipo_id') == $t->id ? 'selected' : '' }}>{{ $t->nombre }}</option>
+                            @endforeach
+                        @endif
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="fecha" class="form-label">Fecha</label>
+                <input type="date" name="fecha" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success" disabled title="No tienes permiso">Registrar</button>
+            <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">Cancelar</a>
+        </fieldset>
+    </form>
+@else
+    <form action="{{ route('gestion-disciplinaria.store') }}" method="POST">
+        @csrf
     <div class="mb-3">
         <label for="buscador_documento_registrar" class="form-label">Número de documento</label>
         <input id="buscador_documento_registrar" class="form-control" placeholder="Escribe el número de documento..." autocomplete="off">
@@ -205,13 +256,14 @@
         <label for="fecha" class="form-label">Fecha</label>
         <input type="date" name="fecha" class="form-control" required>
     </div>
-    <button type="submit" class="btn btn-success">Registrar</button>
-    <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-success">Registrar</button>
+        <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">Cancelar</a>
 
-    <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">
-    Volver
-</a>
-</form>
+        <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-secondary">
+        Volver
+    </a>
+    </form>
+@endif
 
 @endsection
 

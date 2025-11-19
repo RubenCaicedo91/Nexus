@@ -126,8 +126,8 @@
                         @endif
                         @php
                             $roleName = optional(Auth::user()->role)->nombre;
-                            $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
-                            $canChangeEstado = in_array($roleName, $allowedRoles);
+                            $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'cordinador academico'];
+                            $canChangeEstado = in_array($roleName, $allowedRoles) || stripos($roleName, 'cordinador') !== false;
                         @endphp
                         <div class="mb-3">
                             <label class="form-label"><strong>Estado:</strong></label>

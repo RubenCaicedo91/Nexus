@@ -50,9 +50,13 @@
             </form>
 
             @php
-                $roleNameView = optional(Auth::user()->role)->nombre ?? '';
-                $isRectorView = stripos($roleNameView, 'rector') !== false;
+                $canCreateNotes = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_notas');
+                $canViewNotes = Auth::check() && method_exists(Auth::user(), 'hasAnyPermission') && Auth::user()->hasAnyPermission(['ver_notas','registrar_notas','consultar_reporte_academicos']);
             @endphp
+
+            @if($canViewNotes && ! $canCreateNotes)
+                <div class="alert alert-warning">No tienes permiso para <strong>crear</strong> notas en este módulo, pero podrás consultar y, si corresponde, quitar el estado <em>definitiva</em>.</div>
+            @endif
 
             <!-- Tabla -->
             @if(isset($showResults) && $showResults)
@@ -172,7 +176,7 @@
                                         $createLabel = $existingCount > 0 ? 'Agregar otra nota' : 'Crear nota';
                                     @endphp
 
-                                    @if($isRectorView)
+                                    @if(! $canCreateNotes)
                                         <button type="button" class="btn btn-sm btn-secondary" disabled title="No tienes permiso para crear notas.">
                                             <i class="bi bi-plus-circle me-1"></i> {{ $createLabel }}
                                         </button>

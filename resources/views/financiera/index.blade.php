@@ -4,22 +4,13 @@
 
 @section('content')
 @php
-    $canRegister = false;
-    if (Auth::check()) {
-        $u = Auth::user();
-        $roleNombre = optional($u->role)->nombre ?? '';
-        if (method_exists($u, 'hasPermission') && $u->hasPermission('registrar_pagos')) {
-            $canRegister = true;
-        }
-        if (stripos($roleNombre, 'tesor') !== false || stripos($roleNombre, 'administrador') !== false || stripos($roleNombre, 'admin') !== false) {
-            $canRegister = true;
-        }
-        if ($u->roles_id == 1) {
-            $canRegister = true;
-        }
-    }
+    $canRegister = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_pagos');
 @endphp
 <div class="container">
+
+    @if(!empty($isCoordinator) && $isCoordinator)
+        <div class="alert alert-warning mt-2">Como <strong>Coordinador Académico</strong> sólo puedes <strong>consultar el Estado de Cuenta</strong>. No puedes registrar pagos, actualizar el valor de matrícula ni generar reportes financieros desde este perfil.</div>
+    @endif
 
     <!-- Banner superior -->
     <div class="p-4 mb-4 text-center text-white rounded" 
@@ -39,15 +30,9 @@
                 <div class="card-body">
                     <p class="mb-3">💵 Permite registrar los pagos realizados por los estudiantes o usuarios.</p>
                     @if($canRegister)
-                        <a href="{{ route('financiera.formularioPago') }}" 
-                           class="btn text-center w-100 text-white" 
-                           style="background-color: #00264d;">
-                            💰 Registrar Pago
-                        </a>
+                        <a href="{{ route('financiera.formularioPago') }}" class="btn text-center w-100 text-white" style="background-color: #00264d;">💰 Registrar Pago</a>
                     @else
-                        <button type="button" class="btn w-100 btn-secondary" disabled title="No tienes permiso para registrar pagos." aria-disabled="true">
-                            💰 Registrar Pago
-                        </button>
+                        <button type="button" class="btn w-100 btn-secondary" disabled title="No tienes permiso para registrar pagos." aria-disabled="true">💰 Registrar Pago</button>
                     @endif
                 </div>
             </div>
@@ -78,11 +63,12 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">📊 Genera reportes financieros detallados para análisis institucional.</p>
-                    <a href="{{ route('financiera.reporte') }}" 
-                       class="btn text-center w-100 text-white" 
-                       style="background-color: #0b6623;">
-                        📈 Generar Reporte
-                    </a>
+                    @php $canReport = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('generar_reportes_financieros'); @endphp
+                    @if($canReport)
+                        <a href="{{ route('financiera.reporte') }}" class="btn text-center w-100 text-white" style="background-color: #0b6623;">📈 Generar Reporte</a>
+                    @else
+                        <button type="button" class="btn w-100 btn-secondary" disabled title="No tienes permiso para generar reportes." aria-disabled="true">📈 Generar Reporte</button>
+                    @endif
                 </div>
             </div>
         </div>
