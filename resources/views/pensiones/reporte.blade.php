@@ -23,12 +23,17 @@
                     <a href="{{ route('pensiones.index') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left"></i> Volver
                     </a>
-                    <button type="button" class="btn btn-success" onclick="exportarExcel()">
-                        <i class="fas fa-file-excel"></i> Exportar Excel
-                    </button>
-                    <button type="button" class="btn btn-danger" onclick="exportarPDF()">
-                        <i class="fas fa-file-pdf"></i> Exportar PDF
-                    </button>
+                    @php
+                        $isEstudiante = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false;
+                    @endphp
+                    @if(! $isEstudiante)
+                        <button type="button" class="btn btn-success" onclick="exportarExcel()">
+                            <i class="fas fa-file-excel"></i> Exportar Excel
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="exportarPDF()">
+                            <i class="fas fa-file-pdf"></i> Exportar PDF
+                        </button>
+                    @endif
                 </div>
             </div>
 

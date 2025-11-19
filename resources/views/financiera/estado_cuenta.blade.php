@@ -22,6 +22,13 @@
                     <strong>Nota:</strong> Tu perfil es <strong>Coordinador Académico</strong>. Puedes consultar el estado de cuenta del estudiante, pero no puedes registrar pagos ni generar reportes financieros desde este módulo.
                 </div>
             @endif
+            @php
+                $authUser = auth()->user();
+                $isEstudiante = $authUser && optional($authUser->role)->nombre && stripos(optional($authUser->role)->nombre, 'estudiante') !== false;
+            @endphp
+            @if($isEstudiante)
+                <div class="alert alert-info">Estás consultando tu propio estado de cuenta. Puedes usar el buscador para localizar documentos (si coincide con tu información).</div>
+            @endif
             <form class="row g-2 mb-3" method="get" action="{{ route('financiera.estadoCuenta.search') }}">
                 <div class="col-auto">
                     <input type="text" name="documento" class="form-control" placeholder="Número de documento" value="{{ old('documento', $documento ?? '') }}">

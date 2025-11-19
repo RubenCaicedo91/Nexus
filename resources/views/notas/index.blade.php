@@ -52,6 +52,10 @@
             @php
                 $canCreateNotes = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_notas');
                 $canViewNotes = Auth::check() && method_exists(Auth::user(), 'hasAnyPermission') && Auth::user()->hasAnyPermission(['ver_notas','registrar_notas','consultar_reporte_academicos']);
+                $isStudent = false;
+                if (Auth::check() && optional(Auth::user()->role)->nombre) {
+                    $isStudent = stripos(optional(Auth::user()->role)->nombre, 'estudiante') !== false;
+                }
             @endphp
 
             @if($canViewNotes && ! $canCreateNotes)
@@ -69,7 +73,9 @@
                             <th>Calificación</th>
                             <th>Aprobada</th>
                             <th>Notas</th>
-                            <th class="text-end">Acciones</th>
+                            @if(! $isStudent)
+                                <th class="text-end">Acciones</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
@@ -145,7 +151,7 @@
                                                     $userIdBtn = optional($nota->matricula->user)->id ?? null;
                                                     $countNotas = isset($notaCounts) && $userIdBtn && isset($notaCounts[$userIdBtn]) ? $notaCounts[$userIdBtn] : 0;
                                                 @endphp
-                                                <a href="{{ route('notas.matricula.ver', ['matricula' => $matriculaIdBtn, 'back' => request()->fullUrl()]) }}" class="btn btn-sm btn-outline-info">
+                                                <a href="{{ route('notas.matricula.ver', array_filter(['matricula' => $matriculaIdBtn, 'back' => request()->fullUrl(), 'curso_id' => request('curso_id'), 'materia_id' => request('materia_id')])) }}" class="btn btn-sm btn-outline-info">
                                                     <i class="bi bi-file-text me-1"></i> Notas
                                                     <span class="badge bg-secondary ms-2">{{ $countNotas }}</span>
                                                 </a>
@@ -154,6 +160,7 @@
                                     @endif
                                 </td>
 
+                                @if(! $isStudent)
                                 <td class="text-end">
                                     @php
                                         // tratar distintos tipos de $nota (stdClass o Eloquent)
@@ -192,6 +199,7 @@
                                         @endif
                                     @endif
                                 </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>

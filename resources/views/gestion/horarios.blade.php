@@ -10,7 +10,7 @@
     @endif
 
     {{-- Formulario para crear horario --}}
-    @unless(isset($isDocente) && $isDocente)
+    @unless((isset($isDocente) && $isDocente) || (isset($isEstudiante) && $isEstudiante))
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Crear nuevo horario</h5>
@@ -19,12 +19,18 @@
 
                 <div class="mb-3">
                     <label for="curso" class="form-label">Curso</label>
-                    <select name="curso_id" id="curso" class="form-select" required>
-                        <option value="">Selecciona un curso</option>
-                        @foreach($cursos as $c)
-                            <option value="{{ $c->id }}">{{ $c->nombre }}</option>
-                        @endforeach
-                    </select>
+                    @if(isset($isEstudiante) && $isEstudiante && isset($studentCourseId))
+                        <select name="curso_id" id="curso" class="form-select" required disabled>
+                            <option value="{{ $studentCourseId }}">{{ $studentCourseNombre }}</option>
+                        </select>
+                    @else
+                        <select name="curso_id" id="curso" class="form-select" required>
+                            <option value="">Selecciona un curso</option>
+                            @foreach($cursos as $c)
+                                <option value="{{ $c->id }}">{{ $c->nombre }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
 
                 <div class="mb-3">
@@ -68,15 +74,22 @@
         <div class="card-body">
             <h5 class="card-title">Horarios registrados</h5>
             {{-- Filtro por curso (muestra los horarios del curso seleccionado) --}}
-            <div class="row mb-3">
+                <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="filter_curso" class="form-label">Filtrar por curso</label>
-                    <select id="filter_curso" class="form-select">
-                        <option value="">-- Todos los cursos --</option>
-                        @foreach($cursos as $c)
-                            <option value="{{ $c->id }}">{{ $c->nombre }}</option>
-                        @endforeach
-                    </select>
+                    @if(isset($isEstudiante) && $isEstudiante && isset($studentCourseId))
+                        <select id="filter_curso" class="form-select" disabled>
+                            <option value="">-- Todos los cursos --</option>
+                            <option value="{{ $studentCourseId }}" selected>{{ $studentCourseNombre }}</option>
+                        </select>
+                    @else
+                        <select id="filter_curso" class="form-select" @if(isset($mostrarTodos) && $mostrarTodos) disabled @endif>
+                            <option value="">-- Todos los cursos --</option>
+                            @foreach($cursos as $c)
+                                <option value="{{ $c->id }}" @if(isset($mostrarTodos) && $mostrarTodos) disabled @endif>{{ $c->nombre }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
                 <div class="col-md-3 d-flex align-items-end">
                     <div class="btn-group w-100" role="group">
@@ -84,6 +97,16 @@
                         <button id="filter_clear" class="btn btn-secondary">Limpiar filtro</button>
                     </div>
                 </div>
+                @if(isset($isDocente) && $isDocente)
+                <div class="col-md-3 d-flex flex-column justify-content-end">
+                    <form id="mostrar_todos_form" method="GET" action="{{ route('gestion.horarios') }}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="mostrar_todos" id="mostrar_todos" value="1" @if(isset($mostrarTodos) && $mostrarTodos) checked @endif>
+                            <label class="form-check-label" for="mostrar_todos">Mostrar todos</label>
+                        </div>
+                    </form>
+                </div>
+                @endif
                 <div class="col-md-3">
                     <label for="filter_docente" class="form-label">Filtrar por docente</label>
                     <select id="filter_docente" class="form-select">
@@ -123,7 +146,7 @@
                             <td>{{ $horario->hora_inicio ?? ($horario->hora) }}</td>
                             <td>{{ $horario->hora_fin ?? '' }}</td>
                             <td>
-                                @unless(isset($isDocente) && $isDocente)
+                                @unless((isset($isDocente) && $isDocente) || (isset($isEstudiante) && $isEstudiante))
                                     <a href="{{ route('horarios.editar', $horario->id) }}" class="btn btn-sm btn-warning">✏️ Editar</a>
 
                                     <form action="{{ route('horarios.eliminar', $horario->id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás segura de eliminar este horario?')">
@@ -186,6 +209,12 @@ document.addEventListener('DOMContentLoaded', function(){
             minimumResultsForSearch: 10
         });
     }
+
+    // Si el checkbox 'mostrar_todos' existe, enviar el formulario al cambiar
+    $('#mostrar_todos').on('change', function(){
+        // Si el checkbox está marcado, enviamos ?mostrar_todos=1
+        $('#mostrar_todos_form').submit();
+    });
 
     // Cargar materias vía AJAX al cambiar el curso
     $('#curso').on('change', function(){

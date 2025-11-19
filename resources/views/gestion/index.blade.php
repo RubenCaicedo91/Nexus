@@ -51,13 +51,16 @@
                         $canAccessAsistencias = true;
                     }
                     // Permitir al rol Docente
-                    if ($u && optional($u->role)->nombre && stripos(optional($u->role)->nombre, 'docente') !== false) {
+                    if ($u && optional($u->role)->nombre && (stripos(optional($u->role)->nombre, 'docente') !== false || stripos(optional($u->role)->nombre, 'estudiante') !== false)) {
                         $canAccessAsistencias = true;
                     }
-                    // Permitir a Docentes ver el panel de Horarios (solo vista, no gestión completa)
+                    // Permitir a Docentes y a Estudiantes ver el panel de Horarios (solo vista, no gestión completa)
                     $canViewHorarios = $canManageAcademica;
-                    if ($u && optional($u->role)->nombre && stripos(optional($u->role)->nombre, 'docente') !== false) {
-                        $canViewHorarios = true;
+                    if ($u && optional($u->role)->nombre) {
+                        $roleCheck = optional($u->role)->nombre;
+                        if (stripos($roleCheck, 'docente') !== false || stripos($roleCheck, 'estudiante') !== false) {
+                            $canViewHorarios = true;
+                        }
                     }
                 @endphp
                 @if($canManageAcademica)

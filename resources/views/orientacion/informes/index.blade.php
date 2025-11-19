@@ -13,8 +13,13 @@
                 <p class="small mb-0 text-light">Listado de informes generados en las citas de orientación.</p>
             </div>
             <div class="d-flex gap-2">
-                <a href="{{ route('orientacion.informes.export_pdf', request()->query()) }}" class="btn btn-sm btn-outline-light">Exportar PDF</a>
-                <a href="{{ route('orientacion.informes.export_excel', request()->query()) }}" class="btn btn-sm btn-outline-light">Exportar Excel</a>
+                @php
+                    $isEstudiante = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false;
+                @endphp
+                @if(! $isEstudiante)
+                    <a href="{{ route('orientacion.informes.export_pdf', request()->query()) }}" class="btn btn-sm btn-outline-light">Exportar PDF</a>
+                    <a href="{{ route('orientacion.informes.export_excel', request()->query()) }}" class="btn btn-sm btn-outline-light">Exportar Excel</a>
+                @endif
             </div>
         </div>
 

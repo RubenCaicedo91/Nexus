@@ -345,6 +345,16 @@ class GestionDisciplinariaController extends Controller
             return redirect()->route('historial.sanciones', Auth::id());
         }
 
+        // Si el usuario es Estudiante, redirigirlo a su propio historial (solo puede ver su historial)
+        $user = Auth::user();
+        $isEstudiante = false;
+        if ($user && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'estudiante') !== false) {
+            $isEstudiante = true;
+        }
+        if ($isEstudiante) {
+            return redirect()->route('historial.sanciones', Auth::id());
+        }
+
         $sanciones = Sancion::with('usuario')->get();
 
         // Pasar flag a la vista para deshabilitar botones si el usuario es coordinador académico
@@ -362,7 +372,49 @@ class GestionDisciplinariaController extends Controller
         if ($this->isCoordinadorAcademico()) {
             return response()->json(['success' => false, 'message' => 'No tienes permiso para realizar búsquedas.'], 403);
         }
+        // Si el usuario autenticado es Estudiante, sólo puede buscarse a sí mismo: rechazamos búsquedas hacia otros
+        $authUser = Auth::user();
+        $isEstudiante = $authUser && optional($authUser->role)->nombre && mb_stripos(optional($authUser->role)->nombre, 'estudiante') !== false;
+
         $document = $request->query('document') ?? $request->input('document');
+
+        if ($isEstudiante) {
+            // Si no se envía documento, devolvemos la info del propio usuario
+            if (! $document) {
+                $user = $authUser;
+                $matricula = $user->matriculas()->with('curso')->orderByDesc('fecha_matricula')->first();
+                $sanciones = \App\Models\Sancion::with('usuario')->where('usuario_id', $user->id)->get();
+                return response()->json([
+                    'success' => true,
+                    'user' => $user,
+                    'matricula' => $matricula,
+                    'sanciones' => $sanciones
+                ]);
+            }
+
+            // Si se envía documento, sólo permitir si corresponde al propio usuario (document_number o id)
+            $cleanDigits = preg_replace('/\D+/', '', $document);
+            $authDoc = preg_replace('/\D+/', '', $authUser->document_number ?? '');
+            $isSelfByDoc = ($cleanDigits !== '' && $authDoc !== '' && mb_stripos($authDoc, $cleanDigits) !== false);
+            $isSelfById = ((string)$authUser->id === (string)$document);
+
+            if ($isSelfByDoc || $isSelfById) {
+                $user = $authUser;
+                $matricula = $user->matriculas()->with('curso')->orderByDesc('fecha_matricula')->first();
+                $sanciones = \App\Models\Sancion::with('usuario')->where('usuario_id', $user->id)->get();
+                return response()->json([
+                    'success' => true,
+                    'user' => $user,
+                    'matricula' => $matricula,
+                    'sanciones' => $sanciones
+                ]);
+            }
+
+            // En vez de devolver un 403, devolvemos un JSON con success=false
+            // para que el cliente pueda mostrar una alerta amigable.
+            return response()->json(['success' => false, 'message' => 'No tienes permiso para buscar otros estudiantes.'], 200);
+        }
+
         if (! $document) {
             return response()->json(['success' => false, 'message' => 'Documento requerido'], 400);
         }

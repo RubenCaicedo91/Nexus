@@ -363,6 +363,23 @@ class GestionFinancieraController extends Controller
 
     public function estadoCuenta($id)
     {
+        // Si el usuario autenticado es Estudiante, sólo puede ver su propio estado de cuenta
+        $authUser = Auth::user();
+        $isEstudiante = $authUser && optional($authUser->role)->nombre && mb_stripos(optional($authUser->role)->nombre, 'estudiante') !== false;
+        if ($isEstudiante && (int)$authUser->id !== (int)$id) {
+            // No sacar al usuario: mostrar alerta en la misma vista
+            session()->flash('error', 'No tienes permiso para ver el estado de cuenta de otro usuario.');
+            $estudiante = null;
+            $pagos = collect();
+            $matricula = null;
+            $montoPagado = 0;
+            $faltante = null;
+            $documento = null;
+            $searched = false;
+            $isCoordinator = $this->isCoordinadorAcademico();
+            return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched', 'isCoordinator'));
+        }
+
         $estudiante = User::find($id);
         $pagos = Pago::where('estudiante_id', $id)->get();
 
@@ -393,16 +410,59 @@ class GestionFinancieraController extends Controller
         $institucion = Institucion::first();
         $valorMatricula = $institucion && $institucion->valor_matricula ? $institucion->valor_matricula : config('financiera.valor_matricula', 0);
 
-        if ($documento) {
-            $estudiante = User::where('document_number', $documento)
-                ->orWhere('document_number', 'like', $documento . '%')
-                ->first();
+        // Si el usuario autenticado es Estudiante, sólo puede buscar su propio documento/estado
+        $authUser = Auth::user();
+        $isEstudiante = $authUser && optional($authUser->role)->nombre && mb_stripos(optional($authUser->role)->nombre, 'estudiante') !== false;
 
-            if ($estudiante) {
+        if ($isEstudiante) {
+            // Si no envía documento, asumimos que quiere ver su propio estado
+            if (! $documento) {
+                $estudiante = $authUser;
                 $pagos = Pago::where('estudiante_id', $estudiante->id)->get();
                 $montoPagado = floatval($pagos->sum('monto'));
                 $matricula = Matricula::where('user_id', $estudiante->id)->orderByDesc('fecha_matricula')->first();
                 $faltante = max(0, floatval($valorMatricula) - $montoPagado);
+            } else {
+                // Normalizar a solo dígitos para comparar formatos distintos (puntos, guiones, espacios)
+                $cleanDigits = preg_replace('/\D+/', '', (string)$documento);
+                $authDoc = preg_replace('/\D+/', '', $authUser->document_number ?? '');
+
+                $isSelfByDoc = ($cleanDigits !== '' && $authDoc !== '' && mb_stripos($authDoc, $cleanDigits) !== false);
+                $isSelfById = ((string)$authUser->id === (string)$documento);
+
+                if ($isSelfByDoc || $isSelfById) {
+                    $estudiante = $authUser;
+                    $pagos = Pago::where('estudiante_id', $estudiante->id)->get();
+                    $montoPagado = floatval($pagos->sum('monto'));
+                    $matricula = Matricula::where('user_id', $estudiante->id)->orderByDesc('fecha_matricula')->first();
+                    $faltante = max(0, floatval($valorMatricula) - $montoPagado);
+                } else {
+                    // Mostrar solo una alerta en la misma vista (no redirigir)
+                    session()->flash('error', 'No tienes permiso para consultar el estado de cuenta de otro estudiante.');
+                    $searched = false;
+                    $isCoordinator = $this->isCoordinadorAcademico();
+                    return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched', 'isCoordinator'));
+                }
+            }
+        } else {
+            // Para roles distintos a Estudiante: búsqueda flexible por documento
+            if ($documento) {
+                $cleanDigits = preg_replace('/\D+/', '', (string)$documento);
+
+                if ($cleanDigits !== '') {
+                    $estudiante = User::whereRaw("REPLACE(REPLACE(REPLACE(document_number, '.', ''), ' ', ''), '-', '') LIKE ?", ["%{$cleanDigits}%"])->first();
+                } else {
+                    $estudiante = User::where('document_number', $documento)
+                        ->orWhere('document_number', 'like', $documento . '%')
+                        ->first();
+                }
+
+                if ($estudiante) {
+                    $pagos = Pago::where('estudiante_id', $estudiante->id)->get();
+                    $montoPagado = floatval($pagos->sum('monto'));
+                    $matricula = Matricula::where('user_id', $estudiante->id)->orderByDesc('fecha_matricula')->first();
+                    $faltante = max(0, floatval($valorMatricula) - $montoPagado);
+                }
             }
         }
 
@@ -418,6 +478,13 @@ class GestionFinancieraController extends Controller
             abort(403, 'No tienes permiso para generar reportes financieros.');
         }
         $query = Pago::with(['estudiante.matriculas.curso']);
+
+        // Si el usuario autenticado es Estudiante, restringir reportes a su propio historial
+        $authUser = Auth::user();
+        $isEstudiante = $authUser && optional($authUser->role)->nombre && mb_stripos(optional($authUser->role)->nombre, 'estudiante') !== false;
+        if ($isEstudiante) {
+            $query->where('estudiante_id', $authUser->id);
+        }
 
         // filtro por curso (se busca en las matrículas del estudiante)
         $cursoId = $request->query('curso_id');
@@ -473,7 +540,7 @@ class GestionFinancieraController extends Controller
                 $dompdf = new Dompdf();
                 $dompdf->loadHtml($html);
                 // Opcional: establecer tamaño y orientación
-                $dompdf->setPaper('A4', 'landscape');
+                        return redirect()->route('financiera.index')->with('error', 'No tienes permiso para consultar el estado de cuenta de otro estudiante.');
                 $dompdf->render();
                 $output = $dompdf->output();
 

@@ -43,8 +43,33 @@ class NotasController extends Controller
                 return $next($request);
             }
 
+            // Permitir a usuarios con rol 'Estudiante' acceder únicamente a las vistas de consulta
+            // (lista/visualización de sus propias notas). Bloquear otras acciones.
+            if ($roleName && stripos($roleName, 'estudiante') !== false) {
+                $routeName = optional($request->route())->getName();
+                $allowedForStudent = ['notas.index', 'notas.matricula.ver'];
+                if (in_array($routeName, $allowedForStudent)) {
+                    return $next($request);
+                }
+                abort(403, 'Acceso no autorizado');
+            }
+
             abort(403, 'Acceso no autorizado');
         });
+    }
+
+    /**
+     * Helper: devuelve true si el usuario autenticado tiene rol Estudiante.
+     */
+    protected function userIsStudent()
+    {
+        try {
+            $user = Auth::user();
+        } catch (\Throwable $e) {
+            $user = null;
+        }
+        $roleName = optional($user->role)->nombre ?? '';
+        return $user && stripos($roleName, 'estudiante') !== false;
     }
 
     // Listado de notas con filtros por curso y materia
@@ -55,8 +80,36 @@ class NotasController extends Controller
         $lastSearch = ['curso_id' => null, 'materia_id' => null];
 
         $cursos = Curso::orderBy('nombre')->get();
-        $materias = DB::table('materias')->orderBy('nombre')->get();
+        // Materias se cargan más abajo según el curso seleccionado (o curso del estudiante)
+        $materias = collect();
         $notaCounts = [];
+
+        // Si el usuario es Estudiante, determinar su curso y forzar el filtro por curso.
+        $studentCourseFixed = false;
+        $studentCourseId = null;
+        $currentUser = Auth::user();
+        $currentRole = optional($currentUser->role)->nombre ?? '';
+        if ($currentUser && stripos($currentRole, 'estudiante') !== false) {
+            $lastMat = Matricula::where('user_id', $currentUser->id)
+                ->where('estado', 'activo')
+                ->orderByDesc('id')
+                ->first();
+            if ($lastMat) {
+                $studentCourseId = $lastMat->curso_id;
+                $studentCourseFixed = true;
+                // Forzar curso_id en la request para que solo se apliquen filtros de materia
+                $request->merge(['curso_id' => $studentCourseId]);
+                // Reemplazar la lista de cursos por solo el curso asignado al estudiante
+                $cursos = Curso::where('id', $studentCourseId)->orderBy('nombre')->get();
+            }
+        }
+
+        // Cargar materias filtradas por curso (si está presente en la request)
+        if ($request->filled('curso_id')) {
+            $materias = DB::table('materias')->where('curso_id', $request->curso_id)->orderBy('nombre')->get();
+        } else {
+            $materias = DB::table('materias')->orderBy('nombre')->get();
+        }
 
         if ($request->filled('curso_id') && $request->filled('materia_id')) {
             $showResults = true;
@@ -66,10 +119,18 @@ class NotasController extends Controller
             $cursoId = $request->curso_id;
             $materiaId = $request->materia_id;
 
-            $matriculas = Matricula::with('user')
+            $matriculaQuery = Matricula::with('user')
                 ->where('curso_id', $cursoId)
-                ->where('estado', 'activo')
-                ->get()
+                ->where('estado', 'activo');
+
+            // Si el usuario es Estudiante, sólo devolver sus propias matrículas
+            $currentUser = Auth::user();
+            $currentRole = optional($currentUser->role)->nombre ?? '';
+            if ($currentUser && stripos($currentRole, 'estudiante') !== false) {
+                $matriculaQuery->where('user_id', $currentUser->id);
+            }
+
+            $matriculas = $matriculaQuery->get()
                 ->sortBy(function($m){ return optional($m->user)->name; })
                 ->values();
 
@@ -138,7 +199,7 @@ class NotasController extends Controller
                 }
             }
 
-            return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch'));
+            return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId'));
         }
 
         // No hay filtros en request: rellenar inputs con última búsqueda si existe, pero no mostrar resultados
@@ -147,7 +208,7 @@ class NotasController extends Controller
         }
 
         $notas = null;
-        return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch'));
+        return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId'));
     }
 
     // Mostrar formulario para crear notas (soporta matricula_id o curso_id+materia_id)
@@ -157,6 +218,11 @@ class NotasController extends Controller
         $user = Auth::user();
         $roleName = optional($user->role)->nombre ?? '';
         if ($user && (stripos($roleName, 'rector') !== false || stripos($roleName, 'coordinador') !== false)) {
+            abort(403, 'No tienes permiso para crear notas.');
+        }
+
+        // Prohibir creación de notas por parte del rol Estudiante
+        if ($this->userIsStudent()) {
             abort(403, 'No tienes permiso para crear notas.');
         }
 
@@ -208,6 +274,11 @@ class NotasController extends Controller
         $user = Auth::user();
         $roleName = optional($user->role)->nombre ?? '';
         if ($user && (stripos($roleName, 'rector') !== false || stripos($roleName, 'coordinador') !== false)) {
+            abort(403, 'No tienes permiso para crear notas.');
+        }
+
+        // Prohibir guardar/crear notas por parte del rol Estudiante
+        if ($this->userIsStudent()) {
             abort(403, 'No tienes permiso para crear notas.');
         }
 
@@ -268,6 +339,11 @@ class NotasController extends Controller
         $roleName = optional($user->role)->nombre ?? null;
         $isPrivileged = ($roleName === 'Rector' || $roleName === 'Coordinador Académico' || (isset($user->roles_id) && (int)$user->roles_id === 1));
 
+        // Prohibir edición de notas por parte del rol Estudiante
+        if ($this->userIsStudent()) {
+            abort(403, 'No tienes permiso para editar notas.');
+        }
+
         if ($nota->definitiva && ! $isPrivileged) {
             abort(403, 'La nota está marcada como definitiva y no puede editarse');
         }
@@ -282,6 +358,11 @@ class NotasController extends Controller
             'valor' => 'required|numeric|min:0|max:100',
             'observaciones' => 'nullable|string|max:2000'
         ]);
+
+        // Prohibir edición/actualización de notas por parte del rol Estudiante
+        if ($this->userIsStudent()) {
+            abort(403, 'No tienes permiso para editar notas.');
+        }
 
         // Si la nota está marcada como definitiva, sólo permitir editar a Rector o Coordinador Académico
         $user = Auth::user();
@@ -301,9 +382,49 @@ class NotasController extends Controller
     // Ver notas para una matrícula (estudiante)
     public function porMatricula(Request $request, Matricula $matricula)
     {
-        $notas = Nota::with(['materia', 'actividades'])
-            ->where('matricula_id', $matricula->id)
-            ->get();
+        // Si el usuario es Estudiante, sólo puede ver sus propias matrículas
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+        if ($user && stripos($roleName, 'estudiante') !== false) {
+            if ($matricula->user_id !== $user->id) {
+                abort(403, 'Acceso no autorizado');
+            }
+        }
+
+        // Cargar notas filtrando por matrícula
+        $notasQuery = Nota::with(['materia', 'actividades'])
+            ->where('matricula_id', $matricula->id);
+
+        // Determinar si el usuario puede aplicar filtros (roles/permisos)
+        $user = Auth::user();
+        $canFilter = false;
+        if ($user) {
+            if (method_exists($user, 'hasAnyPermission') && $user->hasAnyPermission(['ver_notas','registrar_notas','consultar_reporte_academicos'])) {
+                $canFilter = true;
+            }
+            $rname = optional($user->role)->nombre ?? '';
+            if ($rname && (stripos($rname, 'admin') !== false || stripos($rname, 'rector') !== false || stripos($rname, 'docente') !== false)) {
+                $canFilter = true;
+            }
+            if (isset($user->roles_id) && (int)$user->roles_id === 1) {
+                $canFilter = true;
+            }
+        }
+
+        // Si se solicitó materia_id y el usuario puede filtrar, validar que la materia pertenezca al curso de la matrícula
+        if ($request->filled('materia_id') && $canFilter) {
+            $materiaId = $request->materia_id;
+            $materiaCursoId = DB::table('materias')->where('id', $materiaId)->value('curso_id');
+            // comparar con el curso de la matrícula; si no coincide, devolver vacío (no mostrar notas de otra materia)
+            if ($materiaCursoId && $materiaCursoId == $matricula->curso_id) {
+                $notasQuery->where('materia_id', $materiaId);
+            } else {
+                // Forzar consulta vacía
+                $notasQuery->whereRaw('1 = 0');
+            }
+        }
+
+        $notas = $notasQuery->get();
 
         // calcular calificación 0-5
         $notas->transform(function($nota){

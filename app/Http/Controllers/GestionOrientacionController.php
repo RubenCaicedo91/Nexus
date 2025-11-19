@@ -20,7 +20,35 @@ class GestionOrientacionController extends Controller
         $isCoordinator = $this->isCoordinadorAcademico($user);
         $isCoordinadorDisciplina = $this->isCoordinadorDisciplina($user);
         $isDocente = $this->isDocente($user);
-        return view('orientacion.index', compact('isCoordinator', 'isCoordinadorDisciplina', 'isDocente'));
+        // Detectar si el usuario es Estudiante
+        $roleName = null;
+        if ($user) {
+            if (isset($user->roles) && is_object($user->roles) && isset($user->roles->nombre)) {
+                $roleName = $user->roles->nombre;
+            } elseif (method_exists($user, 'role') && optional($user->role)->nombre) {
+                $roleName = optional($user->role)->nombre;
+            } elseif (isset($user->roles_id)) {
+                try {
+                    $r = RolesModel::find($user->roles_id);
+                    $roleName = $r ? $r->nombre : null;
+                } catch (\Throwable $e) {
+                    $roleName = null;
+                }
+            }
+        }
+
+        $isEstudiante = false;
+        if ($roleName) {
+            $normalized = strtolower($roleName);
+            $normalized = str_replace(['á','é','í','ó','ú','Á','É','Í','Ó','Ú'], ['a','e','i','o','u','a','e','i','o','u'], $normalized);
+            $normalized = preg_replace('/[^a-z0-9\s]/u', '', $normalized);
+            $normalized = trim($normalized);
+            if (mb_stripos($normalized, 'estudiante') !== false) {
+                $isEstudiante = true;
+            }
+        }
+
+        return view('orientacion.index', compact('isCoordinator', 'isCoordinadorDisciplina', 'isDocente', 'isEstudiante'));
     }
 
     // ---------------- Citas ----------------

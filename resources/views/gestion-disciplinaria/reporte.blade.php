@@ -25,11 +25,16 @@
         </select>
     </div>
     <div class="col-md-2 d-flex align-items-end">
-        <div>
+            <div>
             <button type="submit" class="btn btn-primary">Filtrar</button>
             <a href="{{ route('gestion-disciplinaria.reporte') }}" class="btn btn-secondary ms-2">Limpiar</a>
-            <a href="{{ request()->fullUrlWithQuery(['export' => 'pdf']) }}" class="btn btn-outline-danger ms-2">Exportar PDF</a>
-            <a href="{{ request()->fullUrlWithQuery(['export' => 'excel']) }}" class="btn btn-outline-primary ms-2">Exportar Excel</a>
+            @php
+                $isEstudiante = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false;
+            @endphp
+            @if(! $isEstudiante)
+                <a href="{{ request()->fullUrlWithQuery(['export' => 'pdf']) }}" class="btn btn-outline-danger ms-2">Exportar PDF</a>
+                <a href="{{ request()->fullUrlWithQuery(['export' => 'excel']) }}" class="btn btn-outline-primary ms-2">Exportar Excel</a>
+            @endif
         </div>
     </div>
 </form>

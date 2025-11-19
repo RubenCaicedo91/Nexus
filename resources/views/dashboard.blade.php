@@ -57,6 +57,14 @@
                     <div class="text-danger mb-2"><i class="fas fa-user-graduate fa-2x"></i></div>
                     <h5 class="fw-bold">Gestión Disciplinaria</h5>
                     <p class="text-muted">Lleva el control de sanciones y reconocimientos estudiantiles.</p>
+                    @php
+                        $isEstudiante = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false;
+                    @endphp
+                    @if(isset($isEstudiante) && $isEstudiante)
+                        <a href="{{ route('historial.sanciones', auth()->id()) }}" class="btn btn-outline-light mt-2">Ver mi historial</a>
+                    @else
+                        <a href="{{ route('gestion-disciplinaria.index') }}" class="btn btn-outline-light mt-2">Abrir módulo</a>
+                    @endif
                 </div>
             </div>
         </div>
@@ -68,6 +76,14 @@
                     <div class="text-info mb-2"><i class="fas fa-chart-line fa-2x"></i></div>
                     <h5 class="fw-bold">Gestión Financiera</h5>
                     <p class="text-muted">Administra pagos, pensiones y reportes financieros.</p>
+                    @php
+                        $isEstudiante = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false;
+                    @endphp
+                    @if(isset($isEstudiante) && $isEstudiante)
+                        <a href="{{ route('financiera.index') }}" class="btn btn-outline-light mt-2">Consultar mi cuenta</a>
+                    @else
+                        <a href="{{ route('financiera.index') }}" class="btn btn-outline-light mt-2">Abrir módulo</a>
+                    @endif
                 </div>
             </div>
         </div>

@@ -3,11 +3,17 @@
 @section('title', 'Asistencias')
 
 @section('content')
+    @php
+        $isEstudiante = isset($isEstudiante) ? $isEstudiante : (auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false);
+    @endphp
+
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3>Asistencias</h3>
         <div>
-            <a href="{{ route('asistencias.create') }}" class="btn btn-primary">Registrar asistencia</a>
-            <a href="{{ route('asistencias.index') }}" class="btn btn-secondary">Actualizar</a>
+            @if(! $isEstudiante)
+                <a href="{{ route('asistencias.create') }}" class="btn btn-primary">Registrar asistencia</a>
+                <a href="{{ route('asistencias.index') }}" class="btn btn-secondary">Actualizar</a>
+            @endif
         </div>
     </div>
 
@@ -36,7 +42,9 @@
         </div>
         <div class="col-md-3">
             <button class="btn btn-primary">Filtrar</button>
-            <a href="{{ route('asistencias.export', request()->query()) }}" class="btn btn-outline-success">Exportar</a>
+            @if(! $isEstudiante)
+                <a href="{{ route('asistencias.export', request()->query()) }}" class="btn btn-outline-success">Exportar</a>
+            @endif
         </div>
     </form>
 
@@ -64,7 +72,11 @@
                 <th>Fecha</th>
                 <th>Curso</th>
                 <th>Materia</th>
-                <th></th>
+                @if($isEstudiante)
+                    <th>Tu estado</th>
+                @else
+                    <th></th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -74,19 +86,46 @@
                     <td>{{ optional($a->curso)->nombre }}</td>
                     <td>{{ optional($a->materia)->nombre }}</td>
                     <td>
-                        @php $rs = $rowStats[$a->id] ?? null; @endphp
-                        @if($rs)
-                            <div style="font-size:0.9rem">
-                                <span class="badge bg-secondary text-white" title="Total de estudiantes matriculados" aria-label="Total estudiantes: {{ $rs['total'] }}">Total: <strong>{{ $rs['total'] }}</strong></span>
-                                <span class="badge bg-success text-white" title="Asistieron (Presente)" aria-label="Asistieron: {{ $rs['present'] }}">Asistieron: <strong>{{ $rs['present'] }}</strong></span>
-                                <span class="badge bg-warning" title="Faltaron (No asistieron)" aria-label="Faltaron: {{ $rs['absent'] }}">Faltaron: <strong>{{ $rs['absent'] }}</strong></span>
-                                <span class="badge bg-info text-white" title="Con excusa" aria-label="Con excusa: {{ $rs['excuse'] }}">Con excusa: <strong>{{ $rs['excuse'] }}</strong></span>
-                            </div>
+                        @if($isEstudiante)
+                            @php
+                                // Usar el valor casteado de Eloquent para determinar presencia
+                                // (esto respeta el cast 'boolean' en el modelo)
+                                $presentBool = isset($a->presente) ? (bool)$a->presente : false;
+                                $obsRaw = isset($a->observacion) ? trim((string)$a->observacion) : '';
+
+                                // Priorizar la observación (Excusa) si existe, luego presencia
+                                // 1) Si hay observación => 'Excusa'
+                                // 2) Si presente => 'Asistio'
+                                // 3) En otro caso => 'No asistio'
+                                if ($obsRaw !== '') {
+                                    $statusText = 'Excusa';
+                                    $obsText = '';
+                                } elseif ($presentBool) {
+                                    $statusText = 'Asistio';
+                                    $obsText = '';
+                                } else {
+                                    $statusText = 'No asistio';
+                                    $obsText = '';
+                                }
+                            @endphp
+                            <span title="presente cast={{ $a->presente }}; presente raw={{ method_exists($a, 'getOriginal') ? $a->getOriginal('presente') : $a->presente }}; observacion={{ e($a->observacion) }}">{{ $statusText }}@if(!empty($obsText)) : {{ $obsText }}@endif</span>
+                        @else
+                            @php $rs = $rowStats[$a->id] ?? null; @endphp
+                            @if($rs)
+                                <div style="font-size:0.9rem">
+                                    <span class="badge bg-secondary text-white" title="Total de estudiantes matriculados" aria-label="Total estudiantes: {{ $rs['total'] }}">Total: <strong>{{ $rs['total'] }}</strong></span>
+                                    <span class="badge bg-success text-white" title="Asistieron (Presente)" aria-label="Asistieron: {{ $rs['present'] }}">Asistieron: <strong>{{ $rs['present'] }}</strong></span>
+                                    <span class="badge bg-warning" title="Faltaron (No asistieron)" aria-label="Faltaron: {{ $rs['absent'] }}">Faltaron: <strong>{{ $rs['absent'] }}</strong></span>
+                                    <span class="badge bg-info text-white" title="Con excusa" aria-label="Con excusa: {{ $rs['excuse'] }}">Con excusa: <strong>{{ $rs['excuse'] }}</strong></span>
+                                </div>
+                            @endif
                         @endif
                     </td>
                     <td class="text-end">
-                        <a href="{{ route('asistencias.curso.registro', ['cursoId' => $a->curso_id, 'fecha' => $a->fecha->format('Y-m-d')]) }}" class="btn btn-sm btn-outline-info">Editar curso</a>
-                        <a href="{{ route('asistencias.export_single', $a->id) }}" class="btn btn-sm btn-outline-success" target="_blank">Exportar</a>
+                        @if(! $isEstudiante)
+                            <a href="{{ route('asistencias.curso.registro', ['cursoId' => $a->curso_id, 'fecha' => $a->fecha->format('Y-m-d')]) }}" class="btn btn-sm btn-outline-info">Editar curso</a>
+                            <a href="{{ route('asistencias.export_single', $a->id) }}" class="btn btn-sm btn-outline-success" target="_blank">Exportar</a>
+                        @endif
                     </td>
                 </tr>
             @endforeach
