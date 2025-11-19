@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Horario;
 use App\Models\Curso;
 use App\Models\Materia;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class GestionAcademicaController extends Controller
 {
@@ -36,15 +38,44 @@ class GestionAcademicaController extends Controller
         return view('gestion.index', compact('cursos', 'docentes'));
     }
 
+    protected function authorizeAcademica()
+    {
+        $user = Auth::user();
+        if ($user instanceof User && method_exists($user, 'hasPermission') && $user->hasPermission('gestionar_academica')) {
+            Log::info('authorizeAcademica: permiso gestionar_academica true', ['user_id' => $user->id ?? null, 'roles_id' => $user->roles_id ?? null]);
+            return true;
+        }
+        // Permitir administradores legacy (roles_id == 1)
+        if ($user && isset($user->roles_id) && (int)$user->roles_id === 1) {
+            Log::info('authorizeAcademica: legacy admin roles_id==1', ['user_id' => $user->id ?? null]);
+            return true;
+        }
+        // Permitir si el nombre del rol contiene 'admin' o 'administrador' o 'rector'
+        if ($user && optional($user->role)->nombre) {
+            $n = optional($user->role)->nombre;
+            if (stripos($n, 'admin') !== false || stripos($n, 'administrador') !== false || stripos($n, 'rector') !== false) {
+                Log::info('authorizeAcademica: rol name matched allow', ['user_id' => $user->id ?? null, 'role_nombre' => $n]);
+                return true;
+            }
+            Log::info('authorizeAcademica: rol name did not match', ['user_id' => $user->id ?? null, 'role_nombre' => $n]);
+        } else {
+            Log::info('authorizeAcademica: no role present or user null', ['user_id' => $user->id ?? null]);
+        }
+        Log::warning('authorizeAcademica: aborting - acceso no autorizado', ['user_id' => $user->id ?? null, 'roles_id' => $user->roles_id ?? null, 'role_nombre' => optional($user->role)->nombre ?? null]);
+        abort(403, 'Acceso no autorizado a Gestión Académica');
+    }
+
     // 📘 CURSOS
 
     public function crearCurso()
     {
+        $this->authorizeAcademica();
         return view('gestion.crear_curso');
     }
 
     public function guardarCurso(Request $request)
     {
+        $this->authorizeAcademica();
         $request->validate([
             'nivel' => 'required|string',
             'grupo' => 'required|string',
@@ -67,6 +98,7 @@ class GestionAcademicaController extends Controller
 
     public function editarCurso($id)
     {
+        $this->authorizeAcademica();
         $curso = Curso::with('docentes')->findOrFail($id);
 
         // Cargar las materias pertenecientes a este curso junto con su docente
@@ -87,6 +119,7 @@ class GestionAcademicaController extends Controller
 
     public function actualizarCurso(Request $request, $id)
     {
+        $this->authorizeAcademica();
         $request->validate([
             'nombre' => 'required|string',
             'descripcion' => 'nullable|string',
@@ -101,6 +134,7 @@ class GestionAcademicaController extends Controller
 
     public function eliminarCurso($id)
     {
+        $this->authorizeAcademica();
         $curso = Curso::findOrFail($id);
         $curso->delete();
 
@@ -109,6 +143,7 @@ class GestionAcademicaController extends Controller
 
     public function panelCursos()
     {
+        $this->authorizeAcademica();
         try {
             $cursos = Curso::all();
             $errorMessage = null;
@@ -126,6 +161,7 @@ class GestionAcademicaController extends Controller
 
     public function horarios()
     {
+        $this->authorizeAcademica();
         $horarios = Horario::all();
         // Enviamos también la lista de cursos para permitir accesos relacionados (ej. asignar docentes)
         try {
@@ -183,6 +219,7 @@ class GestionAcademicaController extends Controller
      */
     public function guardarHorario(Request $request)
     {
+        $this->authorizeAcademica();
     // variable local para que el analizador reconozca la variable
     /** @var \Illuminate\Http\Request $req */
     $req = $request ?? request();
@@ -247,6 +284,7 @@ class GestionAcademicaController extends Controller
      */
     public function editarHorario($id)
     {
+        $this->authorizeAcademica();
         /** @var int $id */
         $idLocal = $id;
         /** @var \App\Models\Horario $horario */
@@ -306,6 +344,7 @@ class GestionAcademicaController extends Controller
      */
     public function actualizarHorario(Request $request, $id)
     {
+        $this->authorizeAcademica();
         /** @var \Illuminate\Http\Request $req */
         $req = $request ?? request();
 
@@ -356,6 +395,7 @@ class GestionAcademicaController extends Controller
      */
     public function eliminarHorario($id)
     {
+        $this->authorizeAcademica();
         /** @var int $id */
         $idLocal = $id;
         /** @var \App\Models\Horario $horario */

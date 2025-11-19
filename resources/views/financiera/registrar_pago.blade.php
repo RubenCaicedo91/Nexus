@@ -11,6 +11,21 @@
             if ($roleNombreTmp === $arTmp || stripos($roleNombreTmp, $arTmp) !== false) { $canEditValor = true; break; }
         }
     }
+    // Determinar si el usuario puede registrar pagos (ser tesorero/administrador o tener permiso)
+    $canRegister = false;
+    if (Auth::check()) {
+        $u = Auth::user();
+        $roleNombreTmp2 = optional($u->role)->nombre ?? '';
+        if (method_exists($u, 'hasPermission') && $u->hasPermission('registrar_pagos')) {
+            $canRegister = true;
+        }
+        if (stripos($roleNombreTmp2, 'tesor') !== false || stripos($roleNombreTmp2, 'administrador') !== false || stripos($roleNombreTmp2, 'admin') !== false) {
+            $canRegister = true;
+        }
+        if ($u->roles_id == 1) {
+            $canRegister = true;
+        }
+    }
 @endphp
 <div class="container py-4">
     <div class="card shadow-sm rounded overflow-hidden">
@@ -122,7 +137,8 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('financiera.registrarPago') }}" id="registrar_pago_form">
+            <form method="POST" action="{{ route('financiera.registrarPago') }}" id="registrar_pago_form" @if(!$canRegister) onsubmit="return false;" @endif>
+                <fieldset @if(!$canRegister) disabled @endif>
                 @csrf
 
                 <div class="mb-4">
@@ -198,10 +214,18 @@
                     </div>
                 </div>
 
+                </fieldset>
                 <div class="text-end">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-circle me-1"></i> Registrar
-                    </button>
+                    @if($canRegister)
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Registrar
+                        </button>
+                    @else
+                        <button type="button" class="btn btn-secondary" disabled title="No tienes permiso para registrar pagos." aria-disabled="true">
+                            <i class="bi bi-check-circle me-1"></i> No autorizado
+                        </button>
+                        <div class="small text-danger mt-2">No tienes permiso para registrar pagos.</div>
+                    @endif
                 </div>
             </form>
         </div>

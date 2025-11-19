@@ -22,6 +22,20 @@ class RolesSeeder extends Seeder
                     'ver_reportes_generales',
                     'aprobar_desiciones_académicas',
                     "consultar_info_institucional",
+                    // Permisos para gestionar usuarios, asignar roles y gestionar académica
+                    'gestionar_usuarios',
+                    'asignar_roles',
+                    'gestionar_academica',
+                    // Permisos académicos (docentes, materias y asignaciones)
+                    'asignar_docentes',
+                    'crear_cursos',
+                    'editar_cursos',
+                    'crear_horarios',
+                    'editar_horarios',
+                    'crear_materias',
+                    'editar_materias',
+                    'gestionar_asignaciones',
+                    'asignar_estudiantes',
                 ]
             ],
             [

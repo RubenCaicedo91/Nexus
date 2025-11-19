@@ -91,7 +91,8 @@
                     auth()->user()->hasPermission('gestionar_usuarios') ||
                     (optional(auth()->user()->role)->nombre && (
                         stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
-                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false
+                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
+                        stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
                     )) || auth()->user()->roles_id == 1
                 ))
                     <a class="nav-link" href="{{ route('usuarios.index') }}">
@@ -105,7 +106,8 @@
                     auth()->user()->hasPermission('ver_roles') ||
                     (optional(auth()->user()->role)->nombre && (
                         stripos(optional(auth()->user()->role)->nombre, 'admin') !== false ||
-                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false
+                        stripos(optional(auth()->user()->role)->nombre, 'administrador') !== false ||
+                        stripos(optional(auth()->user()->role)->nombre, 'rector') !== false
                     )) || auth()->user()->roles_id == 1
                 ))
                     <a class="nav-link" href="{{ route('roles.index') }}">

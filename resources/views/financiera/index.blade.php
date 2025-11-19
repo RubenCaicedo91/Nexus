@@ -3,6 +3,22 @@
 @section('title', 'Gestión Financiera')
 
 @section('content')
+@php
+    $canRegister = false;
+    if (Auth::check()) {
+        $u = Auth::user();
+        $roleNombre = optional($u->role)->nombre ?? '';
+        if (method_exists($u, 'hasPermission') && $u->hasPermission('registrar_pagos')) {
+            $canRegister = true;
+        }
+        if (stripos($roleNombre, 'tesor') !== false || stripos($roleNombre, 'administrador') !== false || stripos($roleNombre, 'admin') !== false) {
+            $canRegister = true;
+        }
+        if ($u->roles_id == 1) {
+            $canRegister = true;
+        }
+    }
+@endphp
 <div class="container">
 
     <!-- Banner superior -->
@@ -22,11 +38,17 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">💵 Permite registrar los pagos realizados por los estudiantes o usuarios.</p>
-                    <a href="{{ route('financiera.formularioPago') }}" 
-                       class="btn text-center w-100 text-white" 
-                       style="background-color: #00264d;">
-                        💰 Registrar Pago
-                    </a>
+                    @if($canRegister)
+                        <a href="{{ route('financiera.formularioPago') }}" 
+                           class="btn text-center w-100 text-white" 
+                           style="background-color: #00264d;">
+                            💰 Registrar Pago
+                        </a>
+                    @else
+                        <button type="button" class="btn w-100 btn-secondary" disabled title="No tienes permiso para registrar pagos." aria-disabled="true">
+                            💰 Registrar Pago
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>

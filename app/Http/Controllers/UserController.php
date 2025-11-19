@@ -18,6 +18,10 @@ class UserController extends Controller
         if ($user instanceof User && $user->hasPermission('gestionar_usuarios')) {
             return true;
         }
+        // Permitir a usuarios cuyo rol sea Rector
+        if ($user && optional($user->role)->nombre && stripos(optional($user->role)->nombre, 'rector') !== false) {
+            return true;
+        }
         // Fallback legacy
         if ($user && isset($user->roles_id) && (int)$user->roles_id === 1) return true;
         if ($user && optional($user->role)->nombre) {

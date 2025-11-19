@@ -154,6 +154,27 @@ class GestionFinancieraController extends Controller
 
     public function registrarPago(Request $request)
     {
+        // Authorization: only users with explicit permission 'registrar_pagos',
+        // or roles like tesorero/administrador (or super admin roles_id==1) may register payments.
+        $user = Auth::user();
+        $roleNombre = optional($user->role)->nombre ?? '';
+        $isAllowed = false;
+        if ($user) {
+            if (method_exists($user, 'hasPermission') && $user->hasPermission('registrar_pagos')) {
+                $isAllowed = true;
+            }
+            if (stripos($roleNombre, 'tesor') !== false || stripos($roleNombre, 'administrador') !== false || stripos($roleNombre, 'admin') !== false) {
+                $isAllowed = true;
+            }
+            if ($user->roles_id == 1) {
+                $isAllowed = true;
+            }
+        }
+
+        if (! $isAllowed) {
+            abort(403, 'No tienes permiso para registrar pagos.');
+        }
+
         $validated = $request->validate([
             'estudiante_id' => ['required','integer'],
             'concepto' => ['required','string'],
