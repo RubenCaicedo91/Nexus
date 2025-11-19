@@ -77,10 +77,8 @@ class Cita extends Model
     const TIPOS_CITA = [
         'orientacion' => 'Orientación Académica',
         'psicologica' => 'Orientación Psicológica',
-        'disciplinaria' => 'Citación Disciplinaria',
-        'familiar' => 'Reunión Familiar',
-        'seguimiento' => 'Seguimiento Estudiantil',
-        'vocacional' => 'Orientación Vocacional'
+        'vocacional' => 'Orientación Vocacional',
+        'otro' => 'Otro'
     ];
 
     // Modalidades

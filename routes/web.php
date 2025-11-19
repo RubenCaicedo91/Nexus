@@ -302,12 +302,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Informes
     Route::get('gestion-orientacion/informes', [GestionOrientacionController::class, 'listarInformes'])->name('orientacion.informes');
-    Route::get('gestion-orientacion/informes/crear', [GestionOrientacionController::class, 'crearInforme'])->name('orientacion.informes.create');
+    Route::get('gestion-orientacion/informes/exportar-pdf', [GestionOrientacionController::class, 'exportarInformesPdf'])->name('orientacion.informes.export_pdf');
+    Route::get('gestion-orientacion/informes/exportar-excel', [GestionOrientacionController::class, 'exportarInformesExcel'])->name('orientacion.informes.export_excel');
     Route::post('gestion-orientacion/informes', [GestionOrientacionController::class, 'guardarInforme'])->name('orientacion.informes.store');
 
     // Seguimientos
     Route::get('gestion-orientacion/seguimientos', [GestionOrientacionController::class, 'listarSeguimientos'])->name('orientacion.seguimientos');
-    Route::get('gestion-orientacion/seguimientos/crear', [GestionOrientacionController::class, 'crearSeguimiento'])->name('orientacion.seguimientos.create');
     Route::post('gestion-orientacion/seguimientos', [GestionOrientacionController::class, 'guardarSeguimiento'])->name('orientacion.seguimientos.store');
 
     // Rutas resource para gestión completa de materias

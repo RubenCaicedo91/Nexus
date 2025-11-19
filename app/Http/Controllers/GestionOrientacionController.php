@@ -405,17 +405,164 @@ class GestionOrientacionController extends Controller
     }
 
     // ---------------- Informes ----------------
-    public function listarInformes()
+    public function listarInformes(Request $request)
     {
-        $informes = Informe::with('cita')->get();
-        return view('orientacion.informes.index', compact('informes'));
+        // Construir consulta sobre citas completadas (quienes fueron atendidas)
+        $query = Cita::with(['solicitante.role', 'orientador.role'])->where('estado', 'completada');
+
+        // Filtros: solicitante (id), rol del solicitante y tipo de cita
+        if ($request->filled('solicitante_id')) {
+            $query->where('solicitante_id', $request->solicitante_id);
+        }
+
+        if ($request->filled('rol')) {
+            $rol = trim($request->rol);
+            $query->whereHas('solicitante.role', function ($q) use ($rol) {
+                $q->where('nombre', $rol);
+            });
+        }
+
+        if ($request->filled('tipo')) {
+            $query->where('tipo_cita', $request->tipo);
+        }
+
+        $citas = $query->orderBy('fecha_solicitada', 'desc')->paginate(25)->appends($request->query());
+
+        // Lista de roles disponibles, solicitantes y tipos para los select de filtros
+        $roles = [];
+        try {
+            $roles = \App\Models\RolesModel::orderBy('nombre')->pluck('nombre')->toArray();
+        } catch (\Throwable $e) {
+            $roles = [];
+        }
+
+        $tipos = Cita::TIPOS_CITA;
+
+        // Lista de usuarios que han solicitado citas (únicos)
+        try {
+            $solicitanteIds = Cita::whereNotNull('solicitante_id')->pluck('solicitante_id')->unique()->toArray();
+            $solicitantes = \App\Models\User::whereIn('id', $solicitanteIds)->orderBy('name')->get();
+        } catch (\Throwable $e) {
+            $solicitantes = collect();
+        }
+
+            // Comparación entre los tipos definidos en el modelo y los tipos realmente usados en la tabla
+            try {
+                $presentTipos = Cita::select('tipo_cita')->distinct()->pluck('tipo_cita')->filter()->values()->toArray();
+            } catch (\Throwable $e) {
+                $presentTipos = [];
+            }
+
+            $definedTipos = array_keys($tipos);
+            $tiposNoDefinidos = array_diff($presentTipos, $definedTipos); // usados en DB pero no definidos en TIPOS_CITA
+            $tiposNoUsados = array_diff($definedTipos, $presentTipos); // definidos pero sin registros
+
+        return view('orientacion.informes.index', compact('citas', 'roles', 'tipos', 'solicitantes', 'presentTipos', 'definedTipos', 'tiposNoDefinidos', 'tiposNoUsados'));
     }
 
-    public function crearInforme()
+    /**
+     * Exportar los informes (citas completadas) aplicando los mismos filtros a PDF
+     */
+    public function exportarInformesPdf(Request $request)
     {
-        $citas = Cita::where('estado', 'atendida')->get();
-        return view('orientacion.informes.create', compact('citas'));
+        // Reusar la misma lógica de filtros de listarInformes
+        $query = Cita::with(['solicitante.role', 'orientador.role'])->where('estado', 'completada');
+
+        if ($request->filled('solicitante_id')) {
+            $query->where('solicitante_id', $request->solicitante_id);
+        }
+
+        if ($request->filled('rol')) {
+            $rol = trim($request->rol);
+            $query->whereHas('solicitante.role', function ($q) use ($rol) {
+                $q->where('nombre', $rol);
+            });
+        }
+
+        if ($request->filled('tipo')) {
+            $query->where('tipo_cita', $request->tipo);
+        }
+
+        $citas = $query->orderBy('fecha_solicitada', 'desc')->get();
+        $tipos = Cita::TIPOS_CITA;
+
+        // Si la dependencia de DomPDF no está instalada, devolver mensaje claro
+        if (! class_exists('Barryvdh\\DomPDF\\Facade\\Pdf')) {
+            return redirect()->route('orientacion.informes')
+                             ->with('error', 'No está instalada la librería para generar PDF. Ejecuta: composer require barryvdh/laravel-dompdf');
+        }
+
+        try {
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('orientacion.informes.pdf', compact('citas', 'tipos', 'request'))
+                      ->setPaper('a4', 'landscape');
+
+            $filename = 'informes_citas_' . now()->format('Ymd_His') . '.pdf';
+            return $pdf->stream($filename);
+        } catch (\Throwable $e) {
+            return redirect()->route('orientacion.informes')
+                             ->with('error', 'Error generando PDF: ' . $e->getMessage());
+        }
     }
+
+    /**
+     * Exportar los informes (citas completadas) aplicando los mismos filtros a CSV compatible con Excel
+     */
+    public function exportarInformesExcel(Request $request)
+    {
+        $query = Cita::with(['solicitante.role', 'orientador.role'])->where('estado', 'completada');
+
+        if ($request->filled('solicitante_id')) {
+            $query->where('solicitante_id', $request->solicitante_id);
+        }
+
+        if ($request->filled('rol')) {
+            $rol = trim($request->rol);
+            $query->whereHas('solicitante.role', function ($q) use ($rol) {
+                $q->where('nombre', $rol);
+            });
+        }
+
+        if ($request->filled('tipo')) {
+            $query->where('tipo_cita', $request->tipo);
+        }
+
+        $citas = $query->orderBy('fecha_solicitada', 'desc')->get();
+        $tipos = Cita::TIPOS_CITA;
+
+        $filename = 'informes_citas_' . now()->format('Ymd_His') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $columns = ['ID','Solicitante','Rol','Tipo','Fecha solicitud','Atendido por','Motivo/Resumen'];
+
+        $callback = function() use ($citas, $columns, $tipos) {
+            $out = fopen('php://output', 'w');
+            // BOM for UTF-8 so Excel recognizes encoding
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($out, $columns);
+
+            foreach ($citas as $cita) {
+                $row = [
+                    $cita->id,
+                    optional($cita->solicitante)->name ?? 'N/A',
+                    optional(optional($cita->solicitante)->role)->nombre ?? 'N/A',
+                    $tipos[$cita->tipo_cita] ?? $cita->tipo_cita,
+                    $cita->fecha_solicitada ? \Carbon\Carbon::parse($cita->fecha_solicitada)->format('d/m/Y') . ' ' . ($cita->hora_solicitada ?? '') : 'Sin fecha',
+                    optional($cita->orientador)->name ?? 'Sin asignar',
+                    strip_tags($cita->resumen_cita ?? $cita->motivo ?? ''),
+                ];
+                fputcsv($out, $row);
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    // Nota: la vista de creación de informes fue eliminada según solicitud.
 
     public function guardarInforme(Request $request)
     {
@@ -433,15 +580,122 @@ class GestionOrientacionController extends Controller
     }
 
     // ---------------- Seguimientos ----------------
-    public function listarSeguimientos()
+    public function listarSeguimientos(Request $request)
     {
-        $seguimientos = Seguimiento::all();
-        return view('orientacion.seguimientos.index', compact('seguimientos'));
-    }
+        // Construir la consulta base incluyendo relaciones útiles
+        $query = Seguimiento::with(['estudiante', 'responsable', 'cita'])->orderBy('fecha', 'desc');
 
-    public function crearSeguimiento()
-    {
-        return view('orientacion.seguimientos.create');
+        // Filtro por estudiante: preferimos recibir `usuario_id` (id del usuario) para evitar ambigüedades
+        if ($request->filled('usuario_id')) {
+            $query->where('estudiante_id', $request->usuario_id);
+        }
+
+        // Filtro por tipo de seguimiento
+        if ($request->filled('tipo')) {
+            $query->where('tipo_seguimiento', $request->tipo);
+        }
+
+        // Filtro por estado del seguimiento: 'atendio' => atendido/completado, 'no_atendio' => no completado
+        if ($request->filled('estado')) {
+            $estadoFiltro = $request->estado;
+
+            // Preferir columna propia 'estado_seguimiento' si existe
+            if (\Illuminate\Support\Facades\Schema::hasColumn('seguimientos', 'estado_seguimiento')) {
+                if ($estadoFiltro === 'atendio') {
+                    $query->where('estado_seguimiento', 'completado');
+                } elseif ($estadoFiltro === 'no_atendio') {
+                    $query->where(function($q) {
+                        $q->whereNull('estado_seguimiento')->orWhere('estado_seguimiento', '!=', 'completado');
+                    });
+                }
+
+            // Si no existe esa columna, intentar filtrar por la cita relacionada (si existe la FK y la columna estado en citas)
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('seguimientos', 'cita_id') && \Illuminate\Support\Facades\Schema::hasColumn('citas', 'estado')) {
+                if ($estadoFiltro === 'atendio') {
+                    $query->whereHas('cita', function($q) {
+                        $q->where('estado', 'completada');
+                    });
+                } elseif ($estadoFiltro === 'no_atendio') {
+                    $query->whereDoesntHave('cita', function($q) {
+                        $q->where('estado', 'completada');
+                    });
+                }
+
+            // Si ninguna columna disponible, ignorar el filtro (no romper la consulta)
+            } else {
+                // no se puede aplicar filtro por estado con el esquema actual
+            }
+        }
+
+        // Obtener resultados desde la tabla de seguimientos
+        $seguimientos = $query->get();
+
+        // Además incluir las citas marcadas como tipo 'seguimiento' para mostrar casos creados desde citas
+        $citaSeguimientos = collect();
+        try {
+            $citaQuery = Cita::with(['estudianteReferido', 'solicitante', 'orientador'])->where('tipo_cita', 'seguimiento');
+
+            // Si se filtró por estudiante_id, aplicarlo también a las citas
+            if ($request->filled('usuario_id')) {
+                $citaQuery->where(function($q) use ($request) {
+                    $q->where('estudiante_referido_id', $request->usuario_id)
+                      ->orWhere('solicitante_id', $request->usuario_id);
+                });
+            }
+
+            // Si se filtró por estado (atendio/no_atendio) y la tabla citas tiene la columna, aplicarlo
+            if ($request->filled('estado') && \Illuminate\Support\Facades\Schema::hasColumn('citas', 'estado')) {
+                if ($request->estado === 'atendio') {
+                    $citaQuery->where('estado', 'completada');
+                } elseif ($request->estado === 'no_atendio') {
+                    $citaQuery->where('estado', '!=', 'completada');
+                }
+            }
+
+            $citaSeguimientos = $citaQuery->get()->map(function($c) {
+                // Añadir propiedades compatibles para que la vista las muestre como seguimientos
+                $c->tipo_seguimiento = 'seguimiento';
+                $c->titulo = $c->motivo ?? ('Cita seguimiento #' . $c->id);
+                $c->fecha = $c->fecha_asignada ?? $c->fecha_solicitada ?? null;
+                $c->estudiante = $c->estudianteReferido ?? $c->solicitante;
+                $c->estudiante_id = $c->estudiante_referido_id ?? $c->solicitante_id ?? null;
+                $c->is_cita = true;
+                return $c;
+            });
+        } catch (\Throwable $e) {
+            $citaSeguimientos = collect();
+        }
+
+        // Fusionar colecciones y ordenar por fecha
+        $todos = $seguimientos->concat($citaSeguimientos)->sortByDesc(function($item) {
+            return $item->fecha ?? ($item->created_at ?? null);
+        })->values();
+
+        // Agrupar por estudiante para mostrar usuarios que tienen varios seguimientos
+        $seguimientosGrouped = $todos->groupBy(function ($s) {
+            return $s->estudiante_id ?: 'sin_estudiante';
+        });
+
+        // Obtener lista de usuarios que tienen seguimientos (sin aplicar filtros) para poblar el select
+        $usuarios = collect();
+        try {
+            $allUsuarioIds = Seguimiento::pluck('estudiante_id')->unique()->filter()->values()->toArray();
+            if (!empty($allUsuarioIds)) {
+                $usuarios = \App\Models\User::whereIn('id', $allUsuarioIds)->orderBy('name')->get();
+            }
+        } catch (\Throwable $e) {
+            $usuarios = collect();
+        }
+
+        // Usar los mismos tipos que las citas (Orientación Académica/Psicológica/Vocacional/Otro)
+        $tipos = Cita::TIPOS_CITA;
+        // Solo dos estados para el filtro según requerimiento
+        $estados = [
+            'atendio' => 'Atendido',
+            'no_atendio' => 'No atendido'
+        ];
+
+        return view('orientacion.seguimientos.index', compact('seguimientos', 'seguimientosGrouped', 'usuarios', 'tipos', 'estados', 'request'));
     }
 
     public function guardarSeguimiento(Request $request)
