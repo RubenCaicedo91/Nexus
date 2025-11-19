@@ -9,12 +9,19 @@
                     <h4>Registrar Notas</h4>
                 </div>
                 <div class="card-body">
+                                @php
+                                    $roleNameCreate = optional(Auth::user()->role)->nombre ?? '';
+                                    $isRectorCreate = stripos($roleNameCreate, 'rector') !== false;
+                                @endphp
                     @php
                         $hideSearch = request()->filled('matricula_id') || (request()->filled('curso_id') && request()->filled('materia_id'));
                     @endphp
 
-                    @unless($hideSearch)
-                    <form method="GET" action="{{ route('notas.create') }}" class="mb-3">
+                                @unless($hideSearch)
+                                @if($isRectorCreate)
+                                    <div class="alert alert-warning">No tienes permiso para crear notas.</div>
+                                @else
+                                <form method="GET" action="{{ route('notas.create') }}" class="mb-3">
                         <div class="row g-2 align-items-end">
                             <div class="col-md-4">
                                 <label>Curso</label>
@@ -40,6 +47,7 @@
                             </div>
                         </div>
                     </form>
+                    @endif
                     @endunless
 
                     @if(request()->filled('matricula_id') && $matriculas->count())
@@ -84,6 +92,9 @@
                         </div>
                     @endif
 
+                    @if($isRectorCreate)
+                        <div class="alert alert-warning">No tienes permiso para crear notas.</div>
+                    @else
                     <form method="POST" action="{{ route('notas.store') }}">
                         @csrf
                         <input type="hidden" name="back" value="{{ request('back') ?? '' }}" />
@@ -139,6 +150,7 @@
                             @endif
                         </div>
                     </form>
+                    @endif
                 </div>
             </div>
         </div>

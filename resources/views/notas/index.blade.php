@@ -49,6 +49,11 @@
                 </div>
             </form>
 
+            @php
+                $roleNameView = optional(Auth::user()->role)->nombre ?? '';
+                $isRectorView = stripos($roleNameView, 'rector') !== false;
+            @endphp
+
             <!-- Tabla -->
             @if(isset($showResults) && $showResults)
             <div class="table-responsive">
@@ -167,14 +172,20 @@
                                         $createLabel = $existingCount > 0 ? 'Agregar otra nota' : 'Crear nota';
                                     @endphp
 
-                                    @if($matriculaId)
-                                        <a href="{{ route('notas.create', ['matricula_id' => $matriculaId, 'materia_id' => $materiaId, 'back' => request()->fullUrl()]) }}" class="btn btn-sm btn-outline-success">
+                                    @if($isRectorView)
+                                        <button type="button" class="btn btn-sm btn-secondary" disabled title="No tienes permiso para crear notas.">
                                             <i class="bi bi-plus-circle me-1"></i> {{ $createLabel }}
-                                        </a>
+                                        </button>
                                     @else
-                                        <a href="{{ route('notas.create', ['curso_id' => request('curso_id'), 'materia_id' => request('materia_id'), 'back' => request()->fullUrl()]) }}" class="btn btn-sm btn-outline-success">
-                                            <i class="bi bi-plus-circle me-1"></i> {{ $createLabel }}
-                                        </a>
+                                        @if($matriculaId)
+                                            <a href="{{ route('notas.create', ['matricula_id' => $matriculaId, 'materia_id' => $materiaId, 'back' => request()->fullUrl()]) }}" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-plus-circle me-1"></i> {{ $createLabel }}
+                                            </a>
+                                        @else
+                                            <a href="{{ route('notas.create', ['curso_id' => request('curso_id'), 'materia_id' => request('materia_id'), 'back' => request()->fullUrl()]) }}" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-plus-circle me-1"></i> {{ $createLabel }}
+                                            </a>
+                                        @endif
                                     @endif
                                 </td>
                             </tr>

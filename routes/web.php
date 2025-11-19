@@ -42,6 +42,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/matricula/{matricula}/ver', [\App\Http\Controllers\NotasController::class, 'porMatricula'])->name('matricula.ver');
         // Marcar nota como definitiva
         Route::post('/{nota}/definitiva', [\App\Http\Controllers\NotasController::class, 'marcarDefinitiva'])->name('definitiva');
+        // Quitar estado de nota definitiva (permitir a Rector / Administrador)
+        Route::post('/{nota}/definitiva/quitar', [\App\Http\Controllers\NotasController::class, 'quitarDefinitiva'])->name('definitiva.quitar');
         // Actividades por nota
         Route::get('/{nota}/actividades', [\App\Http\Controllers\ActividadesController::class, 'index'])->name('actividades.index');
         Route::get('/{nota}/actividades/crear', [\App\Http\Controllers\ActividadesController::class, 'create'])->name('actividades.create');

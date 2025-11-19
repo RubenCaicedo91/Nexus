@@ -95,6 +95,15 @@
                                         <button class="btn btn-sm btn-success">Marcar definitiva</button>
                                     </form>
                                 @endif
+                                @php
+                                    $canUnmark = ($roleName === 'Rector' || $roleName === 'Administrador_sistema' || optional(Auth::user())->roles_id == 1);
+                                @endphp
+                                @if($nota->definitiva && $canUnmark)
+                                    <form action="{{ route('notas.definitiva.quitar', $nota) }}" method="POST" class="d-inline" onsubmit="return confirm('Quitar estado de nota definitiva? Esta acción permitirá editar la nota nuevamente.')">
+                                        @csrf
+                                        <button class="btn btn-sm btn-outline-danger">Quitar definitiva</button>
+                                    </form>
+                                @endif
                             </td>
                         </tr>
                     @endforeach

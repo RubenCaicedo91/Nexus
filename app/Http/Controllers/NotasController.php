@@ -125,6 +125,13 @@ class NotasController extends Controller
     // Mostrar formulario para crear notas (soporta matricula_id o curso_id+materia_id)
     public function create(Request $request)
     {
+        // Prohibir creación de notas por parte del rol Rector
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+        if ($user && stripos($roleName, 'rector') !== false) {
+            abort(403, 'No tienes permiso para crear notas.');
+        }
+
         $cursos = Curso::orderBy('nombre')->get();
         $materias = DB::table('materias')->orderBy('nombre')->get();
         $matriculas = collect();
@@ -169,6 +176,13 @@ class NotasController extends Controller
     // Guardar notas (array de notas por matricula)
     public function store(Request $request)
     {
+        // Prohibir guardar/crear notas por parte del rol Rector
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+        if ($user && stripos($roleName, 'rector') !== false) {
+            abort(403, 'No tienes permiso para crear notas.');
+        }
+
         $request->validate([
             'materia_id' => 'required|integer|exists:materias,id',
             'anio' => 'nullable|string|max:50',
@@ -306,6 +320,39 @@ class NotasController extends Controller
         $nota->save();
 
         return redirect()->back()->with('success', 'Nota marcada como definitiva.');
+    }
+
+    // Quitar el estado de nota definitiva (permitido a Rector y Administrador_sistema)
+    public function quitarDefinitiva(Request $request, Nota $nota)
+    {
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+
+        $canUnmark = false;
+        if ($user) {
+            if (stripos($roleName, 'rector') !== false) {
+                $canUnmark = true;
+            }
+            if ($roleName === 'Administrador_sistema' || (isset($user->roles_id) && (int)$user->roles_id === 1)) {
+                $canUnmark = true;
+            }
+        }
+
+        if (! $canUnmark) {
+            abort(403, 'No autorizado para quitar la nota definitiva');
+        }
+
+        // Si no está marcada como definitiva, no hacer nada
+        if (! $nota->definitiva) {
+            return redirect()->back()->with('info', 'La nota no estaba marcada como definitiva.');
+        }
+
+        $nota->definitiva = false;
+        $nota->definitiva_por = null;
+        $nota->definitiva_en = null;
+        $nota->save();
+
+        return redirect()->back()->with('success', 'Estado de nota definitiva quitado correctamente.');
     }
 
     // Aprobar una nota
