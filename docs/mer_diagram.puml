@@ -1,0 +1,365 @@
+@startuml
+hide circle
+
+entity users {
+  id 
+  string name
+  string email
+  timestamp email_verified_at
+  string password
+  rememberToken 
+  timestamps 
+  string email
+}
+
+entity password_reset_tokens {
+  string token
+  timestamp created_at
+}
+
+entity sessions {
+  string id
+  foreignId user_id
+  string ip_address
+  text user_agent
+  longText payload
+  integer last_activity
+}
+
+entity cache {
+  string key
+  mediumText value
+  integer expiration
+  string key
+  integer expiration
+}
+
+entity cache_locks {
+  string owner
+}
+
+entity jobs {
+  id 
+  string queue
+  longText payload
+  unsignedTinyInteger attempts
+  unsignedInteger reserved_at
+  unsignedInteger available_at
+  unsignedInteger created_at
+  id 
+  longText payload
+}
+
+entity job_batches {
+  string id
+  string name
+  integer total_jobs
+  integer pending_jobs
+  integer failed_jobs
+  longText failed_job_ids
+  mediumText options
+  integer cancelled_at
+  integer created_at
+  integer finished_at
+}
+
+entity failed_jobs {
+  string uuid
+  text connection
+  text queue
+  longText exception
+  timestamp failed_at
+}
+
+entity roles {
+  id 
+  string nombre
+  string descripcion
+  json permisos
+  timestamps 
+}
+
+entity institucion {
+  id 
+  string nombre
+  string nit
+  string direccion
+  string telefono
+  string correo
+  string rector
+  timestamps 
+}
+
+entity matriculas {
+  id 
+  foreignId user_id
+  unsignedBigInteger curso_id
+  date fecha_matricula
+  string estado
+  timestamps 
+}
+
+entity horarios {
+  id 
+  string curso
+  string dia
+  time hora
+  timestamps 
+}
+
+entity cursos {
+  id 
+  string nombre
+  text descripcion
+  timestamps 
+}
+
+entity materias {
+  id 
+  string nombre
+  text descripcion
+  unsignedBigInteger curso_id
+  unsignedBigInteger docente_id
+  timestamps 
+  foreign curso_id
+  foreign docente_id
+}
+
+entity curso_docente {
+  id 
+  unsignedBigInteger curso_id
+  unsignedBigInteger docente_id
+  timestamps 
+  unique curso_id
+  foreign curso_id
+  foreign docente_id
+}
+
+entity pagos {
+  id 
+  unsignedBigInteger estudiante_id
+  string concepto
+  decimal monto
+  timestamps 
+}
+
+entity citas {
+  id 
+  unsignedBigInteger estudiante_id
+  dateTime fecha
+  enum estado
+  timestamps 
+}
+
+entity informes {
+  id 
+  unsignedBigInteger cita_id
+  text descripcion
+  timestamps 
+  foreign cita_id
+}
+
+entity seguimientos {
+  id 
+  unsignedBigInteger estudiante_id
+  text observaciones
+  date fecha
+  timestamps 
+}
+
+entity pensiones {
+  id 
+  foreignId estudiante_id
+  foreignId acudiente_id
+  foreignId curso_id
+  string concepto
+  text descripcion
+  decimal valor_base
+  decimal descuentos
+  decimal recargos
+  decimal valor_total
+  date fecha_vencimiento
+  date fecha_generacion
+  date fecha_pago
+  integer mes_correspondiente
+  integer 'año_correspondiente'
+  enum estado
+  enum tipo_pension
+  string numero_factura
+  string metodo_pago
+  string referencia_pago
+  decimal valor_pagado
+  text observaciones_pago
+  integer dias_mora
+  decimal valor_mora
+  boolean notificacion_enviada
+  date fecha_notificacion
+  integer intentos_cobro
+  string comprobante_pago
+  json documentos_adjuntos
+  foreignId procesado_por
+  text notas_internas
+  boolean genera_certificado
+  timestamps 
+  index estudiante_id
+  index acudiente_id
+  index fecha_vencimiento
+  index estado
+  index mes_correspondiente
+  unique estudiante_id
+}
+
+entity notas {
+  id 
+  foreignId matricula_id
+  foreignId materia_id
+  string periodo
+  decimal valor
+  text observaciones
+  timestamps 
+  unique matricula_id
+}
+
+entity sancions {
+  id 
+  unsignedBigInteger usuario_id
+  string descripcion
+  string tipo
+  date fecha
+  timestamps 
+  foreign usuario_id
+}
+
+entity mensajes {
+  id 
+  unsignedBigInteger remitente_id
+  unsignedBigInteger destinatario_id
+  string asunto
+  text contenido
+  boolean leido
+  timestamps 
+}
+
+entity notificaciones {
+  id 
+  unsignedBigInteger usuario_id
+  string titulo
+  text mensaje
+  boolean leida
+  timestamp fecha
+  timestamps 
+}
+
+entity circulars {
+  id 
+  string titulo
+  text contenido
+  date fecha_publicacion
+  string archivo
+  timestamps 
+}
+
+entity actividades {
+  bigIncrements id
+  unsignedBigInteger nota_id
+  string nombre
+  float valor
+  timestamps 
+  foreign nota_id
+}
+
+entity sancion_tipos {
+  id 
+  string nombre
+  text descripcion
+  string severidad
+  integer duracion_defecto_dias
+  boolean activo
+  timestamps 
+}
+
+entity matricula_comprobantes {
+  id 
+  unsignedBigInteger matricula_id
+  string filename
+  string path
+  string original_name
+  unsignedBigInteger uploaded_by
+  timestamps 
+  foreign matricula_id
+}
+
+entity asistencias {
+  id 
+  date fecha
+  foreignId curso_id
+  foreignId matricula_id
+  foreignId estudiante_id
+  boolean presente
+  text observacion
+  timestamps 
+}
+
+sessions::user_id --> users::id
+'Relación no identificada: roles_id --> roles::id'
+sessions::user_id --> users::id
+matriculas::curso_id --> cursos::id
+sessions::user_id --> users::id
+pensiones::acudiente_id --> users::id
+matriculas::curso_id --> cursos::id
+materias::docente_id --> docentes::id
+matriculas::curso_id --> cursos::id
+materias::docente_id --> docentes::id
+matriculas::curso_id --> cursos::id
+materias::docente_id --> users::id
+matriculas::curso_id --> cursos::id
+materias::docente_id --> docentes::id
+matriculas::curso_id --> cursos::id
+matriculas::curso_id --> cursos::id
+materias::docente_id --> docentes::id
+matriculas::curso_id --> cursos::id
+materias::docente_id --> users::id
+pagos::estudiante_id --> estudiantes::id
+pagos::estudiante_id --> estudiantes::id
+informes::cita_id --> citas::id
+informes::cita_id --> citas::id
+informes::cita_id --> citas::id
+pagos::estudiante_id --> estudiantes::id
+pagos::estudiante_id --> estudiantes::id
+pensiones::acudiente_id --> acudientes::id
+matriculas::curso_id --> cursos::id
+pagos::estudiante_id --> estudiantes::id
+pensiones::acudiente_id --> acudientes::id
+pagos::estudiante_id --> estudiantes::id
+pagos::estudiante_id --> users::id
+pensiones::acudiente_id --> users::id
+notas::matricula_id --> matriculas::id
+notas::materia_id --> materias::id
+notas::matricula_id --> matriculas::id
+notas::matricula_id --> matriculas::id
+notas::materia_id --> materias::id
+'Relación no identificada: aprobado_por --> users::id'
+sancions::usuario_id --> usuarios::id
+sancions::usuario_id --> usuarios::id
+sancions::usuario_id --> users::id
+sancions::usuario_id --> users::id
+mensajes::remitente_id --> remitentes::id
+mensajes::destinatario_id --> destinatarios::id
+sancions::usuario_id --> usuarios::id
+actividades::nota_id --> notas::id
+actividades::nota_id --> notas::id
+actividades::nota_id --> notas::id
+'Relación no identificada: definitiva_por --> users::id'
+'Relación no identificada: tipo_id --> sancion_tipos::id'
+notas::matricula_id --> matriculas::id
+notas::matricula_id --> matriculas::id
+notas::matricula_id --> matriculas::id
+'Relación no identificada: creador_id --> users::id'
+'Relación no identificada: parent_id --> mensajes::id'
+matriculas::curso_id --> cursos::id
+notas::matricula_id --> matriculas::id
+pagos::estudiante_id --> estudiantes::id
+matriculas::curso_id --> cursos::id
+pagos::estudiante_id --> users::id
+
+@enduml

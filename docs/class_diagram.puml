@@ -1,0 +1,682 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+class App.Console.Commands.NormalizeUsers {
+    # $signature
+    # $description
+    + handle()
+}
+
+class App.Console.Kernel {
+    # $commands
+    # schedule($schedule)
+    # commands()
+}
+
+class App.Http.Controllers.ActividadesController {
+    + __construct()
+    + index($nota)
+    + create($nota)
+    + store($request, $nota)
+    + destroy($nota, $actividad)
+}
+
+class App.Http.Controllers.AsignacionesController {
+    + index($request)
+    + create()
+    + store($request)
+    + show($asignacion)
+    + edit($asignacion)
+    + update($request, $asignacion)
+    + destroy($asignacion)
+    + getAsignacionesJson($request)
+    + getLatestMatricula($userId)
+    + getCourseSchedule($cursoId)
+    + getStudentsByCourse($cursoId)
+    + searchStudents($request)
+    + validateAssignment($asignacion)
+    - getDocumentosFaltantes($asignacion)
+}
+
+class App.Http.Controllers.AsistenciaController {
+    + index()
+    + export()
+    + create($request)
+    + store($request)
+    + edit($id)
+    + update($request, $id)
+    + destroy($id)
+    + exportSingle($id)
+    + registroPorCurso($cursoId)
+    + partialRegistro($request, $cursoId)
+    + storeMultiple($request, $cursoId)
+    # canManageAttendance($cursoId)
+}
+
+class App.Http.Controllers.AuthController {
+    + showLoginForm()
+    + login($request)
+    + dashboard()
+    + logout($request)
+}
+
+class App.Http.Controllers.CitasController {
+    + __construct()
+    + index($request)
+    + create()
+    + store($request)
+    + show($cita)
+    + revision($cita)
+    + edit($cita)
+    + update($request, $cita)
+    + destroy($cita)
+    + programar($request, $cita)
+    + confirmar($cita)
+    + iniciar($cita)
+    + completar($request, $cita)
+    + cancelar($request, $cita)
+    + reprogramar($request, $cita)
+    + calendario()
+    + citasCalendario($request)
+    - getColorByEstado($estado)
+    - getColorByPrioridad($prioridad)
+}
+
+class App.Http.Controllers.ComunicacionController {
+    + index()
+    + archivoCircular($request, $id)
+    + archivoPorNombre($request, $filename)
+    - serveFileFromDisk($disk, $path)
+    + eliminarGrupoNotificaciones($request, $groupKey)
+    + listarMensajes()
+    + crearMensaje()
+    + guardarMensaje($request)
+    + listarMensajesEnviados()
+    + mostrarMensaje($request, $id)
+    + marcarNoLeido($request, $id)
+    + formResponder($id)
+    + enviarRespuesta($request, $id)
+    + eliminarMensaje($request, $id)
+    + listarNotificaciones()
+    + marcarNotificacionLeida($id)
+    + mostrarNotificacion($request, $id)
+    + formResponderNotificacion($id)
+    + enviarRespuestaNotificacion($request, $id)
+    + guardarNotificacion($request)
+    + estudiantesPorCurso($request, $cursoId)
+    + listarCirculares()
+    + crearCircular()
+    + guardarCircular($request)
+    + eliminarCircular($request, $id)
+}
+
+class App.Http.Controllers.Controller {
+}
+
+class App.Http.Controllers.CrearUsuario {
+    + showRegistrationForm()
+    + register($request)
+}
+
+class App.Http.Controllers.DocenteCursoController {
+    # authorizeAssign()
+    + index()
+    + edit($docenteId)
+    + update($request, $docenteId)
+    + assign($request)
+    + removeAll($docenteId)
+}
+
+class App.Http.Controllers.GestionAcademicaController {
+    + index()
+    # authorizeAcademica()
+    + crearCurso()
+    + guardarCurso($request)
+    + listarCursos()
+    + editarCurso($id)
+    + actualizarCurso($request, $id)
+    + eliminarCurso($id)
+    + panelCursos()
+    + horarios()
+    + guardarHorario($request)
+    + editarHorario($id)
+    + actualizarHorario($request, $id)
+    + eliminarHorario($id)
+}
+
+class App.Http.Controllers.GestionDisciplinariaController {
+    + mostrarFormularioSancion()
+    + registrarSancion($request)
+    + historialSanciones($id)
+    + generarReporte()
+    + index()
+    + buscarPorDocumento($request)
+    - isCoordinadorAcademico()
+}
+
+class App.Http.Controllers.GestionFinancieraController {
+    + __construct()
+    + mostrarFormularioPago()
+    + actualizarValorMatricula($request)
+    + registrarPago($request)
+    + estadoCuenta($id)
+    + estadoCuentaSearch($request)
+    + generarReporte($request)
+    - isCoordinadorAcademico()
+    + index()
+}
+
+class App.Http.Controllers.GestionOrientacionController {
+    + index()
+    + listarCitas()
+    + crearCita()
+    + guardarCita($request)
+    + cambiarEstadoCita($id, $request)
+    + completarCita($id, $request)
+    + cancelarCita($id, $request)
+    + asignarOrientador($id, $request)
+    + listarInformes($request)
+    + exportarInformesPdf($request)
+    + exportarInformesExcel($request)
+    + guardarInforme($request)
+    + listarSeguimientos($request)
+    + guardarSeguimiento($request)
+    - isCoordinadorAcademico($user)
+    - isCoordinadorDisciplina($user)
+}
+
+class App.Http.Controllers.InstitucionController {
+    + index()
+    + update($request, $id)
+    + store($request)
+}
+
+class App.Http.Controllers.MateriaController {
+    # authorizeAssign()
+    + index($cursoId)
+    + materiasJson($cursoId)
+    + materiaJson($id)
+    + store($request, $cursoId)
+    + storeFromModal($request)
+    + edit($id)
+    + update($request, $id)
+}
+
+class App.Http.Controllers.MateriasController {
+    + index()
+    + create()
+    + store($request)
+    + show($id)
+    + edit($id)
+    + update($request, $id)
+    + destroy($id)
+}
+
+class App.Http.Controllers.MatriculaController {
+    + __construct()
+    + index()
+    + create($request)
+    - studentSlugFromId($userId)
+    - subfolderMap()
+    - buildTargetFolder($studentSlug, $campo)
+    - normalizeTargetFolder($folder)
+    - getStudentBaseDir($userId)
+    - safeFilename($file, $prefix)
+    - uploadToFtp($dir, $file, $filename)
+    - uploadToFtpNoCreate($dir, $file, $filename)
+    - uploadToFtpRoot($file, $filename)
+    - normalizeDirPath($dir)
+    - uploadDocumentoIdentidad($userId, $file)
+    - uploadOtherDocument($userId, $campo, $file)
+    - uploadRh($userId, $file)
+    - uploadCertificadoMedico($userId, $file)
+    - uploadCertificadoNotas($userId, $file)
+    - uploadPagoMatricula($userId, $file)
+    - uploadByFieldName($userId, $campo, $file)
+    + store($request)
+    + show($matricula)
+    + cursosPorBase($base)
+    + edit($request, $matricula)
+    + update($request, $id)
+    + destroy($matricula)
+    + archivo($matricula, $campo)
+    + validarPago($request, $matricula)
+    + comprobanteFile($request, $matricula, $filename)
+    - serveFileFromDisk($disk, $path)
+}
+
+class App.Http.Controllers.MatriculasController {
+    + index($request)
+    + create()
+    + store($request)
+    + show($matricula)
+    + edit($matricula)
+    + update($request, $matricula)
+    + destroy($matricula)
+    + getMatriculasJson($request)
+    + getCourseSchedule($cursoId)
+    + getStudentsByCourse($cursoId)
+}
+
+class App.Http.Controllers.NotasController {
+    + __construct()
+    + index($request)
+    + create($request)
+    + store($request)
+    + edit($nota)
+    + update($request, $nota)
+    + porMatricula($request, $matricula)
+    + marcarDefinitiva($request, $nota)
+    + quitarDefinitiva($request, $nota)
+    + approve($request, $nota)
+    + reporte($request)
+}
+
+class App.Http.Controllers.PensionesController {
+    + __construct()
+    + index($request)
+    + create()
+    + store($request)
+    + show($pension)
+    + edit($pension)
+    + update($request, $pension)
+    + procesarPago($request, $pension)
+    + anular($request, $pension)
+    + generarMasivas($request)
+    + reporte($request)
+    + actualizarVencidas()
+}
+
+class App.Http.Controllers.RolController {
+    - storagePath()
+    - loadRoles()
+    - loadDbRoles()
+    - saveRoles($roles)
+    - findRoleById($roles, $id)
+    - nextId($roles)
+    + index($request)
+    - authorizeAdmin()
+    + create()
+    + store($request)
+    + show($request, $id)
+    + edit($id)
+    + update($request, $id)
+    + destroy($request, $id)
+    + permisosDisponibles()
+}
+
+class App.Http.Controllers.SancionTipoController {
+    + index()
+    + create()
+    + store($request)
+    + edit($tipo)
+    + update($request, $tipo)
+    + destroy($tipo)
+}
+
+class App.Http.Controllers.SeguimientosController {
+    + __construct()
+    + index($request)
+    + create($request)
+    + store($request)
+    + show($seguimiento)
+    + edit($seguimiento)
+    + update($request, $seguimiento)
+    + destroy($seguimiento)
+    + registrarSesion($request, $seguimiento)
+    + cambiarEstado($request, $seguimiento)
+    + informarPadres($request, $seguimiento)
+    + dashboard()
+    + reporteEstudiante($estudiante)
+    + apiSeguimientos($request)
+}
+
+class App.Http.Controllers.UserController {
+    # authorizeManager()
+    + index($request)
+    + create()
+    + store($request)
+    + edit($id)
+    + update($request, $id)
+    + destroy($id)
+    + search($request)
+    + byRole($request, $rolId)
+}
+
+class App.Http.Controllers.VerificarUsuario {
+}
+
+class App.Models.Actividad {
+    # $table
+    # $fillable
+    # $casts
+    + nota()
+}
+
+class App.Models.Asistencia {
+    # $fillable
+    # $casts
+    + curso()
+    + matricula()
+    + materia()
+    + estudiante()
+}
+
+class App.Models.Circular {
+    # $fillable
+    + creador()
+}
+
+class App.Models.Cita {
+    # $table
+    # $fillable
+    # $casts
+    + solicitante()
+    + parent()
+    + children()
+    + orientador()
+    + estudianteReferido()
+    + canceladoPor()
+    + informe()
+    + scopePorEstado($query, $estado)
+    + scopePendientes($query)
+    + scopeCompletadas($query)
+    + scopePorFecha($query, $fecha)
+    + scopePorOrientador($query, $orientadorId)
+    + scopePorSolicitante($query, $solicitanteId)
+    + getEstadoFormateadoAttribute()
+    + getPrioridadFormateadaAttribute()
+    + getTipoCitaFormateadoAttribute()
+    + getModalidadFormateadaAttribute()
+    + getFechaHoraCompletaAttribute()
+    + getDuracionFormateadaAttribute()
+    + esVirtual()
+    + esPendiente()
+    + esCompletada()
+    + esCancelada()
+    + puedeSerCancelada()
+    + puedeSerReprogramada()
+    + programar($fechaAsignada, $horaAsignada, $orientadorId)
+    + confirmar()
+    + iniciar()
+    + completar($resumen, $recomendaciones, $planSeguimiento)
+    + cancelar($motivo, $canceladoPor)
+    + reprogramar($nuevaFecha, $nuevaHora)
+}
+
+class App.Models.Curso {
+    # $fillable
+    + docentes()
+    + materias()
+}
+
+class App.Models.Horario {
+    # $fillable
+}
+
+class App.Models.Informe {
+    # $fillable
+    + cita()
+}
+
+class App.Models.Institucion {
+    # $table
+    # $fillable
+}
+
+class App.Models.Materia {
+    # $table
+    # $fillable
+    + curso()
+    + docente()
+}
+
+class App.Models.Matricula {
+    # $fillable
+    # $appends
+    # $casts
+    + user()
+    + getDocumentoIdentidadUrlAttribute()
+    + getRhUrlAttribute()
+    + getCertificadoMedicoUrlAttribute()
+    + getCertificadoNotasUrlAttribute()
+    + getComprobantePagoUrlAttribute()
+    + curso()
+    + tieneDocumentosCompletos()
+    + actualizarEstadoDocumentos()
+    + hasPayment()
+    + documentsComplete()
+    + recalcularEstado()
+    # booted()
+}
+
+class App.Models.MatriculaComprobante {
+    # $table
+    # $fillable
+    + matricula()
+}
+
+class App.Models.Mensaje {
+    # $fillable
+    + remitente()
+    + destinatario()
+    + parent()
+    + replies()
+    + notificacion()
+}
+
+class App.Models.Nota {
+    # $table
+    # $fillable
+    # $casts
+    # $dates
+    + aprobadoPor()
+    + matricula()
+    + materia()
+    + actividades()
+    + recalculateFromActividades()
+}
+
+class App.Models.Notificacion {
+    # $table
+    # $fillable
+    # $casts
+    + creador()
+    + usuario()
+}
+
+class App.Models.Pago {
+    # $fillable
+    + estudiante()
+}
+
+class App.Models.Pension {
+    # $table
+    # $fillable
+    # $dates
+    + estudiante()
+    + acudiente()
+    + curso()
+    + procesadoPor()
+    + setValorBaseAttribute($value)
+    + setDescuentosAttribute($value)
+    + setRecargosAttribute($value)
+    + setValorTotalAttribute($value)
+    + setRecargoMoraAttribute($value)
+    + getValorBaseAttribute($value)
+    + getDescuentosAttribute($value)
+    + getRecargosAttribute($value)
+    + getValorTotalAttribute($value)
+    + getRecargoMoraAttribute($value)
+    + isPendiente()
+    + isPagada()
+    + isVencida()
+    + isAnulada()
+    + diasVencida()
+    + calcularRecargo()
+    + actualizarRecargo()
+    + marcarComoPagada($metodoPago, $numeroRecibo, $procesadoPor)
+    + anular($observaciones)
+    + scopePendientes($query)
+    + scopePagadas($query)
+    + scopeVencidas($query)
+    + scopeDelMes($query, $mes, $año)
+    + scopeDelEstudiante($query, $estudianteId)
+    + scopeDelAcudiente($query, $acudienteId)
+    # boot()
+    + getMesAttribute()
+    + setMesAttribute($value)
+    + getAñoAttribute()
+    + setAñoAttribute($value)
+}
+
+class App.Models.RolesModel {
+    # $table
+    # $fillable
+    # $casts
+    + $timestamps
+    + usuarios()
+    + tienePermiso($permiso)
+    + obtenerRolesSistema()
+}
+
+class App.Models.Sancion {
+    # $fillable
+    # $casts
+    + reportes()
+    + usuario()
+    + tipo_rel()
+}
+
+class App.Models.SancionTipo {
+    # $table
+    # $fillable
+    # $casts
+}
+
+class App.Models.Seguimiento {
+    # $fillable
+    # $casts
+    + estudiante()
+    + responsable()
+    + cita()
+    + scopePorEstudiante($query, $estudianteId)
+    + scopePorResponsable($query, $responsableId)
+    + scopePorTipo($query, $tipo)
+    + scopePorEstado($query, $estado)
+    + scopeActivos($query)
+    + scopeRequierenRevision($query)
+    + scopeGravedadAlta($query)
+    + scopeConfidenciales($query)
+    + getTipoSeguimientoFormateadoAttribute()
+    + getAreaEnfoqueFormateadaAttribute()
+    + getNivelGravedadFormateadoAttribute()
+    + getEstadoSeguimientoFormateadoAttribute()
+    + getNivelMejoraFormateadoAttribute()
+    + getDiasDesdeIdentificacionAttribute()
+    + getDiasParaRevisionAttribute()
+    + esActivo()
+    + esGravedad($nivel)
+    + esGravedadAlta()
+    + requiereRevision()
+    + tieneRevisionPendiente()
+    + puedeSerEditado()
+    + marcarEnProceso()
+    + pausar($motivo)
+    + completar($evaluacionFinal, $logrosAlcanzados)
+    + derivar($institucion, $motivo)
+    + programarRevision($fecha, $notas)
+    + registrarSesion($observaciones, $acciones)
+    + informarPadres($fechaComunicacion, $respuesta)
+    + buscarPorTexto($texto)
+    + reporteEstadisticas()
+}
+
+class App.Models.User {
+    # $fillable
+    # $hidden
+    # casts()
+    + role()
+    + acudientes()
+    + acudiente()
+    + matriculas()
+    + cursosAsignados()
+    + hasPermission($permiso)
+    + hasAnyPermission($permisos)
+    + setDocumentTypeAttribute($value)
+}
+
+class App.Providers.AppServiceProvider {
+    + register()
+    + boot()
+}
+
+App.Console.Commands.NormalizeUsers --|> Command
+App.Console.Kernel --|> ConsoleKernel
+App.Http.Controllers.ActividadesController --|> Controller
+App.Http.Controllers.AsignacionesController --|> Controller
+App.Http.Controllers.AsistenciaController --|> Controller
+App.Http.Controllers.AuthController --|> Controller
+App.Http.Controllers.CitasController --|> Controller
+App.Http.Controllers.ComunicacionController --|> Controller
+App.Http.Controllers.Controller --|> BaseController
+App.Http.Controllers.Controller ..> AuthorizesRequests : uses
+App.Http.Controllers.Controller ..> DispatchesJobs : uses
+App.Http.Controllers.Controller ..> ValidatesRequests : uses
+App.Http.Controllers.CrearUsuario --|> Controller
+App.Http.Controllers.DocenteCursoController --|> Controller
+App.Http.Controllers.GestionAcademicaController --|> Controller
+App.Http.Controllers.GestionDisciplinariaController --|> Controller
+App.Http.Controllers.GestionFinancieraController --|> Controller
+App.Http.Controllers.GestionOrientacionController --|> Controller
+App.Http.Controllers.InstitucionController --|> Controller
+App.Http.Controllers.MateriaController --|> Controller
+App.Http.Controllers.MateriasController --|> Controller
+App.Http.Controllers.MatriculaController --|> Controller
+App.Http.Controllers.MatriculasController --|> Controller
+App.Http.Controllers.NotasController --|> Controller
+App.Http.Controllers.PensionesController --|> Controller
+App.Http.Controllers.RolController --|> Controller
+App.Http.Controllers.SancionTipoController --|> Controller
+App.Http.Controllers.SeguimientosController --|> Controller
+App.Http.Controllers.UserController --|> Controller
+App.Http.Controllers.VerificarUsuario --|> Controller
+App.Models.Actividad --|> Model
+App.Models.Asistencia --|> Model
+App.Models.Asistencia ..> HasFactory : uses
+App.Models.Circular --|> Model
+App.Models.Circular ..> HasFactory : uses
+App.Models.Cita --|> Model
+App.Models.Cita ..> HasFactory : uses
+App.Models.Curso --|> Model
+App.Models.Curso ..> HasFactory : uses
+App.Models.Horario --|> Model
+App.Models.Horario ..> HasFactory : uses
+App.Models.Informe --|> Model
+App.Models.Informe ..> HasFactory : uses
+App.Models.Institucion --|> Model
+App.Models.Institucion ..> HasFactory : uses
+App.Models.Materia --|> Model
+App.Models.Materia ..> HasFactory : uses
+App.Models.Matricula --|> Model
+App.Models.MatriculaComprobante --|> Model
+App.Models.Mensaje --|> Model
+App.Models.Mensaje ..> HasFactory : uses
+App.Models.Nota --|> Model
+App.Models.Notificacion --|> Model
+App.Models.Notificacion ..> HasFactory : uses
+App.Models.Pago --|> Model
+App.Models.Pension --|> Model
+App.Models.RolesModel --|> Model
+App.Models.RolesModel ..> HasFactory : uses
+App.Models.Sancion --|> Model
+App.Models.SancionTipo --|> Model
+App.Models.SancionTipo ..> HasFactory : uses
+App.Models.Seguimiento --|> Model
+App.Models.Seguimiento ..> HasFactory : uses
+App.Models.User --|> Authenticatable
+App.Models.User ..> HasFactory : uses
+App.Models.User ..> Notifiable : uses
+App.Providers.AppServiceProvider --|> ServiceProvider
+
+@enduml

@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers;
-
 use App\Models\Matricula;
 use App\Models\User; // Assuming students are users
 use App\Models\RolesModel;
@@ -15,6 +14,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\MatriculaComprobante;
 use App\Models\Notificacion;
 
+
 class MatriculaController extends Controller
 {
     public function __construct()
@@ -22,7 +22,7 @@ class MatriculaController extends Controller
         $this->middleware('auth');
 
         $this->middleware(function ($request, $next) {
-            $user = auth()->user();
+            $user = Auth::user(); // ✅ Reconocido por Intelephense
             if (! $user) {
                 abort(403, 'Acceso no autorizado');
             }
