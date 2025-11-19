@@ -12,69 +12,57 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <style>
-
         /* 👇 Nueva parte: Fondo general con imagen */
         body {
-            
             background-size: cover;
             background-attachment: fixed;
         }
-        /* 👆 Hasta aquí */
 
-        .login-container {
-            min-height: 100vh;
-            background: url("{{ asset('images/basecolegio.png') }}") no-repeat center center fixed;
-            /*background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
-        }
-        
-        .login-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-        }
-        
-        .navbar-brand {
+        /* Sistema de colores por módulo usando variables CSS.
+           Cada módulo puede definir su paleta en los selectores más abajo.
+           Se mantiene la semántica de los elementos (no se cambian textos ni labels).
+        */
+        :root {
+            /* Valores por defecto (fallback) */
+            --sidebar-bg: #07315eff;
+            --sidebar-text: #ecf0f1;
+            
             font-weight: bold;
-            color: #ebeef1ff !important;
+            color: var(--brand-color) !important;
         }
-        
+
+
+
+        /* Sidebar usando variables */
         .sidebar {
-            background: #2c3e50;
+            background: var(--sidebar-bg);
             min-height: calc(100vh - 56px);
         }
-        
+
         .sidebar .nav-link {
-            color: #ecf0f1;
-            padding: 12px 20px;
-            border-radius: 5px;
-            margin: 2px 0;
-        }
-        
-        /* Transición y efecto hover para los enlaces del sidebar */
-        .sidebar .nav-link {
-            color: #ecf0f1;
+            color: var(--sidebar-text);
             padding: 12px 20px;
             border-radius: 5px;
             margin: 2px 0;
             transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
         }
-        
+
         .sidebar .nav-link:hover {
-            background: #34495e;
+            background: var(--sidebar-hover);
             color: #fff;
             transform: translateX(4px);
         }
-        
+
         .sidebar .nav-link.active {
-            background: #3498db;
+            background: var(--sidebar-active);
             color: #fff;
         }
-        
+
         .main-content {
-            background: #f8f9fa;
+            background: var(--main-bg);
             min-height: calc(100vh - 56px);
         }
-        
+
         /* Efecto hover para botones (cards y botones rápidos) */
         .btn {
             transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
@@ -82,7 +70,7 @@
 
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            box-shadow: var(--btn-hover-shadow);
         }
 
         /* Estilos específicos para botones outline para que cambien fondo al pasar */
@@ -97,11 +85,72 @@
             color: #fff;
             border-color: #0dcaf0;
         }
+
+        /* Navbar con degradado */
+        .navbar-gradient {
+            background: linear-gradient(90deg, #013f35ff, #471173ff); /* azul oscuro a azul medio */
+            color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .navbar-gradient .navbar-brand,
+        .navbar-gradient .nav-link,
+        .navbar-gradient .dropdown-item {
+            color: #ffffff !important;
+            font-weight: 500;
+            border-radius: 0.25rem;
+            padding: 0.5rem 1rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .navbar-gradient .nav-link:hover,
+        .navbar-gradient .dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .navbar-gradient .dropdown-menu {
+            background: #004080;
+            border: none;
+        }
+
+        /* Floating panel removed — using Bootstrap modals for revision/motivo */
+
+        .navbar-gradient .dropdown-divider {
+        border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Forzar apariencia consistente para botones de revisión */
+        .btn-revision {
+            background-color: #198754 !important; /* bootstrap success */
+            color: #fff !important;
+            border-color: #198754 !important;
+        }
+        .btn-revision:hover {
+            background-color: #157347 !important;
+            border-color: #157347 !important;
+            color: #fff !important;
+        }
+        .dropdown-item.btn-revision {
+            color: #198754 !important;
+        }
+
+
+
+
     </style>
+    <!-- Floating panel removed; keep bootstrap modals for AJAX content -->
     
     @stack('styles')
 </head>
-<body>
+@php
+    // Determinar módulo y submódulo a partir de la URL para aplicar paletas por módulo
+    $module = request()->segment(1) ?: 'default';
+    $submodule = request()->segment(2) ?: '';
+    // Normalizar como slug simple
+    $moduleSlug = \Illuminate\Support\Str::slug($module ?: 'default', '-');
+    $submoduleSlug = \Illuminate\Support\Str::slug($submodule ?: '', '-');
+@endphp
+<body data-module="{{ $moduleSlug }}" data-submodule="{{ $submoduleSlug }}">
     @include('partials.navbar')
     <div class="container-fluid">
         <div class="row">
@@ -117,9 +166,34 @@
                 </div>
         </div>
     </div>
+    <!-- jQuery (para compatibilidad) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    @yield('scripts')
+        {{-- Reusable AJAX modal for Citas revision --}}
+        <div class="modal fade" id="ajaxRevisionModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Revisión</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="ajaxRevisionModalBody">
+                        {{-- content loaded via AJAX --}}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // Legacy AJAX handler for .btn-revision removed.
+            // Revisión ahora usa navegación a la página completa `citas.show`.
+        </script>
     @stack('scripts')
 </body>
 </html>

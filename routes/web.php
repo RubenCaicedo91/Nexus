@@ -16,7 +16,7 @@ use App\Http\Controllers\DocenteCursoController;
 use App\Http\Controllers\InstitucionController; // 👈 Importa el nuevo controlador
 use App\Http\Controllers\MatriculaController; // Importa el controlador de Matrículas
 use App\Http\Controllers\GestionFinancieraController;// Importa el controlador de Gestión Financiera
-use App\Http\Controllers\GestionDisciplinariaController; //Importa el controlador de Gestión Disciplinaria
+use App\Http\Controllers\GestionOrientacionController; // Importa el controlador de Gestión de Orientación
 
 // Ruta raíz redirige al login
 Route::get('/', function () {
@@ -38,6 +38,17 @@ Route::middleware('auth')->group(function () {
         Route::put('/{nota}', [\App\Http\Controllers\NotasController::class, 'update'])->name('update');
         Route::post('/{nota}/aprobar', [\App\Http\Controllers\NotasController::class, 'approve'])->name('approve');
         Route::get('/reporte', [\App\Http\Controllers\NotasController::class, 'reporte'])->name('reporte');
+        // Ver notas por matrícula (estudiante)
+        Route::get('/matricula/{matricula}/ver', [\App\Http\Controllers\NotasController::class, 'porMatricula'])->name('matricula.ver');
+        // Marcar nota como definitiva
+        Route::post('/{nota}/definitiva', [\App\Http\Controllers\NotasController::class, 'marcarDefinitiva'])->name('definitiva');
+        // Quitar estado de nota definitiva (permitir a Rector / Administrador)
+        Route::post('/{nota}/definitiva/quitar', [\App\Http\Controllers\NotasController::class, 'quitarDefinitiva'])->name('definitiva.quitar');
+        // Actividades por nota
+        Route::get('/{nota}/actividades', [\App\Http\Controllers\ActividadesController::class, 'index'])->name('actividades.index');
+        Route::get('/{nota}/actividades/crear', [\App\Http\Controllers\ActividadesController::class, 'create'])->name('actividades.create');
+        Route::post('/{nota}/actividades', [\App\Http\Controllers\ActividadesController::class, 'store'])->name('actividades.store');
+        Route::delete('/{nota}/actividades/{actividad}', [\App\Http\Controllers\ActividadesController::class, 'destroy'])->name('actividades.destroy');
     });
 });
 
@@ -49,6 +60,32 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // Rutas Crear usuarios
 Route::get('/registro', [CrearUsuario::class, 'showRegistrationForm'])->name('register');
 Route::post('/registro', [CrearUsuario::class, 'register']);
+
+// Ruta temporal de debug (SIN autenticación)
+Route::get('/debug-estudiantes-temp', function() {
+    $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                  ->where('roles.nombre', '=', 'Estudiante')
+                  ->select('users.*', 'roles.nombre as rol_nombre')
+                  ->orderBy('users.name')
+                  ->get();
+    return response()->json([
+        'estudiantes' => $estudiantes->toArray(), 
+        'total' => $estudiantes->count(),
+        'query_sql' => 'SELECT users.*, roles.nombre as rol_nombre FROM users JOIN roles ON users.roles_id = roles.id WHERE roles.nombre = "Estudiante" ORDER BY users.name'
+    ]);
+});
+
+// Ruta temporal de debug HTML (SIN autenticación)
+Route::get('/debug-html-temp', function() {
+    $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                  ->where('roles.nombre', '=', 'Estudiante')
+                  ->select('users.*', 'roles.nombre as rol_nombre')
+                  ->orderBy('users.name')
+                  ->get();
+    $cursos = \App\Models\Curso::orderBy('nombre')->get();
+    
+    return view('asignaciones.test', compact('estudiantes', 'cursos'));
+});
 
 // Rutas protegidas por autenticación
 Route::middleware(['auth'])->group(function () {
@@ -107,20 +144,45 @@ Route::middleware(['auth'])->group(function () {
         }
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'first_name' => ['required_without:name', 'string', 'max:255'],
+            'second_name' => ['nullable', 'string', 'max:255'],
+            'first_last' => ['required_without:name', 'string', 'max:255'],
+            'second_last' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
+            'document_type' => ['nullable','regex:/^(R\\.?C|C\\.?C|T\\.?I)$/i'],
+            'document_number' => ['nullable','string','max:50'],
+            'celular' => ['nullable','string','max:30'],
         ]);
 
         // Obtener id del rol Estudiante
         $rolEstudiante = RolesModel::where('nombre', 'Estudiante')->first();
         $rolId = $rolEstudiante ? $rolEstudiante->id : null;
 
+        // construir nombre legacy si no se envía name
+        $fullName = $validated['name'] ?? null;
+        if (empty($fullName)) {
+            $parts = [];
+            if (!empty($validated['first_name'])) $parts[] = $validated['first_name'];
+            if (!empty($validated['second_name'])) $parts[] = $validated['second_name'];
+            if (!empty($validated['first_last'])) $parts[] = $validated['first_last'];
+            if (!empty($validated['second_last'])) $parts[] = $validated['second_last'];
+            $fullName = implode(' ', $parts);
+        }
+
         $newUser = User::create([
-            'name' => $validated['name'],
+            'name' => $fullName,
+            'first_name' => $validated['first_name'] ?? null,
+            'second_name' => $validated['second_name'] ?? null,
+            'first_last' => $validated['first_last'] ?? null,
+            'second_last' => $validated['second_last'] ?? null,
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'roles_id' => $rolId,
+            'document_type' => $validated['document_type'] ?? null,
+            'document_number' => $validated['document_number'] ?? null,
+            'celular' => $validated['celular'] ?? null,
             // acudiente_id lo asignamos explícitamente después para evitar problemas de mass-assignment
         ]);
 
@@ -136,12 +198,29 @@ Route::middleware(['auth'])->group(function () {
     Route::get('roles-permisos', [RolController::class, 'permisosDisponibles'])->name('roles.permisos');
     // Rutas para administrar usuarios (listar, crear, editar, asignar roles, eliminar)
     Route::resource('usuarios', UserController::class)->except(['show']);
+    // Endpoint para búsqueda rápida de usuarios por nombre o documento
+    Route::get('usuarios/search', [UserController::class, 'search'])->name('usuarios.search');
+    // Endpoint para obtener usuarios por rol/grupo (usado por AJAX en comunicación)
+    Route::get('comunicacion/usuarios-por-grupo/{rolId}', [UserController::class, 'byRole'])->name('usuarios.byRole');
     // Gestión académica (páginas básicas)
     Route::get('gestion-academica', [GestionAcademicaController::class, 'index'])->name('gestion.index');
     Route::get('gestion-academica/crear-curso', [GestionAcademicaController::class, 'crearCurso'])->name('gestion.crearCurso');
     Route::get('gestion-academica/editar-curso', [GestionAcademicaController::class, 'editarCurso'])->name('gestion.editarCurso');
     Route::get('gestion-academica/horarios', [GestionAcademicaController::class, 'horarios'])->name('gestion.horarios');
     Route::post('gestion-academica/horarios', [GestionAcademicaController::class, 'guardarHorario'])->name('horarios.guardar');
+
+    // RUTAS PARA GESTIÓN DISCIPLINARIA
+    Route::prefix('gestion-disciplinaria')->name('gestion-disciplinaria.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'index'])->name('index');
+        Route::get('/registrar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'mostrarFormularioSancion'])->name('registrar');
+        Route::post('/', [\App\Http\Controllers\GestionDisciplinariaController::class, 'registrarSancion'])->name('store');
+        Route::get('/buscar', [\App\Http\Controllers\GestionDisciplinariaController::class, 'buscarPorDocumento'])->name('buscar');
+        // Endpoint temporal de depuración: comprobar si un docente puede ver al estudiante
+        Route::get('/debug-check-assignment', [\App\Http\Controllers\GestionDisciplinariaController::class, 'debugCheckAssignment'])->name('debug.check_assignment');
+        Route::get('/reporte', [\App\Http\Controllers\GestionDisciplinariaController::class, 'generarReporte'])->name('reporte');
+        // CRUD para tipos de sanción
+        Route::resource('tipos', \App\Http\Controllers\SancionTipoController::class)->names('tipos');
+    });
 
     
     // 👇 NUEVAS RUTAS DE GESTIÓN INSTITUCIONAL
@@ -162,17 +241,44 @@ Route::middleware(['auth'])->group(function () {
     Route::put('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'actualizarCurso'])->name('actualizarCurso');
     Route::delete('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'eliminarCurso'])->name('eliminarCurso');
 
+    // Rutas para Asistencias (módulo de gestión académica)
+    Route::prefix('gestion-academica/asistencias')->name('asistencias.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AsistenciaController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\AsistenciaController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\AsistenciaController::class, 'store'])->name('store');
+        Route::get('/export', [\App\Http\Controllers\AsistenciaController::class, 'export'])->name('export');
+            // Export single asistencia
+        Route::get('/{id}/export', [\App\Http\Controllers\AsistenciaController::class, 'exportSingle'])->name('export_single');
+            // Removed edit and update routes
+        Route::delete('/{id}', [\App\Http\Controllers\AsistenciaController::class, 'destroy'])->name('destroy');
+        Route::get('/curso/{cursoId}/registro', [\App\Http\Controllers\AsistenciaController::class, 'registroPorCurso'])->name('curso.registro');
+        Route::get('/curso/{cursoId}/partial', [\App\Http\Controllers\AsistenciaController::class, 'partialRegistro'])->name('curso.partial');
+        Route::post('/curso/{cursoId}/registrar', [\App\Http\Controllers\AsistenciaController::class, 'storeMultiple'])->name('curso.registrar');
+    });
+
     // Rutas para materias (asignar/modificar docentes)
     Route::get('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'index'])->name('cursos.materias');
-    Route::post('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'store'])->name('materias.store');
-    Route::get('gestion-academica/materias/{id}/editar', [MateriaController::class, 'edit'])->name('materias.editar');
-    Route::put('gestion-academica/materias/{id}', [MateriaController::class, 'update'])->name('materias.actualizar');
+    Route::post('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'store'])->name('cursos.materias.store');
+    Route::get('gestion-academica/materias/{id}/editar', [MateriaController::class, 'edit'])->name('gestion.materias.edit');
+    Route::put('gestion-academica/materias/{id}', [MateriaController::class, 'update'])->name('gestion.materias.update');
+    Route::post('gestion-academica/materias/crear', [MateriaController::class, 'storeFromModal'])->name('gestion.materias.create');
+
+    // Endpoint JSON para obtener materias de un curso (usado por modal AJAX)
+    Route::get('gestion-academica/cursos/{id}/materias-json', [MateriaController::class, 'materiasJson'])->name('cursos.materias.json');
+    // Endpoint JSON para obtener una materia concreta
+    Route::get('gestion-academica/materias/{id}/json', [MateriaController::class, 'materiaJson'])->name('materias.json');
 
     // Rutas para asignar cursos a docentes
     Route::get('gestion-academica/docentes', [DocenteCursoController::class, 'index'])->name('docentes.index');
     Route::get('gestion-academica/docentes/{id}/cursos', [DocenteCursoController::class, 'edit'])->name('docentes.edit');
     Route::put('gestion-academica/docentes/{id}/cursos', [DocenteCursoController::class, 'update'])->name('docentes.update');
     Route::post('gestion-academica/docentes/asignar', [DocenteCursoController::class, 'assign'])->name('docentes.asignar');
+    // Ruta para quitar todas las asignaciones de cursos a un docente
+    Route::post('gestion-academica/docentes/{id}/quitar-todos', [DocenteCursoController::class, 'removeAll'])->name('docentes.quitarTodos');
+    // Endpoint JSON para obtener cursos asignados a un docente (usado por AJAX en filtros)
+    Route::get('gestion-academica/docentes/{id}/cursos-json', [DocenteCursoController::class, 'cursosJson'])->name('docentes.cursos.json');
+    // Endpoint para obtener docentes por curso (usado por filtro)
+    Route::get('gestion-academica/cursos/{id}/docentes-json', [\App\Http\Controllers\GestionAcademicaController::class, 'docentesPorCurso'])->name('cursos.docentes.json');
 
 
     // Vista para gestionar la institución
@@ -180,22 +286,217 @@ Route::middleware(['auth'])->group(function () {
 
     // Rutas para administrar matrículas
     Route::resource('matriculas', MatriculaController::class);
+    // Endpoint JSON para obtener cursos por nombre base (usado por formulario de matrículas)
+    Route::get('matriculas/json/cursos-por-base/{base}', [MatriculaController::class, 'cursosPorBase'])->name('matriculas.json.cursos_por_base');
     // Servir archivos de matrículas (visualización/descarga) desde el disco configurado
     Route::get('matriculas/{matricula}/archivo/{campo}', [MatriculaController::class, 'archivo'])
         ->name('matriculas.archivo');
+    // Servir comprobantes específicos por nombre (permite a tesorero ver históricos)
+    Route::get('matriculas/{matricula}/comprobante/{filename}', [MatriculaController::class, 'comprobanteFile'])
+        ->name('matriculas.comprobanteFile');
+    // Validación de pago (solo tesorero)
+    Route::post('matriculas/{matricula}/validar-pago', [MatriculaController::class, 'validarPago'])
+        ->name('matriculas.validarPago');
 
     // Rutas de Gestión Financiera
     Route::get('gestion-financiera', [GestionFinancieraController::class, 'index'])->name('financiera.index');
     Route::get('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'mostrarFormularioPago'])->name('financiera.formularioPago');
     Route::post('gestion-financiera/registrar-pago', [GestionFinancieraController::class, 'registrarPago'])->name('financiera.registrarPago');
+    // Actualizar valor de matrícula (solo tesorero/administrador)
+    Route::post('gestion-financiera/valor-matricula', [GestionFinancieraController::class, 'actualizarValorMatricula'])->name('financiera.valorMatricula');
+    // Buscar estado de cuenta por documento (form) o ver por id
+    Route::get('gestion-financiera/estado-cuenta', [GestionFinancieraController::class, 'estadoCuentaSearch'])->name('financiera.estadoCuenta.search');
     Route::get('gestion-financiera/estado-cuenta/{id}', [GestionFinancieraController::class, 'estadoCuenta'])->name('financiera.estadoCuenta');
     Route::get('gestion-financiera/reporte', [GestionFinancieraController::class, 'generarReporte'])->name('financiera.reporte');
 
-    //Rutas de Gestión Disciplinaria
-    Route::get('gestion-disciplinaria', [GestionDisciplinariaController::class, 'index'])->name('gestion-disciplinaria.index');
-    Route::get('gestion-disciplinaria/registrar', [GestionDisciplinariaController::class, 'mostrarFormularioSancion'])->name('gestion-disciplinaria.registrar');
-    Route::post('gestion-disciplinaria/registrar', [GestionDisciplinariaController::class, 'registrarSancion'])->name('gestion-disciplinaria.store');
-    Route::get('gestion-disciplinaria/historial/{id}', [GestionDisciplinariaController::class, 'historialSanciones'])->name('historial.sanciones');
-    Route::get('gestion-disciplinaria/reporte', [GestionDisciplinariaController::class, 'generarReporte'])->name('gestion-disciplinaria.reporte');
+    // Rutas de Gestión de Orientación
+    Route::get('gestion-orientacion', [GestionOrientacionController::class, 'index'])->name('orientacion.index');
+
+    // Citas
+    Route::get('gestion-orientacion/citas', [GestionOrientacionController::class, 'listarCitas'])->name('orientacion.citas');
+    Route::get('gestion-orientacion/citas/crear', [GestionOrientacionController::class, 'crearCita'])->name('orientacion.citas.create');
+    Route::post('gestion-orientacion/citas', [GestionOrientacionController::class, 'guardarCita'])->name('orientacion.citas.store');
+    Route::patch('gestion-orientacion/citas/{id}/estado', [GestionOrientacionController::class, 'cambiarEstadoCita'])->name('orientacion.citas.estado');
+    // Acciones específicas desde el módulo de orientación (completar/cancelar con observaciones)
+    Route::post('gestion-orientacion/citas/{id}/completar', [GestionOrientacionController::class, 'completarCita'])->name('orientacion.citas.completar');
+    Route::post('gestion-orientacion/citas/{id}/cancelar', [GestionOrientacionController::class, 'cancelarCita'])->name('orientacion.citas.cancelar');
+    // Asignar / cambiar orientador responsable de la cita
+    Route::post('gestion-orientacion/citas/{id}/asignar-orientador', [GestionOrientacionController::class, 'asignarOrientador'])->name('orientacion.citas.asignar_orientador');
+
+    // Informes
+    Route::get('gestion-orientacion/informes', [GestionOrientacionController::class, 'listarInformes'])->name('orientacion.informes');
+    Route::get('gestion-orientacion/informes/exportar-pdf', [GestionOrientacionController::class, 'exportarInformesPdf'])->name('orientacion.informes.export_pdf');
+    Route::get('gestion-orientacion/informes/exportar-excel', [GestionOrientacionController::class, 'exportarInformesExcel'])->name('orientacion.informes.export_excel');
+    Route::post('gestion-orientacion/informes', [GestionOrientacionController::class, 'guardarInforme'])->name('orientacion.informes.store');
+
+    // Seguimientos
+    Route::get('gestion-orientacion/seguimientos', [GestionOrientacionController::class, 'listarSeguimientos'])->name('orientacion.seguimientos');
+    Route::post('gestion-orientacion/seguimientos', [GestionOrientacionController::class, 'guardarSeguimiento'])->name('orientacion.seguimientos.store');
+
+    // Rutas resource para gestión completa de materias
+    Route::resource('materias', \App\Http\Controllers\MateriasController::class);
+
+    // 📋 RUTAS PARA MÓDULO DE ASIGNACIONES DE ESTUDIANTES Y HORARIOS
+    Route::prefix('asignaciones')->name('asignaciones.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AsignacionesController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\AsignacionesController::class, 'create'])->name('create');
+        Route::get('/debug-estudiantes', function() {
+            $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                          ->where('roles.nombre', '=', 'Estudiante')
+                          ->select('users.*', 'roles.nombre as rol_nombre')
+                          ->orderBy('users.name')
+                          ->get();
+            return response()->json(['estudiantes' => $estudiantes, 'total' => $estudiantes->count()]);
+        })->name('debug');
+        Route::post('/', [\App\Http\Controllers\AsignacionesController::class, 'store'])->name('store');
+        Route::get('/{asignacion}', [\App\Http\Controllers\AsignacionesController::class, 'show'])->name('show');
+        Route::get('/{asignacion}/editar', [\App\Http\Controllers\AsignacionesController::class, 'edit'])->name('edit');
+        Route::put('/{asignacion}', [\App\Http\Controllers\AsignacionesController::class, 'update'])->name('update');
+        Route::delete('/{asignacion}', [\App\Http\Controllers\AsignacionesController::class, 'destroy'])->name('destroy');
+        
+        // Endpoints JSON para AJAX
+        Route::get('/json/lista', [\App\Http\Controllers\AsignacionesController::class, 'getAsignacionesJson'])->name('json');
+        Route::get('/json/ultima-matricula/{userId}', [\App\Http\Controllers\AsignacionesController::class, 'getLatestMatricula'])->name('json.ultima_matricula');
+        Route::get('/json/curso/{cursoId}/horarios', [\App\Http\Controllers\AsignacionesController::class, 'getCourseSchedule'])->name('curso.horarios');
+        Route::get('/json/curso/{cursoId}/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'getStudentsByCourse'])->name('curso.estudiantes');
+        Route::get('/json/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'searchStudents'])->name('json.estudiantes');
+        Route::post('/{asignacion}/validar', [\App\Http\Controllers\AsignacionesController::class, 'validateAssignment'])->name('validar');
+    });
+});
+
+// 🧪 RUTA TEMPORAL DE PRUEBA PARA DEBUG DEL SELECT
+Route::get('/test-select-estudiantes', function() {
+    $estudiantes = \App\Models\User::join('roles', 'users.roles_id', '=', 'roles.id')
+                  ->where('roles.nombre', '=', 'Estudiante')
+                  ->select('users.*', 'roles.nombre as rol_nombre')
+                  ->orderBy('users.name')
+                  ->get();
+    
+    return view('test-select', compact('estudiantes'));
+})->middleware('auth');
+
+// 🏥 RUTAS PARA SISTEMA DE GESTIÓN DE CITAS
+Route::middleware('auth')->group(function () {
+    Route::prefix('citas')->name('citas.')->group(function () {
+        // Rutas básicas CRUD
+        Route::get('/', [\App\Http\Controllers\CitasController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\CitasController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\CitasController::class, 'store'])->name('store');
+        Route::get('/{cita}', [\App\Http\Controllers\CitasController::class, 'show'])->name('show');
+        Route::get('/{cita}/editar', [\App\Http\Controllers\CitasController::class, 'edit'])->name('edit');
+        Route::put('/{cita}', [\App\Http\Controllers\CitasController::class, 'update'])->name('update');
+        Route::delete('/{cita}', [\App\Http\Controllers\CitasController::class, 'destroy'])->name('destroy');
+        
+        // Rutas especiales para gestión de citas
+        Route::post('/{cita}/programar', [\App\Http\Controllers\CitasController::class, 'programar'])->name('programar');
+        Route::post('/{cita}/confirmar', [\App\Http\Controllers\CitasController::class, 'confirmar'])->name('confirmar');
+        Route::post('/{cita}/iniciar', [\App\Http\Controllers\CitasController::class, 'iniciar'])->name('iniciar');
+        Route::post('/{cita}/completar', [\App\Http\Controllers\CitasController::class, 'completar'])->name('completar');
+        Route::post('/{cita}/cancelar', [\App\Http\Controllers\CitasController::class, 'cancelar'])->name('cancelar');
+        Route::post('/{cita}/reprogramar', [\App\Http\Controllers\CitasController::class, 'reprogramar'])->name('reprogramar');
+        // Endpoint AJAX para cargar la revisión (resumen/recomendaciones/plan)
+        Route::get('/{cita}/revision', [\App\Http\Controllers\CitasController::class, 'revision'])->name('revision');
+        
+        // Vista de calendario
+        Route::get('/calendario/vista', [\App\Http\Controllers\CitasController::class, 'calendario'])->name('calendario');
+        Route::get('/calendario/eventos', [\App\Http\Controllers\CitasController::class, 'citasCalendario'])->name('calendario.eventos');
+    });
+});
+
+// 📊 RUTAS PARA SISTEMA DE SEGUIMIENTO DE ESTUDIANTES
+Route::middleware('auth')->group(function () {
+    Route::prefix('seguimientos')->name('seguimientos.')->group(function () {
+        // Dashboard y estadísticas
+        Route::get('/dashboard', [\App\Http\Controllers\SeguimientosController::class, 'dashboard'])->name('dashboard');
+        
+        // Rutas básicas CRUD
+        Route::get('/', [\App\Http\Controllers\SeguimientosController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\SeguimientosController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\SeguimientosController::class, 'store'])->name('store');
+        Route::get('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'show'])->name('show');
+        Route::get('/{seguimiento}/editar', [\App\Http\Controllers\SeguimientosController::class, 'edit'])->name('edit');
+        Route::put('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'update'])->name('update');
+        Route::delete('/{seguimiento}', [\App\Http\Controllers\SeguimientosController::class, 'destroy'])->name('destroy');
+        
+        // Acciones específicas de seguimiento
+        Route::post('/{seguimiento}/sesion', [\App\Http\Controllers\SeguimientosController::class, 'registrarSesion'])->name('registrar-sesion');
+        Route::post('/{seguimiento}/estado', [\App\Http\Controllers\SeguimientosController::class, 'cambiarEstado'])->name('cambiar-estado');
+        Route::post('/{seguimiento}/padres', [\App\Http\Controllers\SeguimientosController::class, 'informarPadres'])->name('informar-padres');
+        
+        // Reportes
+        Route::get('/estudiante/{estudiante}/reporte', [\App\Http\Controllers\SeguimientosController::class, 'reporteEstudiante'])->name('reporte-estudiante');
+        
+        // API endpoints
+        Route::get('/api/seguimientos', [\App\Http\Controllers\SeguimientosController::class, 'apiSeguimientos'])->name('api');
+    });
+
+    // Gestión de Pensiones
+    Route::prefix('pensiones')->name('pensiones.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PensionesController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\PensionesController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\PensionesController::class, 'store'])->name('store');
+        Route::get('/{pension}', [\App\Http\Controllers\PensionesController::class, 'show'])->name('show');
+        Route::get('/{pension}/edit', [\App\Http\Controllers\PensionesController::class, 'edit'])->name('edit');
+        Route::put('/{pension}', [\App\Http\Controllers\PensionesController::class, 'update'])->name('update');
+        
+        // Procesar pago
+        Route::post('/{pension}/pago', [\App\Http\Controllers\PensionesController::class, 'procesarPago'])->name('procesar-pago');
+        
+        // Anular pensión
+        Route::post('/{pension}/anular', [\App\Http\Controllers\PensionesController::class, 'anular'])->name('anular');
+        
+        // Generar pensiones masivas
+        Route::post('/generar-masivas', [\App\Http\Controllers\PensionesController::class, 'generarMasivas'])->name('generar-masivas');
+        
+        // Reportes
+        Route::get('/reportes/general', [\App\Http\Controllers\PensionesController::class, 'reporte'])->name('reporte');
+        
+        // API endpoints
+        Route::post('/actualizar-vencidas', [\App\Http\Controllers\PensionesController::class, 'actualizarVencidas'])->name('actualizar-vencidas');
+    });
+    // 📢 RUTAS DE COMUNICACIÓN
+    Route::prefix('comunicacion')->name('comunicacion.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ComunicacionController::class, 'index'])->name('index');
+
+    // Mensajes
+        Route::get('/mensajes', [\App\Http\Controllers\ComunicacionController::class, 'listarMensajes'])->name('mensajes');
+        Route::post('/mensajes', [\App\Http\Controllers\ComunicacionController::class, 'guardarMensaje'])->name('mensajes.store');
+        // Ver mensajes enviados por el remitente
+        Route::get('/mensajes/enviados', [\App\Http\Controllers\ComunicacionController::class, 'listarMensajesEnviados'])->name('mensajes.enviados');
+        // Ver detalle de un mensaje (remitente o destinatario)
+        Route::get('/mensajes/{id}', [\App\Http\Controllers\ComunicacionController::class, 'mostrarMensaje'])->name('mensajes.show');
+        // Eliminar un mensaje (solo remitente puede eliminar)
+        Route::delete('/mensajes/{id}', [\App\Http\Controllers\ComunicacionController::class, 'eliminarMensaje'])->name('mensajes.destroy');
+        // Marcar como no leído (solo destinatario puede hacerlo)
+        Route::post('/mensajes/{id}/no-leer', [\App\Http\Controllers\ComunicacionController::class, 'marcarNoLeido'])->name('mensajes.no_leer');
+        // Responder a un mensaje (form + envío)
+        Route::get('/mensajes/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'formResponder'])->name('mensajes.responder.form');
+        Route::post('/mensajes/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'enviarRespuesta'])->name('mensajes.responder.enviar');
+
+    // Notificaciones
+        // Endpoint para obtener estudiantes por curso (JSON)
+        Route::get('/estudiantes-por-curso/{cursoId}', [\App\Http\Controllers\ComunicacionController::class, 'estudiantesPorCurso'])->name('estudiantes.por_curso');
+        Route::get('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'listarNotificaciones'])->name('notificaciones');
+        // Mostrar detalle de una notificación (JSON/HTML) - usado por modal flotante
+        Route::get('/notificaciones/{id}', [\App\Http\Controllers\ComunicacionController::class, 'mostrarNotificacion'])->name('notificaciones.show');
+        Route::get('/notificaciones/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'formResponderNotificacion'])->name('notificaciones.responder.form');
+        Route::post('/notificaciones/{id}/responder', [\App\Http\Controllers\ComunicacionController::class, 'enviarRespuestaNotificacion'])->name('notificaciones.responder.enviar');
+        Route::post('/notificaciones', [\App\Http\Controllers\ComunicacionController::class, 'guardarNotificacion'])->name('notificaciones.store');
+        Route::post('/notificaciones/{id}/leer', [\App\Http\Controllers\ComunicacionController::class, 'marcarNotificacionLeida'])->name('notificaciones.leer');
+
+        // Ver respuestas de un grupo (solo creador o roles administrativos)
+        Route::get('/notificaciones/grupo/{groupKey}/respuestas', [\App\Http\Controllers\ComunicacionController::class, 'mostrarRespuestasGrupo'])->name('notificaciones.grupo.respuestas');
+        // Eliminar grupo de notificaciones (solo creador)
+        Route::post('/notificaciones/grupo/{groupKey}/eliminar', [\App\Http\Controllers\ComunicacionController::class, 'eliminarGrupoNotificaciones'])->name('notificaciones.grupo.eliminar');
+
+    // Circulares
+        Route::get('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'listarCirculares'])->name('circulares');
+        // Adapter: servir un archivo de circular por su nombre (basename) usando el mismo disco que Matrículas
+        Route::get('/circulares/file/{filename}', [\App\Http\Controllers\ComunicacionController::class, 'archivoPorNombre'])->name('circulares.file');
+        Route::get('/circulares/crear', [\App\Http\Controllers\ComunicacionController::class, 'crearCircular'])->name('circulares.create');
+        Route::post('/circulares', [\App\Http\Controllers\ComunicacionController::class, 'guardarCircular'])->name('circulares.store');
+        Route::post('/circulares/{id}/eliminar', [\App\Http\Controllers\ComunicacionController::class, 'eliminarCircular'])->name('circulares.eliminar');
+        Route::get('/circulares/{id}/archivo', [\App\Http\Controllers\ComunicacionController::class, 'archivoCircular'])->name('circulares.archivo');
+});
 
 });

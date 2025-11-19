@@ -11,11 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sancions', function (Blueprint $table) {
-            $table->unsignedBigInteger('usuario_id')->nullable();
-            // Si quieres agregar la relación con la tabla users, descomenta la siguiente línea:
-            // $table->foreign('usuario_id')->references('id')->on('users')->onDelete('cascade');
-        });
+        // Ensure the table exists and the column doesn't already exist before adding it
+        if (!Schema::hasTable('sancions')) {
+            return;
+        }
+
+        if (!Schema::hasColumn('sancions', 'usuario_id')) {
+            Schema::table('sancions', function (Blueprint $table) {
+                $table->unsignedBigInteger('usuario_id')->nullable();
+                // Si quieres agregar la relación con la tabla users, descomenta la siguiente línea:
+                // $table->foreign('usuario_id')->references('id')->on('users')->onDelete('cascade');
+            });
+        }
     }
 
     /**
@@ -23,8 +30,14 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('sancions')) {
+            return;
+        }
+
         Schema::table('sancions', function (Blueprint $table) {
-            $table->dropColumn('usuario_id');
+            if (Schema::hasColumn('sancions', 'usuario_id')) {
+                $table->dropColumn('usuario_id');
+            }
         });
     }
 };

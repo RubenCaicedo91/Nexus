@@ -57,7 +57,7 @@
                     <div>
                         @if($matricula->documento_identidad)
                             @php $name = basename($matricula->documento_identidad); @endphp
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'documento_identidad']) }}" target="_blank">{{ $name }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'documento_identidad']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'documento_identidad']) }}" data-name="{{ optional($matricula->user)->name }}" data-email="{{ optional($matricula->user)->email }}" data-phone="{{ optional($matricula->user)->celular }}" target="_blank">{{ $name }}</a>
                         @else
                             —
                         @endif
@@ -68,7 +68,7 @@
                     <strong>RH:</strong>
                     <div>
                         @if($matricula->rh)
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'rh']) }}" target="_blank">{{ basename($matricula->rh) }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'rh']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'rh']) }}" data-name="{{ optional($matricula->user)->name }}" data-email="{{ optional($matricula->user)->email }}" data-phone="{{ optional($matricula->user)->celular }}" target="_blank">{{ basename($matricula->rh) }}</a>
                         @else
                             —
                         @endif
@@ -79,7 +79,7 @@
                     <strong>Certificado médico:</strong>
                     <div>
                         @if($matricula->certificado_medico)
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_medico']) }}" target="_blank">{{ basename($matricula->certificado_medico) }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_medico']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_medico']) }}" data-name="{{ optional($matricula->user)->name }}" data-email="{{ optional($matricula->user)->email }}" data-phone="{{ optional($matricula->user)->celular }}" target="_blank">{{ basename($matricula->certificado_medico) }}</a>
                         @else
                             —
                         @endif
@@ -90,7 +90,18 @@
                     <strong>Registro de notas:</strong>
                     <div>
                         @if($matricula->certificado_notas)
-                            <a href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_notas']) }}" target="_blank">{{ basename($matricula->certificado_notas) }}</a>
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_notas']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'certificado_notas']) }}" data-name="{{ optional($matricula->user)->name }}" data-email="{{ optional($matricula->user)->email }}" data-phone="{{ optional($matricula->user)->celular }}" target="_blank">{{ basename($matricula->certificado_notas) }}</a>
+                        @else
+                            —
+                        @endif
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <strong>Comprobante de pago (Matrícula):</strong>
+                    <div>
+                            @if($matricula->comprobante_pago)
+                            <a class="preview-file" href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'comprobante_pago']) }}" data-href="{{ route('matriculas.archivo', ['matricula' => $matricula->id, 'campo' => 'comprobante_pago']) }}" data-name="{{ optional($matricula->user)->name }}" data-email="{{ optional($matricula->user)->email }}" data-phone="{{ optional($matricula->user)->celular }}" target="_blank">{{ basename($matricula->comprobante_pago) }}</a>
                         @else
                             —
                         @endif
@@ -100,8 +111,49 @@
                 <div class="col-12">
                     <strong>Contacto:</strong>
                     <div>
-                        <div>Email: {{ $matricula->email ?? '—' }}</div>
-                        <div>Teléfono: {{ $matricula->telefono ?? '—' }}</div>
+                        <div>Email: {{ optional($matricula->user)->email ?? '—' }}</div>
+                        <div>Teléfono: {{ optional($matricula->user)->celular ?? '—' }}</div>
+                    </div>
+                </div>
+                
+                <div class="col-12 mt-3">
+                    <strong>Estado de Documentos:</strong>
+                    <div class="mt-1">
+                        @if($matricula->tieneDocumentosCompletos())
+                            <span class="badge bg-success">Completos</span>
+                        @else
+                            <span class="badge bg-danger">Incompletos</span>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="col-12 mt-3">
+                    <strong>Aprobación Tesorería:</strong>
+                    <div class="mt-2 d-flex align-items-center gap-3">
+                        @if($matricula->pago_validado)
+                            <span class="badge bg-success">Pago validado</span>
+                            <small class="text-muted">Por: {{ optional($matricula->pago_validado_por) ? App\Models\User::find($matricula->pago_validado_por)->name : '—' }} @if($matricula->pago_validado_at) ({{ $matricula->pago_validado_at->format('Y-m-d H:i') }}) @endif</small>
+                        @else
+                            <span class="badge bg-secondary">Pago no validado</span>
+                        @endif
+
+                        @php
+                            $currentRole = optional(Auth::user())->role->nombre ?? null;
+                            $canTesorero = in_array($currentRole, ['tesorero', 'Tesorero']);
+                        @endphp
+
+                        @if($canTesorero)
+                            <form action="{{ route('matriculas.validarPago', $matricula->id) }}" method="POST" class="ms-3">
+                                @csrf
+                                @if($matricula->pago_validado)
+                                    <input type="hidden" name="validar" value="0">
+                                    <button class="btn btn-sm btn-outline-danger">Anular validación</button>
+                                @else
+                                    <input type="hidden" name="validar" value="1">
+                                    <button class="btn btn-sm btn-outline-success">Validar pago</button>
+                                @endif
+                            </form>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -111,5 +163,7 @@
             </div>
         </div>
     </div>
+
 </div>
+@include('matriculas._file_preview_modal')
 @endsection

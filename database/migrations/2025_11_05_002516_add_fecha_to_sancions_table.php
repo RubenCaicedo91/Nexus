@@ -11,9 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('sancions', function (Blueprint $table) {
-        $table->date('fecha')->nullable();
-        });
+        if (!Schema::hasTable('sancions')) {
+            return;
+        }
+
+        if (!Schema::hasColumn('sancions', 'fecha')) {
+            Schema::table('sancions', function (Blueprint $table) {
+                $table->date('fecha')->nullable();
+            });
+        }
     }
 
     /**
@@ -21,8 +27,14 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('sancions', function (Blueprint $table) {
-        $table->dropColumn('fecha');
-        });
+        if (!Schema::hasTable('sancions')) {
+            return;
+        }
+
+        if (Schema::hasColumn('sancions', 'fecha')) {
+            Schema::table('sancions', function (Blueprint $table) {
+                $table->dropColumn('fecha');
+            });
+        }
     }
 };

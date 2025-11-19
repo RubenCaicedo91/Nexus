@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="mHA5FoADyL8FWS2PhzygY3Lec629QqMvy3v29cVN">
+    <title>Iniciar Sesión - CuentasCobro</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+
+        /* 👇 Nueva parte: Fondo general con imagen */
+        body {
+            
+            background-size: cover;
+            background-attachment: fixed;
+        }
+        /* 👆 Hasta aquí */
+
+        .login-container {
+            min-height: 100vh;
+            background: url("http://127.0.0.1:8000/images/basecolegio.png") no-repeat center center fixed;
+            /*background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);*/
+        }
+        
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: #ebeef1ff !important;
+        }
+        
+        .sidebar {
+            background: #2c3e50;
+            min-height: calc(100vh - 56px);
+        }
+        
+        .sidebar .nav-link {
+            color: #ecf0f1;
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin: 2px 0;
+        }
+        
+        /* Transición y efecto hover para los enlaces del sidebar */
+        .sidebar .nav-link {
+            color: #ecf0f1;
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin: 2px 0;
+            transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
+        }
+        
+        .sidebar .nav-link:hover {
+            background: #34495e;
+            color: #fff;
+            transform: translateX(4px);
+        }
+        
+        .sidebar .nav-link.active {
+            background: #3498db;
+            color: #fff;
+        }
+        
+        .main-content {
+            background: #f8f9fa;
+            min-height: calc(100vh - 56px);
+        }
+        
+        /* Efecto hover para botones (cards y botones rápidos) */
+        .btn {
+            transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        }
+
+        /* Estilos específicos para botones outline para que cambien fondo al pasar */
+        .btn-outline-primary:hover {
+            background-color: #0d6efd;
+            color: #fff;
+            border-color: #0d6efd;
+        }
+
+        .btn-outline-info:hover {
+            background-color: #0dcaf0;
+            color: #fff;
+            border-color: #0dcaf0;
+        }
+    </style>
+    
+    </head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand text-white" href="http://127.0.0.1:8000/dashboard">
+            <i class="fas fa-school me-2"></i> Nexus Team Education
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                                    <li class="nav-item">
+                        <a class="nav-link" href="http://127.0.0.1:8000/login">Iniciar sesión</a>
+                    </li>
+                                            <li class="nav-item">
+                            <a class="nav-link" href="http://127.0.0.1:8000/registro">Registro</a>
+                        </li>
+                                                </ul>
+        </div>
+    </div>
+</nav>
+<form id="logout-form" action="http://127.0.0.1:8000/logout" method="POST" class="d-none">
+    <input type="hidden" name="_token" value="mHA5FoADyL8FWS2PhzygY3Lec629QqMvy3v29cVN" autocomplete="off"></form>
+    <div class="container-fluid">
+        <div class="row">
+                            <div class="col-12">
+                                <div class="main-content p-4">
+                        
+<div class="login-container d-flex align-items-center justify-content-center">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="login-card p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-book fa-3x text-primary mb-3"></i>
+                        <h3 class="fw-bold text-dark">Colegio Nexus Team Education</h3>
+                        <p class="text-muted">Inicia sesión en tu cuenta</p>
+                    </div>
+
+                    
+                    <form method="POST" action="http://127.0.0.1:8000/login">
+                        <input type="hidden" name="_token" value="mHA5FoADyL8FWS2PhzygY3Lec629QqMvy3v29cVN" autocomplete="off">                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope me-1"></i>Correo electrónico
+                            </label>
+                            <input type="email" 
+                                   class="form-control " 
+                                   id="email" 
+                                   name="email" 
+                                   value="" 
+                                   required 
+                                   autocomplete="email" 
+                                   autofocus
+                                   placeholder="Ingresa tu correo">
+                                                    </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock me-1"></i>Contraseña
+                            </label>
+                            <input type="password" 
+                                   class="form-control " 
+                                   id="password" 
+                                   name="password" 
+                                   required 
+                                   autocomplete="current-password"
+                                   placeholder="Ingresa tu contraseña">
+                                                    </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                            <label class="form-check-label" for="remember">
+                                Recordarme
+                            </label>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-sign-in-alt me-1"></i>Iniciar Sesión
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="text-center mt-4">
+                        <small class="text-muted">
+                            ¿No tienes una cuenta? 
+                            <a href="http://127.0.0.1:8000/registro" class="text-decoration-none">Regístrate aquí</a>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+                    </div>
+                </div>
+        </div>
+    </div>
+    <!-- jQuery (para compatibilidad) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+        </body>
+</html>
