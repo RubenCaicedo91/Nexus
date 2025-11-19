@@ -170,16 +170,133 @@ class GestionAcademicaController extends Controller
 
     // 🕒 HORARIOS
 
-    public function horarios()
+    public function horarios(\Illuminate\Http\Request $request)
     {
-        $this->authorizeAcademica();
-        $horarios = Horario::all();
+        // Permitir que usuarios con rol 'Docente' accedan a la vista de horarios (solo vista).
+        // Otros usuarios deben pasar por authorizeAcademica().
+        $user = Auth::user();
+        $isDocente = false;
+        $isEstudiante = false;
+        $studentCourseId = null;
+        $studentCourseNombre = null;
+
+        // Determinar rol primero
+        if (Auth::check() && optional($user->role)->nombre) {
+            $roleName = optional($user->role)->nombre;
+            if (mb_stripos($roleName, 'docente') !== false) {
+                $isDocente = true;
+            }
+            if (mb_stripos($roleName, 'estudiante') !== false) {
+                $isEstudiante = true;
+            }
+        }
+
+        // Autorizar sólo si no es docente ni estudiante
+        if (! $isDocente && ! $isEstudiante) {
+            $this->authorizeAcademica();
+        }
+
+        // Permitir también a estudiantes ver horarios, pero con curso fijo
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'estudiante') !== false) {
+            $isEstudiante = true;
+            // Obtener la matrícula más reciente activa del estudiante
+            try {
+                $lastMat = \App\Models\Matricula::where('user_id', $user->id)->where('estado', 'activo')->orderByDesc('id')->first();
+                if ($lastMat) {
+                    $studentCourseId = $lastMat->curso_id;
+                    $cursoModel = Curso::find($studentCourseId);
+                    $studentCourseNombre = $cursoModel ? $cursoModel->nombre : null;
+                }
+            } catch (\Throwable $e) {
+                logger()->warning('No se pudo determinar curso del estudiante: ' . $e->getMessage());
+            }
+        }
+
+        // Soporte: "mostrar_todos" sólo para docentes.
+        $mostrarTodos = false;
+        try {
+            $mostrarTodos = $request->boolean('mostrar_todos');
+        } catch (\Throwable $e) {
+            $mostrarTodos = (bool) $request->get('mostrar_todos');
+        }
+
+        // Cargar horarios según rol:
+        // - Si es estudiante: limitar por su curso (como antes)
+        // - Si es docente: por defecto ver sólo horarios de sus materias; si solicita "mostrar_todos", ver todo
+        // - Otros usuarios: ver todos
+        if ($isEstudiante && $studentCourseNombre) {
+            $horarios = Horario::where('curso', $studentCourseNombre)->get();
+        } elseif ($isDocente) {
+            if ($mostrarTodos) {
+                $horarios = Horario::all();
+            } else {
+                // Obtener las materias que dicta este docente y filtrar horarios por materia_id
+                try {
+                    $materiaIds = Materia::where('docente_id', Auth::id())->pluck('id')->toArray();
+                    if (!empty($materiaIds)) {
+                        $horarios = Horario::whereIn('materia_id', $materiaIds)->get();
+                    } else {
+                        // Si el docente no tiene materias asignadas, devolver colección vacía
+                        $horarios = collect();
+                    }
+                } catch (\Throwable $e) {
+                    logger()->warning('Error obteniendo materias del docente: ' . $e->getMessage());
+                    $horarios = collect();
+                }
+            }
+        } else {
+            $horarios = Horario::all();
+        }
         // Enviamos también la lista de cursos para permitir accesos relacionados (ej. asignar docentes)
         try {
-            $cursos = Curso::all();
+            if ($isEstudiante && $studentCourseId) {
+                $cursos = Curso::where('id', $studentCourseId)->get();
+            } elseif ($isDocente && ! $mostrarTodos) {
+                // Si es docente y no quiere ver todos, limitar cursos a aquellos ligados a sus materias
+                try {
+                    $materiaIds = Materia::where('docente_id', Auth::id())->pluck('id')->toArray();
+                    if (!empty($materiaIds)) {
+                        $cursoIds = Materia::whereIn('id', $materiaIds)->distinct()->pluck('curso_id')->toArray();
+                        $cursos = Curso::whereIn('id', $cursoIds)->get();
+                    } else {
+                        $cursos = collect();
+                    }
+                } catch (\Throwable $e) {
+                    logger()->warning('No se pudieron cargar cursos para docente: ' . $e->getMessage());
+                    $cursos = collect();
+                }
+            } else {
+                $cursos = Curso::all();
+            }
         } catch (\Throwable $e) {
             logger()->warning('No se pudieron cargar cursos al mostrar horarios: ' . $e->getMessage());
             $cursos = collect();
+        }
+
+        // Cargar docentes para el filtro (rol 'Docente'). Si el usuario actual es docente,
+        // solo le permitimos ver/seleccionar su propia identidad en el filtro.
+        try {
+            $docenteRole = \App\Models\RolesModel::where('nombre', 'Docente')->first();
+            if ($docenteRole) {
+                // Si el usuario logueado tiene el rol docente, limitamos la lista a su usuario
+                if ($isDocente && Auth::check() && Auth::user()->roles_id == $docenteRole->id) {
+                    $docentes = collect([Auth::user()]);
+                } else {
+                    $docentes = \App\Models\User::where('roles_id', $docenteRole->id)->get();
+                }
+            } else {
+                $allDocentes = \App\Models\User::whereHas('role', function($q){ $q->where('nombre', 'LIKE', '%Docente%'); })->get();
+                if ($isDocente && Auth::check()) {
+                    // buscar al usuario autenticado dentro de la colección, si no está, usar solo su modelo
+                    $mine = $allDocentes->where('id', Auth::id())->first();
+                    $docentes = $mine ? collect([$mine]) : collect([Auth::user()]);
+                } else {
+                    $docentes = $allDocentes;
+                }
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('No se pudieron cargar docentes en horarios: ' . $e->getMessage());
+            $docentes = collect();
         }
 
         // Parsear cada horario para separar hora_inicio, hora_fin y materia (si existe metadata)
@@ -192,7 +309,19 @@ class GestionAcademicaController extends Controller
             $h->materia_nombre = null;
 
             if (!empty($h->materia_id)) {
-                $h->materia_nombre = optional(Materia::find($h->materia_id))->nombre;
+                $materia = Materia::find($h->materia_id);
+                $h->materia_nombre = $materia ? $materia->nombre : null;
+                // Asignar info del docente si la materia tiene asignado uno
+                $h->docente_id = $materia && !empty($materia->docente_id) ? $materia->docente_id : null;
+                $h->docente_nombre = $materia && $materia->docente ? $materia->docente->name : null;
+            }
+
+            // Intentar encontrar el id del curso por el nombre guardado en el horario
+            try {
+                $cursoModel = Curso::where('nombre', $h->curso)->first();
+                $h->curso_id = $cursoModel ? $cursoModel->id : null;
+            } catch (\Throwable $e) {
+                $h->curso_id = null;
             }
 
             // Si no hay hora_fin o materia_nombre, intentar extraer desde hora_text (compatibilidad)
@@ -219,7 +348,29 @@ class GestionAcademicaController extends Controller
             return $h;
         });
 
-        return view('gestion.horarios', compact('horarios', 'cursos'));
+        return view('gestion.horarios', compact('horarios', 'cursos', 'docentes', 'isDocente', 'isEstudiante', 'studentCourseId', 'studentCourseNombre', 'mostrarTodos'));
+    }
+
+    // Endpoint JSON: devolver docentes asignados a un curso
+    public function docentesPorCurso($cursoId)
+    {
+        // Permitir acceso a cualquier usuario autenticado (para filtros de UI)
+        if (!Auth::check()) abort(403);
+        try {
+            $curso = Curso::findOrFail($cursoId);
+            $docentesQuery = $curso->docentes()->select('id', 'name');
+            // Si el usuario autenticado es un docente, devolver sólo su propia entrada (si pertenece al curso)
+            $docenteRole = \App\Models\RolesModel::where('nombre', 'Docente')->first();
+            if ($docenteRole && Auth::user()->roles_id == $docenteRole->id) {
+                $mine = $docentesQuery->where('id', Auth::id())->get();
+                return response()->json($mine);
+            }
+
+            $docentes = $docentesQuery->get();
+            return response()->json($docentes);
+        } catch (\Throwable $e) {
+            return response()->json([], 404);
+        }
     }
 
     // Guardar nuevo horario

@@ -46,11 +46,16 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">📋 Consulta el estado de cuenta actual de cada usuario o estudiante.</p>
-                    <a href="{{ route('financiera.estadoCuenta.search') }}" 
-                       class="btn text-center w-100 text-white" 
-                       style="background-color: #0077b6;">
-                        📄 Consultar Estado
-                    </a>
+                    @php $isEstudiante = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false; @endphp
+                    @if(isset($isEstudiante) && $isEstudiante)
+                        <a href="{{ route('financiera.estadoCuenta', auth()->id()) }}" class="btn text-center w-100 text-white" style="background-color: #0077b6;">📄 Consultar mi cuenta</a>
+                    @else
+                        <a href="{{ route('financiera.estadoCuenta.search') }}" 
+                           class="btn text-center w-100 text-white" 
+                           style="background-color: #0077b6;">
+                            📄 Consultar Estado
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>
@@ -63,7 +68,23 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">📊 Genera reportes financieros detallados para análisis institucional.</p>
-                    @php $canReport = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('generar_reportes_financieros'); @endphp
+                    @php
+                        $canReport = false;
+                        if (Auth::check()) {
+                            $user = Auth::user();
+                            if (method_exists($user, 'hasPermission') && $user->hasPermission('generar_reportes_financieros')) {
+                                $canReport = true;
+                            }
+                            $roleName = optional($user->role)->nombre ?? '';
+                            if (!$canReport && $roleName) {
+                                $rn = mb_strtolower($roleName);
+                                $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+                                if (mb_stripos($rn, 'rector') !== false) {
+                                    $canReport = true;
+                                }
+                            }
+                        }
+                    @endphp
                     @if($canReport)
                         <a href="{{ route('financiera.reporte') }}" class="btn text-center w-100 text-white" style="background-color: #0b6623;">📈 Generar Reporte</a>
                     @else

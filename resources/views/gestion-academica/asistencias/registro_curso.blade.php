@@ -16,18 +16,32 @@
     <form id="asistencias-form" action="{{ route('asistencias.curso.registrar', ['cursoId' => $curso->id]) }}" method="POST">
         @csrf
         <div class="row mb-3">
+            @php $isEditMode = isset($existingAsistencias) && count($existingAsistencias) > 0; @endphp
+            @if($isEditMode)
+                <input type="hidden" name="is_edit_mode" value="1">
+            @endif
+            @if($isEditMode)
+                <input type="hidden" name="original_fecha" value="{{ $fecha }}">
+                <input type="hidden" name="original_materia_id" value="{{ $materiaId }}">
+            @endif
             <div class="col-md-3">
                 <label class="form-label">Fecha</label>
-                <input type="date" name="fecha" class="form-control" value="{{ old('fecha', $fecha ?? date('Y-m-d')) }}" required>
+                <input type="date" name="fecha" class="form-control" value="{{ old('fecha', $fecha ?? date('Y-m-d')) }}" {{ $isEditMode ? 'disabled' : '' }} required>
+                @if($isEditMode)
+                    <input type="hidden" name="fecha" value="{{ old('fecha', $fecha ?? date('Y-m-d')) }}">
+                @endif
             </div>
             <div class="col-md-3">
                 <label class="form-label">Materia (opcional)</label>
-                <select name="materia_id" class="form-control">
+                <select name="materia_id" class="form-control" {{ $isEditMode ? 'disabled' : '' }}>
                     <option value="">-- Todas --</option>
                     @foreach($materias as $mat)
                         <option value="{{ $mat->id }}" {{ (isset($materiaId) && $materiaId == $mat->id) ? 'selected' : '' }}>{{ $mat->nombre }}</option>
                     @endforeach
                 </select>
+                @if($isEditMode)
+                    <input type="hidden" name="materia_id" value="{{ $materiaId }}">
+                @endif
             </div>
                 {{-- definitiva option removed --}}
             <div class="col-md-3 text-end">
@@ -62,7 +76,7 @@
                             <input type="radio" name="statuses[{{ $m->id }}]" value="absent" {{ ($existing ? (!$existing->presente ? 'checked' : '') : (old('statuses.'.$m->id, 'absent') == 'absent' ? 'checked' : '')) }}>
                         </td>
                         <td class="text-center">
-                            <input type="radio" name="statuses[{{ $m->id }}]" value="excuse" {{ ($existing ? ($existing->presente === null && $existing->observacion ? 'checked' : '') : (old('statuses.'.$m->id) == 'excuse' ? 'checked' : '')) }}>
+                            <input type="radio" name="statuses[{{ $m->id }}]" value="excuse" {{ ($existing ? ($existing->observacion ? 'checked' : '') : (old('statuses.'.$m->id) == 'excuse' ? 'checked' : '')) }}>
                         </td>
                         <td>
                             <input type="text" name="observations[{{ $m->id }}]" class="form-control" value="{{ $existing ? $existing->observacion : old('observations.'.$m->id) }}" placeholder="Opcional">

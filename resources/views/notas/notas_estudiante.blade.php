@@ -4,16 +4,21 @@
 <div class="container py-4">
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-                <strong>Notas de:</strong> {{ $matricula->user->name ?? 'N/A' }}
-            </div>
-            <div>
-                @if(isset($back) && $back)
-                    {{-- Volver al índice sin parámetros para que la búsqueda previa se mantenga en los inputs pero los resultados no se muestren automáticamente --}}
-                    <a href="{{ route('notas.index') }}" class="btn btn-sm btn-secondary">Volver al listado</a>
-                @else
-                    <a href="{{ route('notas.index') }}" class="btn btn-sm btn-secondary">Volver al listado</a>
-                @endif
+                            <td>
+                                @if(!empty($nota->observaciones))
+                                    @php
+                                        $trunc = Illuminate\Support\Str::limit(strip_tags($nota->observaciones), 150);
+                                        $fullId = 'obs_full_' . $loop->index;
+                                    @endphp
+                                    <div>{{ $trunc }}</div>
+                                    <div>
+                                        <button type="button" class="btn btn-sm btn-link p-0 view-observacion" data-target-id="{{ $fullId }}">Ver</button>
+                                    </div>
+                                    <div id="{{ $fullId }}" class="observacion-full d-none">{!! nl2br(e($nota->observaciones)) !!}</div>
+                                @else
+                                    --
+                                @endif
+                            </td>
             </div>
         </div>
         <div class="card-body">
@@ -34,12 +39,15 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Materia</th>
-                        <th>Calificación (0-5)</th>
-                        <th>Aprobada</th>
-                        <th>Definitiva</th>
-                        <th class="text-end">Acciones</th>
-                    </tr>
+                            <th>Materia</th>
+                            <th>Calificación (0-5)</th>
+                            <th>Aprobada</th>
+                            <th>Definitiva</th>
+                            <th>Observaciones</th>
+                            @if(! (isset($isStudentView) && $isStudentView))
+                                <th class="text-end">Acciones</th>
+                            @endif
+                        </tr>
                 </thead>
                 <tbody>
                     @foreach($notas as $nota)
@@ -84,13 +92,28 @@
                                     <span class="badge bg-light text-dark">No</span>
                                 @endif
                             </td>
+                            <td>
+                                @if(!empty($nota->observaciones))
+                                    {{ 
+                                        
+                                        Illuminate\Support\Str::limit(strip_tags($nota->observaciones), 150)
+                                    }}
+                                @else
+                                    --
+                                @endif
+                            </td>
+                            @if(! (isset($isStudentView) && $isStudentView))
                             <td class="text-end">
                                 @php
                                     $roleName = optional(Auth::user()->role)->nombre ?? null;
                                     $isPrivileged = ($roleName === 'Rector' || stripos($roleName, 'cordinador') !== false || optional(Auth::user())->roles_id == 1);
+                                    $isStudentView = false;
+                                    if (optional(Auth::user()->role)->nombre) {
+                                        $isStudentView = stripos(optional(Auth::user()->role)->nombre, 'estudiante') !== false;
+                                    }
                                 @endphp
 
-                                @if(! $nota->definitiva || $isPrivileged)
+                                @if(! $isStudentView && (! $nota->definitiva || $isPrivileged))
                                     <a href="{{ route('notas.edit', $nota) }}" class="btn btn-sm btn-outline-primary">Editar</a>
                                 @endif
 
@@ -115,6 +138,7 @@
                                     </form>
                                 @endif
                             </td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>
@@ -122,4 +146,48 @@
         </div>
     </div>
 </div>
+<!-- Modal para mostrar observaciones completas -->
+<div class="modal fade" id="observacionModal" tabindex="-1" aria-labelledby="observacionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="observacionModalLabel">Observaciones</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="observacionModalBody">
+                <!-- contenido será insertado dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+        var obsButtons = document.querySelectorAll('.view-observacion');
+        obsButtons.forEach(function(btn){
+                btn.addEventListener('click', function(e){
+                        var targetId = btn.getAttribute('data-target-id');
+                        if (!targetId) return;
+                        var contentEl = document.getElementById(targetId);
+                        var modalBody = document.getElementById('observacionModalBody');
+                        if (contentEl && modalBody) {
+                                modalBody.innerHTML = contentEl.innerHTML;
+                                var modalEl = document.getElementById('observacionModal');
+                                if (typeof bootstrap !== 'undefined' && modalEl) {
+                                        var modal = new bootstrap.Modal(modalEl);
+                                        modal.show();
+                                } else {
+                                        // Fallback: mostrar elemento si no está disponible bootstrap JS
+                                        alert(contentEl.innerText || contentEl.textContent);
+                                }
+                        }
+                });
+        });
+});
+</script>
+@endpush
 @endsection
