@@ -84,6 +84,8 @@
             @endif
         </datalist>
         <input type="hidden" name="usuario_id" id="usuario_id_hidden">
+        {{-- JSON de estudiantes para JS (evita inyectar Blade directo en código JS) --}}
+        <script type="application/json" id="student-data">{!! json_encode($studentArray ?? []) !!}</script>
         <div id="student_info" class="mt-2 text-muted"></div>
         <small class="form-text text-muted">Selecciona un estudiante de la lista. Si no se selecciona, el formulario no enviará el id.</small>
     </div>
@@ -92,8 +94,9 @@
 <script>
     (function(){
     // Mapa nombre -> id para asignar el usuario_id al seleccionar
-    // Usamos base64 para evitar que el editor/lingüeta JS interprete mal sintaxis Blade/JSON
-    const studentList = JSON.parse(atob('{{ base64_encode(json_encode($studentArray ?? [])) }}'));
+    // Cargamos los datos desde el elemento JSON insertado en el DOM
+    const studentDataEl = document.getElementById('student-data');
+    const studentList = studentDataEl ? JSON.parse(studentDataEl.textContent || '[]') : [];
 
         const input = document.getElementById('buscador_estudiante_registrar');
         const hidden = document.getElementById('usuario_id_hidden');
@@ -276,8 +279,9 @@
 @push('scripts')
 <script>
     (function(){
-        // tipos list para JS: id y nombre
-        const tiposList = @json($tiposForJs);
+        // tipos list para JS: id y nombre (cargado desde JSON en DOM)
+        const tiposDataEl = document.getElementById('tipos-data');
+        const tiposList = tiposDataEl ? JSON.parse(tiposDataEl.textContent || '[]') : [];
         const tipoSelect = document.getElementById('tipo_id');
         const suspensionEl = document.getElementById('suspension_fields');
         const monetaryEl = document.getElementById('monetary_fields');
@@ -373,3 +377,6 @@
     })();
 </script>
 @endpush
+
+{{-- Datos JSON para scripts (tipos) --}}
+<script type="application/json" id="tipos-data">{!! json_encode($tiposForJs ?? []) !!}</script>

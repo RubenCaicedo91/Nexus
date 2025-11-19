@@ -146,6 +146,25 @@
             </div>
         </div>
     </div>
+    
+    {{-- Tarjeta: Asistencias --}}
+    <div class="col-md-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="text-teal mb-3" style="color: #0d6efd;">
+                    <i class="fas fa-calendar-check fa-2x"></i>
+                </div>
+                <h5 class="card-title mb-3">Asistencias</h5>
+                @if($canManageAcademica)
+                    <a href="{{ route('asistencias.index') }}" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-calendar-check me-2"></i>Ir a Asistencias
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled>Asistencias (sin permiso)</button>
+                @endif
+            </div>
+        </div>
+    </div>
         </div> <!-- .row -->
 
         <!-- Modal: Asignar Docentes -->

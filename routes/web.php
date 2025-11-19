@@ -239,6 +239,21 @@ Route::middleware(['auth'])->group(function () {
     Route::put('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'actualizarCurso'])->name('actualizarCurso');
     Route::delete('gestion-academica/cursos/{id}', [GestionAcademicaController::class, 'eliminarCurso'])->name('eliminarCurso');
 
+    // Rutas para Asistencias (módulo de gestión académica)
+    Route::prefix('gestion-academica/asistencias')->name('asistencias.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AsistenciaController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\AsistenciaController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\AsistenciaController::class, 'store'])->name('store');
+        Route::get('/export', [\App\Http\Controllers\AsistenciaController::class, 'export'])->name('export');
+            // Export single asistencia
+        Route::get('/{id}/export', [\App\Http\Controllers\AsistenciaController::class, 'exportSingle'])->name('export_single');
+            // Removed edit and update routes
+        Route::delete('/{id}', [\App\Http\Controllers\AsistenciaController::class, 'destroy'])->name('destroy');
+        Route::get('/curso/{cursoId}/registro', [\App\Http\Controllers\AsistenciaController::class, 'registroPorCurso'])->name('curso.registro');
+        Route::get('/curso/{cursoId}/partial', [\App\Http\Controllers\AsistenciaController::class, 'partialRegistro'])->name('curso.partial');
+        Route::post('/curso/{cursoId}/registrar', [\App\Http\Controllers\AsistenciaController::class, 'storeMultiple'])->name('curso.registrar');
+    });
+
     // Rutas para materias (asignar/modificar docentes)
     Route::get('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'index'])->name('cursos.materias');
     Route::post('gestion-academica/cursos/{id}/materias', [MateriaController::class, 'store'])->name('cursos.materias.store');
