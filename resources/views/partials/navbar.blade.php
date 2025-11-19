@@ -19,11 +19,7 @@
                                     <i class="fas fa-user-cog me-1"></i>Perfil
                                 </a>
                             </li>
-                            <li>
-                                <a class="dropdown-item" href="#">
-                                    <i class="fas fa-cog me-1"></i>Configuración
-                                </a>
-                            </li>
+                            <!-- Botón "Configuración" eliminado según solicitud del usuario -->
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item" href="{{ route('logout') }}" 

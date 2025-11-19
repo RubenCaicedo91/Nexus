@@ -81,7 +81,12 @@
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuConfig">
-                
+                @auth
+                    <a class="nav-link" href="{{ route('perfil') }}">
+                        <i class="fas fa-user me-2"></i>Perfil
+                    </a>
+                @endauth
+
                 @if(auth()->check() && (
                     auth()->user()->hasPermission('gestionar_usuarios') ||
                     (optional(auth()->user()->role)->nombre && (
@@ -95,6 +100,7 @@
                 @else
                     <a class="nav-link text-muted" href="#">Usuarios</a>
                 @endif
+
                 @if(auth()->check() && (
                     auth()->user()->hasPermission('ver_roles') ||
                     (optional(auth()->user()->role)->nombre && (

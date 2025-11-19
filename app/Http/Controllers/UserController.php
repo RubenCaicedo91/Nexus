@@ -27,11 +27,40 @@ class UserController extends Controller
         abort(403, 'Acceso no autorizado');
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeManager();
-        $users = User::with('role')->orderBy('name')->paginate(25);
-        return view('usuarios.index', compact('users'));
+
+        $query = User::with('role');
+
+        // Filtro por nombre (busca en name, first_name y first_last)
+        $name = trim($request->get('name', ''));
+        if ($name !== '') {
+            $query->where(function($q) use ($name) {
+                $q->where('name', 'like', "%{$name}%")
+                  ->orWhere('first_name', 'like', "%{$name}%")
+                  ->orWhere('first_last', 'like', "%{$name}%");
+            });
+        }
+
+        // Filtro por email
+        $email = trim($request->get('email', ''));
+        if ($email !== '') {
+            $query->where('email', 'like', "%{$email}%");
+        }
+
+        // Filtro por rol (roles_id)
+        $role = $request->get('role');
+        if (!is_null($role) && $role !== '') {
+            $query->where('roles_id', $role);
+        }
+
+        $users = $query->orderBy('name')->paginate(25)->appends($request->except('page'));
+
+        // Pasar lista de roles para el select de filtros
+        $roles = RolesModel::orderBy('nombre')->get();
+
+        return view('usuarios.index', compact('users', 'roles'));
     }
 
     public function create()
