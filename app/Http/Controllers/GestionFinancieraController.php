@@ -53,6 +53,34 @@ class GestionFinancieraController extends Controller
                 abort(403, 'Acceso no autorizado');
             }
 
+            // Detectar rol 'acudiente' y restringir acceso: sólo permitir acciones de Estado de Cuenta
+            $isAcudiente = false;
+            if ($normalized !== '' && mb_stripos($normalized, 'acudient') !== false) {
+                $isAcudiente = true;
+            }
+
+            if ($isAcudiente) {
+                // Rutas permitidas para acudiente: buscar estado de cuenta y ver estado de cuenta
+                $allowedRouteNames = [
+                    'financiera.estadoCuenta',
+                    'financiera.estadoCuenta.search',
+                    // permitir acceder al índice pero redirigir al buscador desde el índice
+                    'financiera.index',
+                ];
+
+                $route = $request->route();
+                $routeName = $route ? $route->getName() : null;
+
+                if ($routeName === 'financiera.index') {
+                    // Redirigir índice a búsqueda de estado de cuenta con notificación
+                    return redirect()->route('financiera.estadoCuenta.search')->with('info', 'Acceso limitado: solo Estado de Cuenta');
+                }
+
+                if (! in_array($routeName, $allowedRouteNames)) {
+                    abort(403, 'Acceso no autorizado');
+                }
+            }
+
             return $next($request);
         });
     }
@@ -380,7 +408,26 @@ class GestionFinancieraController extends Controller
             return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched', 'isCoordinator'));
         }
 
+        // Detectar si el usuario es 'acudiente'
+        $isAcudiente = $authUser && optional($authUser->role)->nombre && mb_stripos(optional($authUser->role)->nombre, 'acudient') !== false;
+
         $estudiante = User::find($id);
+
+        // Si es acudiente, solamente puede consultar estudiantes que tengan su id como acudiente_id
+        if ($isAcudiente) {
+            if (! $estudiante || ((int)($estudiante->acudiente_id ?? 0) !== (int)$authUser->id && (int)$estudiante->id !== (int)$authUser->id)) {
+                session()->flash('error', 'No tienes permiso para ver el estado de cuenta de este estudiante.');
+                $estudiante = null;
+                $pagos = collect();
+                $matricula = null;
+                $montoPagado = 0;
+                $faltante = null;
+                $documento = null;
+                $searched = false;
+                $isCoordinator = $this->isCoordinadorAcademico();
+                return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched', 'isCoordinator'));
+            }
+        }
         $pagos = Pago::where('estudiante_id', $id)->get();
 
         $institucion = Institucion::first();
@@ -413,6 +460,8 @@ class GestionFinancieraController extends Controller
         // Si el usuario autenticado es Estudiante, sólo puede buscar su propio documento/estado
         $authUser = Auth::user();
         $isEstudiante = $authUser && optional($authUser->role)->nombre && mb_stripos(optional($authUser->role)->nombre, 'estudiante') !== false;
+        // Detectar si es acudiente
+        $isAcudiente = $authUser && optional($authUser->role)->nombre && mb_stripos(optional($authUser->role)->nombre, 'acudient') !== false;
 
         if ($isEstudiante) {
             // Si no envía documento, asumimos que quiere ver su propio estado
@@ -463,6 +512,21 @@ class GestionFinancieraController extends Controller
                     $matricula = Matricula::where('user_id', $estudiante->id)->orderByDesc('fecha_matricula')->first();
                     $faltante = max(0, floatval($valorMatricula) - $montoPagado);
                 }
+            }
+        }
+
+        // Si el usuario es acudiente, garantizar que el estudiante (si existe) esté asociado a él
+        if ($isAcudiente && isset($estudiante) && $estudiante) {
+            if ((int)($estudiante->acudiente_id ?? 0) !== (int)$authUser->id && (int)$estudiante->id !== (int)$authUser->id) {
+                session()->flash('error', 'No tienes permiso para consultar el estado de cuenta de este estudiante.');
+                $estudiante = null;
+                $pagos = collect();
+                $matricula = null;
+                $montoPagado = 0;
+                $faltante = null;
+                $searched = false;
+                $isCoordinator = $this->isCoordinadorAcademico();
+                return view('financiera.estado_cuenta', compact('pagos', 'estudiante', 'matricula', 'montoPagado', 'faltante', 'valorMatricula', 'documento', 'searched', 'isCoordinator'));
             }
         }
 

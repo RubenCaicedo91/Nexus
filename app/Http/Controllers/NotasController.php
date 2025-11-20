@@ -8,6 +8,7 @@ use App\Models\Matricula;
 use App\Models\Materia;
 use App\Models\Curso;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -104,80 +105,203 @@ class NotasController extends Controller
             }
         }
 
+        // Si el usuario es Acudiente, cargar lista de estudiantes asociados.
+        $acudienteStudents = collect();
+        $selectedEstudianteId = null;
+        if ($currentUser && stripos($currentRole, 'acudiente') !== false) {
+            $acudienteStudents = User::where('acudiente_id', $currentUser->id)->orderBy('name')->get();
+            $selectedEstudianteId = $request->input('estudiante_id', null);
+
+            // Si se seleccionó estudiante y no se envió curso_id, auto-popular curso según su matrícula activa
+            if ($selectedEstudianteId && ! $request->filled('curso_id')) {
+                $lastMatEst = Matricula::where('user_id', $selectedEstudianteId)
+                    ->where('estado', 'activo')
+                    ->orderByDesc('id')
+                    ->first();
+                if ($lastMatEst) {
+                    $request->merge(['curso_id' => $lastMatEst->curso_id]);
+                }
+            }
+        }
+
+        // Crear un mapa estudiante_id => curso_id (última matrícula activa) para uso en JS
+        $estudianteCursoMap = [];
+        if ($acudienteStudents->count() > 0) {
+            foreach ($acudienteStudents as $stu) {
+                $cursoId = Matricula::where('user_id', $stu->id)
+                    ->where('estado', 'activo')
+                    ->orderByDesc('id')
+                    ->value('curso_id');
+                $estudianteCursoMap[$stu->id] = $cursoId;
+            }
+        }
+
+        // Validaciones estrictas: si el usuario es Acudiente y seleccionó un estudiante,
+        // verificar que ese estudiante realmente le pertenezca. Si no, no mostrar nada.
+        $isAcudiente = ($currentUser && stripos($currentRole, 'acudiente') !== false);
+        if ($isAcudiente && $selectedEstudianteId) {
+            $allowedIds = $acudienteStudents->pluck('id')->all();
+            if (! in_array($selectedEstudianteId, $allowedIds)) {
+                // Búsqueda inválida: devolver la vista sin resultados
+                $notas = null;
+                $showResults = false;
+                return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId', 'acudienteStudents', 'selectedEstudianteId', 'estudianteCursoMap'));
+            }
+
+            // Además validar que el curso seleccionado (si llega) coincida con la matrícula del estudiante
+            $lastMatEst = Matricula::where('user_id', $selectedEstudianteId)
+                ->where('estado', 'activo')
+                ->orderByDesc('id')
+                ->first();
+            if ($lastMatEst && $request->filled('curso_id') && $request->curso_id != $lastMatEst->curso_id) {
+                // Inconsistencia: el curso seleccionado no pertenece al estudiante -> no mostrar
+                $notas = null;
+                $showResults = false;
+                return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId', 'acudienteStudents', 'selectedEstudianteId', 'estudianteCursoMap'));
+            }
+        }
+
         // Cargar materias filtradas por curso (si está presente en la request)
         if ($request->filled('curso_id')) {
-            $materias = DB::table('materias')->where('curso_id', $request->curso_id)->orderBy('nombre')->get();
+            // Usar la tabla pivote `curso_materia` para soportar materias asignadas a varios cursos
+            $materias = DB::table('materias')
+                ->join('curso_materia', 'materias.id', '=', 'curso_materia.materia_id')
+                ->where('curso_materia.curso_id', $request->curso_id)
+                ->orderBy('materias.nombre')
+                ->select('materias.*')
+                ->get();
         } else {
             $materias = DB::table('materias')->orderBy('nombre')->get();
         }
 
-        if ($request->filled('curso_id') && $request->filled('materia_id')) {
+        // Mostrar resultados cuando se tenga curso + materia, o cuando el acudiente haya seleccionado
+        // un estudiante (en cuyo caso el controlador previamente habrá auto-populado curso_id).
+        $isAcudiente = ($currentUser && stripos($currentRole, 'acudiente') !== false);
+        if ($request->filled('curso_id') && ($request->filled('materia_id') || ($isAcudiente && $selectedEstudianteId))) {
             $showResults = true;
-            session()->put('notas_last_search', ['curso_id' => $request->curso_id, 'materia_id' => $request->materia_id]);
+            // Guardar última búsqueda; si no hay materia_id, guardamos null para mantener inputs
+            session()->put('notas_last_search', ['curso_id' => $request->curso_id, 'materia_id' => $request->input('materia_id', null)]);
             $lastSearch = session('notas_last_search');
 
             $cursoId = $request->curso_id;
-            $materiaId = $request->materia_id;
+            $materiaId = $request->input('materia_id', null);
 
-            $matriculaQuery = Matricula::with('user')
-                ->where('curso_id', $cursoId)
-                ->where('estado', 'activo');
-
-            // Si el usuario es Estudiante, sólo devolver sus propias matrículas
+            // Si el usuario es Acudiente y no hay materia seleccionada, construir la lista
+            // a partir de los estudiantes asociados (incluir estudiantes sin matrícula activa)
             $currentUser = Auth::user();
             $currentRole = optional($currentUser->role)->nombre ?? '';
-            if ($currentUser && stripos($currentRole, 'estudiante') !== false) {
-                $matriculaQuery->where('user_id', $currentUser->id);
-            }
 
-            $matriculas = $matriculaQuery->get()
-                ->sortBy(function($m){ return optional($m->user)->name; })
-                ->values();
+            if ($currentUser && stripos($currentRole, 'acudiente') !== false && ! $materiaId) {
+                $items = collect();
+                $matriculasGrouped = collect();
 
-            $matriculasGrouped = $matriculas->groupBy(function($m){
-                return optional($m->user)->id ?? $m->id;
-            });
+                foreach ($acudienteStudents as $stu) {
+                    $lastMat = Matricula::where('user_id', $stu->id)
+                        ->where('estado', 'activo')
+                        ->orderByDesc('id')
+                        ->first();
 
-            $matriculas = $matriculasGrouped->map(function($group){
-                return $group->sortByDesc('id')->first();
-            })->values();
+                    $rep = $lastMat ?: null;
 
-            $items = collect();
-            foreach ($matriculasGrouped as $userId => $group) {
-                $matIds = $group->pluck('id')->all();
-
-                $notasAlumno = Nota::with('actividades')
-                    ->whereIn('matricula_id', $matIds)
-                    ->where('materia_id', $materiaId)
-                    ->get();
-
-                $representativeMat = $group->sortByDesc('id')->first();
-
-                $item = new \stdClass();
-                $item->matricula = $representativeMat;
-                $item->materia = DB::table('materias')->where('id', $materiaId)->first();
-                $item->nota = null;
-
-                if ($notasAlumno->count() > 0) {
-                    $califs = $notasAlumno->map(function($n){
-                        if ($n->actividades && $n->actividades->count() > 0) {
-                            return round($n->actividades->avg('valor'), 2);
-                        }
-                        $v = floatval($n->valor);
-                        if ($v <= 5.0) return round($v, 2);
-                        return round(($v / 100.0) * 5.0, 2);
-                    });
-
-                    $avg = round($califs->avg(), 2);
-                    $item->calificacion = $avg;
-                    $item->aprobada_calc = ($avg >= 3.0);
-                    $item->nota = $notasAlumno->sortByDesc('id')->first();
-                } else {
+                    $item = new \stdClass();
+                    if ($rep) {
+                        $item->matricula = $rep;
+                    } else {
+                        // construir un objeto mínimo para que la vista pueda mostrar el nombre
+                        $fakeMat = new \stdClass();
+                        $fakeMat->id = null;
+                        $fakeMat->user = $stu;
+                        $fakeMat->curso_id = null;
+                        $item->matricula = $fakeMat;
+                    }
+                    $item->materia = null;
+                    $item->nota = null;
                     $item->calificacion = null;
                     $item->aprobada_calc = false;
+
+                    $items->push($item);
+
+                    // Para conteo de notas, agrupar por user id
+                    $matriculasGrouped[$stu->id] = collect();
+                    if ($rep && $rep->id) $matriculasGrouped[$stu->id]->push($rep);
+                }
+            } else {
+                $matriculaQuery = Matricula::with('user')
+                    ->where('curso_id', $cursoId)
+                    ->where('estado', 'activo');
+
+                // Si el usuario es Estudiante, sólo devolver sus propias matrículas
+                if ($currentUser && stripos($currentRole, 'estudiante') !== false) {
+                    $matriculaQuery->where('user_id', $currentUser->id);
                 }
 
-                $items->push($item);
+                // Si el usuario es Acudiente, limitar a los estudiantes asociados
+                if ($currentUser && stripos($currentRole, 'acudiente') !== false) {
+                    $allowedIds = $acudienteStudents->pluck('id')->all();
+                    if (empty($allowedIds)) {
+                        // Forzar consulta vacía si no tiene estudiantes
+                        $matriculaQuery->whereRaw('1 = 0');
+                    } else {
+                        $matriculaQuery->whereIn('user_id', $allowedIds);
+                    }
+                }
+
+                $matriculas = $matriculaQuery->get()
+                    ->sortBy(function($m){ return optional($m->user)->name; })
+                    ->values();
+
+                $matriculasGrouped = $matriculas->groupBy(function($m){
+                    return optional($m->user)->id ?? $m->id;
+                });
+
+                $matriculas = $matriculasGrouped->map(function($group){
+                    return $group->sortByDesc('id')->first();
+                })->values();
+
+                $items = collect();
+
+                // Si hay materia seleccionada, calcular calificaciones como antes; si no, mostrar lista básica
+                foreach ($matriculasGrouped as $userId => $group) {
+                    $matIds = $group->pluck('id')->all();
+                    $representativeMat = $group->sortByDesc('id')->first();
+
+                    $item = new \stdClass();
+                    $item->matricula = $representativeMat;
+                    $item->materia = $materiaId ? DB::table('materias')->where('id', $materiaId)->first() : null;
+                    $item->nota = null;
+
+                    if ($materiaId) {
+                        $notasAlumno = Nota::with('actividades')
+                            ->whereIn('matricula_id', $matIds)
+                            ->where('materia_id', $materiaId)
+                            ->get();
+
+                        if ($notasAlumno->count() > 0) {
+                            $califs = $notasAlumno->map(function($n){
+                                if ($n->actividades && $n->actividades->count() > 0) {
+                                    return round($n->actividades->avg('valor'), 2);
+                                }
+                                $v = floatval($n->valor);
+                                if ($v <= 5.0) return round($v, 2);
+                                return round(($v / 100.0) * 5.0, 2);
+                            });
+
+                            $avg = round($califs->avg(), 2);
+                            $item->calificacion = $avg;
+                            $item->aprobada_calc = ($avg >= 3.0);
+                            $item->nota = $notasAlumno->sortByDesc('id')->first();
+                        } else {
+                            $item->calificacion = null;
+                            $item->aprobada_calc = false;
+                        }
+                    } else {
+                        // Sin materia seleccionada, dejamos calificación vacía; el enlace "Notas" llevará a la vista por matrícula
+                        $item->calificacion = null;
+                        $item->aprobada_calc = false;
+                    }
+
+                    $items->push($item);
+                }
             }
 
             $perPage = 25;
@@ -190,16 +314,20 @@ class NotasController extends Controller
 
             foreach ($matriculasGrouped as $userId => $group) {
                 $matIds = $group->pluck('id')->all();
-                $count = Nota::whereIn('matricula_id', $matIds)
-                            ->where('materia_id', $materiaId)
-                            ->count();
+                if ($materiaId) {
+                    $count = Nota::whereIn('matricula_id', $matIds)
+                                ->where('materia_id', $materiaId)
+                                ->count();
+                } else {
+                    $count = Nota::whereIn('matricula_id', $matIds)->count();
+                }
                 $repMat = $group->sortByDesc('id')->first();
                 if ($repMat) {
                     $notaCounts[$userId] = $count;
                 }
             }
 
-            return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId'));
+            return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId', 'acudienteStudents', 'selectedEstudianteId', 'estudianteCursoMap'));
         }
 
         // No hay filtros en request: rellenar inputs con última búsqueda si existe, pero no mostrar resultados
@@ -208,7 +336,7 @@ class NotasController extends Controller
         }
 
         $notas = null;
-        return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId'));
+        return view('notas.index', compact('notas', 'cursos', 'materias', 'notaCounts', 'showResults', 'lastSearch', 'studentCourseFixed', 'studentCourseId', 'acudienteStudents', 'selectedEstudianteId', 'estudianteCursoMap'));
     }
 
     // Mostrar formulario para crear notas (soporta matricula_id o curso_id+materia_id)
@@ -264,6 +392,19 @@ class NotasController extends Controller
                 ->get();
         }
 
+        // Log debug info to help diagnose why only some users appear
+        try {
+            Log::info('notas.create.debug', [
+                'user_id' => optional($user)->id,
+                'role' => $roleName,
+                'curso_id' => $request->curso_id ?? null,
+                'materia_id' => $selectedMateriaId ?? null,
+                'matriculas_count' => is_countable($matriculas) ? count($matriculas) : (is_object($matriculas) && method_exists($matriculas, 'count') ? $matriculas->count() : null)
+            ]);
+        } catch (\Throwable $e) {
+            // no bloquear la vista por fallos en logging
+        }
+
         return view('notas.create', compact('cursos', 'materias', 'matriculas', 'selectedMateriaId', 'selectedAnio'));
     }
 
@@ -289,6 +430,19 @@ class NotasController extends Controller
             'notas.*.matricula_id' => 'required|exists:matriculas,id',
             'notas.*.valor' => 'required|numeric|min:0|max:100'
         ]);
+
+        // Log incoming notas payload for debugging
+        try {
+            $rows = $request->input('notas', []);
+            Log::info('notas.store.debug', [
+                'user_id' => optional($user)->id,
+                'role' => $roleName,
+                'materia_id' => $request->materia_id ?? null,
+                'notas_count' => is_array($rows) ? count($rows) : null
+            ]);
+        } catch (\Throwable $e) {
+            // ignore logging errors
+        }
 
         $guardar = 0;
         $lastMatriculaId = null;
@@ -414,9 +568,12 @@ class NotasController extends Controller
         // Si se solicitó materia_id y el usuario puede filtrar, validar que la materia pertenezca al curso de la matrícula
         if ($request->filled('materia_id') && $canFilter) {
             $materiaId = $request->materia_id;
-            $materiaCursoId = DB::table('materias')->where('id', $materiaId)->value('curso_id');
-            // comparar con el curso de la matrícula; si no coincide, devolver vacío (no mostrar notas de otra materia)
-            if ($materiaCursoId && $materiaCursoId == $matricula->curso_id) {
+            // Validar que la materia pertenezca al curso de la matrícula usando la tabla pivote
+            $exists = DB::table('curso_materia')
+                ->where('materia_id', $materiaId)
+                ->where('curso_id', $matricula->curso_id)
+                ->exists();
+            if ($exists) {
                 $notasQuery->where('materia_id', $materiaId);
             } else {
                 // Forzar consulta vacía

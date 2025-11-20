@@ -5,12 +5,35 @@
     <h1 class="h4">Horarios</h1>
     <p class="text-muted">Página de ejemplo para gestionar horarios.</p>
 
+    @if(isset($isAcudiente) && $isAcudiente)
+        <div class="alert alert-info">
+            Estás viendo los horarios de los estudiantes asignados a tu cuenta. Selecciona un estudiante para ver su horario específico.
+        </div>
+        <form method="GET" class="mb-3 row g-2 align-items-end">
+            <div class="col-md-8">
+                <label class="form-label">Estudiante</label>
+                <select name="student_id" class="form-select">
+                    <option value="">-- Selecciona un estudiante --</option>
+                    @if(isset($students))
+                        @foreach($students as $s)
+                            <option value="{{ $s->id }}" @if(request()->query('student_id') == $s->id) selected @endif>{{ $s->name }} ({{ $s->email ?? '' }})</option>
+                        @endforeach
+                    @endif
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-primary">Buscar horario</button>
+                <a href="{{ route('gestion.horarios') }}" class="btn btn-secondary ms-2">Limpiar</a>
+            </div>
+        </form>
+    @endif
+
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
     {{-- Formulario para crear horario --}}
-    @unless((isset($isDocente) && $isDocente) || (isset($isEstudiante) && $isEstudiante))
+    @unless((isset($isDocente) && $isDocente) || (isset($isEstudiante) && $isEstudiante) || (isset($isAcudiente) && $isAcudiente))
     <div class="card mb-4">
         <div class="card-body">
             <h5 class="card-title">Crear nuevo horario</h5>
@@ -146,7 +169,7 @@
                             <td>{{ $horario->hora_inicio ?? ($horario->hora) }}</td>
                             <td>{{ $horario->hora_fin ?? '' }}</td>
                             <td>
-                                @unless((isset($isDocente) && $isDocente) || (isset($isEstudiante) && $isEstudiante))
+                                @unless((isset($isDocente) && $isDocente) || (isset($isEstudiante) && $isEstudiante) || (isset($isAcudiente) && $isAcudiente))
                                     <a href="{{ route('horarios.editar', $horario->id) }}" class="btn btn-sm btn-warning">✏️ Editar</a>
 
                                     <form action="{{ route('horarios.eliminar', $horario->id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás segura de eliminar este horario?')">

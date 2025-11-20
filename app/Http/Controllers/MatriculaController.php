@@ -22,7 +22,7 @@ class MatriculaController extends Controller
         $this->middleware('auth');
 
         $this->middleware(function ($request, $next) {
-            $user = auth()->user();
+            $user = Auth::user();
             if (! $user) {
                 abort(403, 'Acceso no autorizado');
             }
@@ -46,6 +46,11 @@ class MatriculaController extends Controller
                 return $next($request);
             }
 
+            // Permitir a los Acudientes ver el módulo de Matrículas (solo visualización)
+            if ($roleName && stripos($roleName, 'acudiente') !== false) {
+                return $next($request);
+            }
+
             abort(403, 'Acceso no autorizado');
         });
     }
@@ -55,7 +60,20 @@ class MatriculaController extends Controller
     public function index()
     {
         // Usar paginación por defecto para la lista (mejor experiencia y compatibilidad con ->links())
-        $matriculas = Matricula::with('user')->orderBy('created_at', 'desc')->paginate(10);
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            // Mostrar solo matrículas de los estudiantes asociados a este acudiente
+            $matriculas = Matricula::with('user')
+                ->whereHas('user', function($q) use ($user){
+                    $q->where('acudiente_id', $user->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+        } else {
+            $matriculas = Matricula::with('user')->orderBy('created_at', 'desc')->paginate(10);
+        }
         return view('matriculas.index', compact('matriculas'));
     }
 
@@ -612,21 +630,23 @@ class MatriculaController extends Controller
         $request->validate($rules);
 
         // Validación adicional para UPDATE: si el tipo de usuario es 'antiguo'
-        // y no existe certificado_notas en la DB y no se está subiendo uno nuevo,
-        // devolver error para forzar la carga del certificado.
-        if ($request->isMethod('post') === false) {
-            $tipo = $request->input('tipo_usuario');
-            if ($tipo === 'antiguo') {
-                $willDelete = $request->has('delete_certificado_notas');
-                $hasExisting = !empty($matricula->certificado_notas);
-                $isUploading = $request->hasFile('certificado_notas');
+        // y no existe `certificado_notas` en la matrícula ni se está subiendo
+        // uno nuevo, devolver error para forzar la carga del certificado.
+        $tipo = $request->input('tipo_usuario');
+        if ($tipo === 'antiguo') {
+            $willDelete = $request->has('delete_certificado_notas');
+            $hasExisting = !empty($matricula->certificado_notas);
+            $isUploading = $request->hasFile('certificado_notas');
 
-                if (($willDelete && !$isUploading) || (!$hasExisting && !$isUploading)) {
-                    return back()->withErrors(['certificado_notas' => 'El certificado de notas es obligatorio para usuarios antiguos.'])
-                                 ->withInput();
-                }
+            if (($willDelete && !$isUploading) || (!$hasExisting && !$isUploading)) {
+                return back()->withErrors(['certificado_notas' => 'El certificado de notas es obligatorio para usuarios antiguos.'])
+                             ->withInput();
             }
         }
+
+        // Nota: la validación para UPDATE fue removida de `store()` porque
+        // referenciaba `$matricula` (no existe en este contexto). Se aplica
+        // la comprobación correspondiente en `update()`.
 
         $userId = (int) $request->user_id;
         $tipo_usuario = $request->input('tipo_usuario');
@@ -721,6 +741,16 @@ class MatriculaController extends Controller
      */
     public function show(Matricula $matricula)
     {
+        // Si el usuario es Acudiente, sólo permitir ver la matrícula de sus propios estudiantes
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            $student = $matricula->user;
+            if (! $student || ($student->acudiente_id ?? null) != $user->id) {
+                abort(403, 'Acceso no autorizado');
+            }
+        }
+
         return view('matriculas.show', compact('matricula'));
     }
 
@@ -986,6 +1016,16 @@ class MatriculaController extends Controller
         }
 
         // 2. Obtener la ruta desde la base de datos
+        // Si el usuario es Acudiente, sólo permitir descargar archivos de sus estudiantes
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            $student = $matricula->user;
+            if (! $student || ($student->acudiente_id ?? null) != $user->id) {
+                abort(403, 'Acceso no autorizado');
+            }
+        }
+
         $path = $matricula->$campo;
         if (!$path) {
             Log::warning('Matricula archivo(): ruta vacía en BD', ['campo' => $campo, 'matricula_id' => $matricula->id]);
@@ -1083,6 +1123,14 @@ class MatriculaController extends Controller
             $expected = basename($matricula->comprobante_pago ?? '');
             if ($basename !== $expected) {
                 abort(403, 'Acceso no autorizado al comprobante solicitado');
+            }
+        }
+
+        // Si el usuario es Acudiente, sólo permitir ver comprobantes de sus estudiantes
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            $student = $matricula->user;
+            if (! $student || ($student->acudiente_id ?? null) != $user->id) {
+                abort(403, 'Acceso no autorizado');
             }
         }
 

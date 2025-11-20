@@ -5,8 +5,21 @@
 @section('content')
 @php
     $canRegister = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_pagos');
+    $roleNombre = optional(Auth::user())->role->nombre ?? '';
+    $isAcudiente = Auth::check() && $roleNombre && stripos($roleNombre, 'acudient') !== false;
+    // también normalizar variantes con tildes/espacios si necesario
+    if (! $isAcudiente && Auth::check() && $roleNombre) {
+        $rn = mb_strtolower($roleNombre);
+        $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+        if (mb_stripos($rn, 'acudient') !== false) {
+            $isAcudiente = true;
+        }
+    }
 @endphp
 <div class="container">
+    @if(session('info'))
+        <div class="alert alert-info">{{ session('info') }}</div>
+    @endif
 
     @if(!empty($isCoordinator) && $isCoordinator)
         <div class="alert alert-warning mt-2">Como <strong>Coordinador Académico</strong> sólo puedes <strong>consultar el Estado de Cuenta</strong>. No puedes registrar pagos, actualizar el valor de matrícula ni generar reportes financieros desde este perfil.</div>
@@ -21,6 +34,7 @@
 
     <div class="row g-3">
 
+        @if(! $isAcudiente)
         <!-- Registrar Pago -->
         <div class="col-md-4">
             <div class="card border-primary h-100 shadow-lg">
@@ -37,6 +51,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         <!-- Estado de Cuenta -->
         <div class="col-md-4">
@@ -60,6 +75,7 @@
             </div>
         </div>
 
+        @if(! $isAcudiente)
         <!-- Reporte Financiero -->
         <div class="col-md-4">
             <div class="card border-success h-100 shadow-lg">
@@ -93,6 +109,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
     </div>
 </div>

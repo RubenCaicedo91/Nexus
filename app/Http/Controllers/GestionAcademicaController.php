@@ -101,6 +101,12 @@ class GestionAcademicaController extends Controller
         return redirect()->route('cursos.panel')->with('success', 'Curso creado correctamente.');
     }
 
+    /**
+     * Crear curso vía AJAX y devolver JSON con el modelo creado.
+     * Uso: formularios (materias) que necesitan agregar un curso sin recargar la página.
+     */
+    // ajaxCrearCurso fue removido: la creación rápida vía AJAX se ha deshabilitado.
+
     public function listarCursos()
     {
         $cursos = Curso::all();
@@ -177,8 +183,13 @@ class GestionAcademicaController extends Controller
         $user = Auth::user();
         $isDocente = false;
         $isEstudiante = false;
+        $isAcudiente = false;
         $studentCourseId = null;
         $studentCourseNombre = null;
+        // Variables para la vista cuando el usuario sea Acudiente
+        $isAcudiente = $isAcudiente ?? false;
+        $students = collect();
+        $selectedStudentId = null;
 
         // Determinar rol primero
         if (Auth::check() && optional($user->role)->nombre) {
@@ -189,10 +200,13 @@ class GestionAcademicaController extends Controller
             if (mb_stripos($roleName, 'estudiante') !== false) {
                 $isEstudiante = true;
             }
+            if (mb_stripos($roleName, 'acudiente') !== false) {
+                $isAcudiente = true;
+            }
         }
 
-        // Autorizar sólo si no es docente ni estudiante
-        if (! $isDocente && ! $isEstudiante) {
+        // Autorizar sólo si no es docente, estudiante ni acudiente (acudiente puede ver horarios)
+        if (! $isDocente && ! $isEstudiante && ! $isAcudiente) {
             $this->authorizeAcademica();
         }
 
@@ -223,9 +237,48 @@ class GestionAcademicaController extends Controller
         // Cargar horarios según rol:
         // - Si es estudiante: limitar por su curso (como antes)
         // - Si es docente: por defecto ver sólo horarios de sus materias; si solicita "mostrar_todos", ver todo
+        // - Si es acudiente: sólo horarios de los cursos donde están matriculados sus estudiantes
         // - Otros usuarios: ver todos
         if ($isEstudiante && $studentCourseNombre) {
             $horarios = Horario::where('curso', $studentCourseNombre)->get();
+        } elseif ($isAcudiente) {
+            // Si es acudiente permitimos seleccionar un estudiante para consultar su horario
+            $students = User::where('acudiente_id', $user->id)->orderBy('name')->get();
+            $selectedStudentId = $request->query('student_id');
+            $selectedStudentCourseNombre = null;
+            if ($selectedStudentId && $students->pluck('id')->contains((int)$selectedStudentId)) {
+                try {
+                    $lastMat = \App\Models\Matricula::where('user_id', $selectedStudentId)->where('estado', 'activo')->orderByDesc('id')->first();
+                    if ($lastMat) {
+                        $selectedStudentCourseId = $lastMat->curso_id;
+                        $cursoModel = Curso::find($selectedStudentCourseId);
+                        $selectedStudentCourseNombre = $cursoModel ? $cursoModel->nombre : null;
+                    }
+                } catch (\Throwable $e) {
+                    logger()->warning('No se pudo determinar curso del estudiante seleccionado por acudiente: ' . $e->getMessage());
+                }
+            } else {
+                // Si no se seleccionó estudiante, intentar tomar el primero disponible
+                if ($students->count()) {
+                    $first = $students->first();
+                    try {
+                        $lastMat = \App\Models\Matricula::where('user_id', $first->id)->where('estado', 'activo')->orderByDesc('id')->first();
+                        if ($lastMat) {
+                            $selectedStudentId = $first->id;
+                            $selectedStudentCourseId = $lastMat->curso_id;
+                            $cursoModel = Curso::find($selectedStudentCourseId);
+                            $selectedStudentCourseNombre = $cursoModel ? $cursoModel->nombre : null;
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
+
+            if ($selectedStudentCourseNombre) {
+                $horarios = Horario::where('curso', $selectedStudentCourseNombre)->get();
+            } else {
+                $horarios = collect();
+            }
+        } elseif ($isDocente) {
         } elseif ($isDocente) {
             if ($mostrarTodos) {
                 $horarios = Horario::all();
@@ -244,6 +297,29 @@ class GestionAcademicaController extends Controller
                     $horarios = collect();
                 }
             }
+        } elseif ($isAcudiente) {
+            // Obtener los estudiantes asignados al acudiente (users.acudiente_id)
+            try {
+                $studentIds = User::where('acudiente_id', $user->id)->pluck('id')->toArray();
+                if (!empty($studentIds)) {
+                    $cursoIds = \App\Models\Matricula::whereIn('user_id', $studentIds)->pluck('curso_id')->unique()->toArray();
+                    if (!empty($cursoIds)) {
+                        $cursoNombres = Curso::whereIn('id', $cursoIds)->pluck('nombre')->toArray();
+                        if (!empty($cursoNombres)) {
+                            $horarios = Horario::whereIn('curso', $cursoNombres)->get();
+                        } else {
+                            $horarios = collect();
+                        }
+                    } else {
+                        $horarios = collect();
+                    }
+                } else {
+                    $horarios = collect();
+                }
+            } catch (\Throwable $e) {
+                logger()->warning('Error obteniendo cursos de estudiantes del acudiente: ' . $e->getMessage());
+                $horarios = collect();
+            }
         } else {
             $horarios = Horario::all();
         }
@@ -251,6 +327,27 @@ class GestionAcademicaController extends Controller
         try {
             if ($isEstudiante && $studentCourseId) {
                 $cursos = Curso::where('id', $studentCourseId)->get();
+            } elseif ($isAcudiente) {
+                // Si el acudiente tiene seleccionado un estudiante, limitar cursos a ese curso
+                    try {
+                    $studentIds = User::where('acudiente_id', $user->id)->pluck('id')->toArray();
+                    $selectedStudentId = $request->query('student_id');
+                    $selectedStudentCourseId = null;
+                    if ($selectedStudentId && in_array((int)$selectedStudentId, $studentIds)) {
+                        $lastMat = \App\Models\Matricula::where('user_id', $selectedStudentId)->where('estado', 'activo')->orderByDesc('id')->first();
+                        if ($lastMat) $selectedStudentCourseId = $lastMat->curso_id;
+                    } elseif (!empty($studentIds)) {
+                        $lastMat = \App\Models\Matricula::whereIn('user_id', $studentIds)->where('estado', 'activo')->orderByDesc('id')->first();
+                        if ($lastMat) $selectedStudentCourseId = $lastMat->curso_id;
+                    }
+                    if ($selectedStudentCourseId) {
+                        $cursos = Curso::where('id', $selectedStudentCourseId)->get();
+                    } else {
+                        $cursos = collect();
+                    }
+                } catch (\Throwable $e) {
+                    $cursos = collect();
+                }
             } elseif ($isDocente && ! $mostrarTodos) {
                 // Si es docente y no quiere ver todos, limitar cursos a aquellos ligados a sus materias
                 try {
@@ -348,7 +445,7 @@ class GestionAcademicaController extends Controller
             return $h;
         });
 
-        return view('gestion.horarios', compact('horarios', 'cursos', 'docentes', 'isDocente', 'isEstudiante', 'studentCourseId', 'studentCourseNombre', 'mostrarTodos'));
+        return view('gestion.horarios', compact('horarios', 'cursos', 'docentes', 'isDocente', 'isEstudiante', 'studentCourseId', 'studentCourseNombre', 'mostrarTodos', 'isAcudiente', 'students', 'selectedStudentId'));
     }
 
     // Endpoint JSON: devolver docentes asignados a un curso

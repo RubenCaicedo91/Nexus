@@ -5,12 +5,13 @@
 @section('content')
     @php
         $isEstudiante = isset($isEstudiante) ? $isEstudiante : (auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false);
+        $isAcudiente = isset($isAcudiente) ? $isAcudiente : (auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'acudiente') !== false);
     @endphp
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3>Asistencias</h3>
         <div>
-            @if(! $isEstudiante)
+            @if(! $isEstudiante && ! $isAcudiente)
                 <a href="{{ route('asistencias.create') }}" class="btn btn-primary">Registrar asistencia</a>
                 <a href="{{ route('asistencias.index') }}" class="btn btn-secondary">Actualizar</a>
             @endif
@@ -40,9 +41,9 @@
                 @endforeach
             </select>
         </div>
-        <div class="col-md-3">
+            <div class="col-md-3">
             <button class="btn btn-primary">Filtrar</button>
-            @if(! $isEstudiante)
+            @if(! $isEstudiante && ! $isAcudiente)
                 <a href="{{ route('asistencias.export', request()->query()) }}" class="btn btn-outline-success">Exportar</a>
             @endif
         </div>
@@ -122,7 +123,7 @@
                         @endif
                     </td>
                     <td class="text-end">
-                        @if(! $isEstudiante)
+                        @if(! $isEstudiante && ! $isAcudiente)
                             <a href="{{ route('asistencias.curso.registro', ['cursoId' => $a->curso_id, 'fecha' => $a->fecha->format('Y-m-d')]) }}" class="btn btn-sm btn-outline-info">Editar curso</a>
                             <a href="{{ route('asistencias.export_single', $a->id) }}" class="btn btn-sm btn-outline-success" target="_blank">Exportar</a>
                         @endif

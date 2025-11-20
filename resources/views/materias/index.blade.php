@@ -40,7 +40,7 @@
                                         <th>ID</th>
                                         <th>Nombre</th>
                                         <th>Descripción</th>
-                                        <th>Curso</th>
+                                            <th>Cursos</th>
                                         <th>Docente</th>
                                         <th>Fecha Creación</th>
                                         <th>Acciones</th>
@@ -57,9 +57,13 @@
                                                 {{ $materia->descripcion ? Str::limit($materia->descripcion, 50) : 'Sin descripción' }}
                                             </td>
                                             <td>
-                                                <span class="badge badge-info">
-                                                    {{ $materia->curso ? $materia->curso->nombre : 'Sin asignar' }}
-                                                </span>
+                                                @if($materia->cursos && $materia->cursos->count() > 0)
+                                                    @foreach($materia->cursos as $c)
+                                                        <span class="badge bg-info text-dark me-1">{{ $c->nombre }}</span>
+                                                    @endforeach
+                                                @else
+                                                    <span class="badge bg-secondary">Sin asignar</span>
+                                                @endif
                                             </td>
                                             <td>
                                                 @if($materia->docente)

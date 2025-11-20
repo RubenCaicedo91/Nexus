@@ -17,7 +17,7 @@ class MateriasController extends Controller
      */
     public function index()
     {
-        $materias = Materia::with(['curso', 'docente'])->orderBy('nombre')->paginate(10);
+        $materias = Materia::with(['cursos', 'docente'])->orderBy('nombre')->paginate(10);
         return view('materias.index', compact('materias'));
     }
 
@@ -32,7 +32,8 @@ class MateriasController extends Controller
         $rolDocente = RolesModel::where('nombre', 'Docente')->first();
         $docentes = User::where('roles_id', $rolDocente->id ?? 0)->orderBy('name')->get();
         
-        return view('materias.create', compact('cursos', 'docentes'));
+        $materias = Materia::orderBy('nombre')->get();
+        return view('materias.create', compact('cursos', 'docentes', 'materias'));
     }
 
     /**
@@ -41,20 +42,55 @@ class MateriasController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nombre' => 'required|string|max:255|unique:materias,nombre',
+            'nombre' => 'required|string|max:255',
             'descripcion' => 'nullable|string|max:1000',
-            'curso_id' => 'required|exists:cursos,id',
+            'cursos' => 'nullable|array',
+            'cursos.*' => 'exists:cursos,id',
+            'nuevo_curso' => 'nullable|string|max:255',
             'docente_id' => 'nullable|exists:users,id',
         ], [
             'nombre.required' => 'El nombre de la materia es obligatorio.',
-            'nombre.unique' => 'Ya existe una materia con este nombre.',
-            'curso_id.required' => 'Debe seleccionar un curso.',
-            'curso_id.exists' => 'El curso seleccionado no existe.',
+            //'nombre.unique' => 'Ya existe una materia con este nombre.',
+            'cursos.*.exists' => 'Alguno de los cursos seleccionados no existe.',
             'docente_id.exists' => 'El docente seleccionado no existe.',
         ]);
+        // Aceptamos dos vías: seleccionar cursos existentes (cursos[]) o crear uno nuevo (nuevo_curso).
+        $selected = $request->input('cursos', []) ?: [];
+        if (! is_array($selected)) $selected = [];
+
+        $nuevoCursoName = trim($request->input('nuevo_curso', ''));
+
+        if (empty($selected) && $nuevoCursoName === '') {
+            return back()->withErrors(['cursos' => 'Debe seleccionar al menos un curso o crear uno nuevo.'])->withInput();
+        }
+
+        // Si viene nuevo_curso, crear (o recuperar) y añadir su id al array
+        if ($nuevoCursoName !== '') {
+            $cursoModel = Curso::firstOrCreate(['nombre' => $nuevoCursoName], ['descripcion' => null]);
+            if ($cursoModel && $cursoModel->id) {
+                $selected[] = $cursoModel->id;
+            }
+        }
+
+        // Eliminar valores marcador como '__other__' si quedaron
+        $selected = array_values(array_filter($selected, function($v){ return $v !== '__other__' && $v !== null && $v !== ''; }));
 
         try {
-            Materia::create($request->all());
+            // Si ya existe una materia con ese nombre, NO crear duplicado.
+            // En su lugar usamos la materia existente y asociamos (sin desasociar) los cursos seleccionados.
+            $nombre = trim($request->input('nombre'));
+            $existing = Materia::where('nombre', $nombre)->first();
+            if ($existing) {
+                if (!empty($selected)) {
+                    $existing->cursos()->syncWithoutDetaching($selected);
+                }
+                return redirect()->route('materias.index')
+                               ->with('info', "Existe una materia con el nombre \"{$nombre}\". Se usó la materia existente y se asignaron los cursos seleccionados.");
+            }
+
+            $materia = Materia::create($request->only(['nombre','descripcion','docente_id']));
+            // sincronizar cursos
+            $materia->cursos()->sync($selected);
             return redirect()->route('materias.index')
                            ->with('success', 'Materia creada exitosamente.');
         } catch (\Exception $e) {
@@ -68,7 +104,7 @@ class MateriasController extends Controller
      */
     public function show(string $id)
     {
-        $materia = Materia::with(['curso', 'docente'])->findOrFail($id);
+        $materia = Materia::with(['cursos', 'docente'])->findOrFail($id);
         return view('materias.show', compact('materia'));
     }
 
@@ -84,7 +120,8 @@ class MateriasController extends Controller
         $rolDocente = RolesModel::where('nombre', 'Docente')->first();
         $docentes = User::where('roles_id', $rolDocente->id ?? 0)->orderBy('name')->get();
         
-        return view('materias.edit', compact('materia', 'cursos', 'docentes'));
+        $materias = Materia::orderBy('nombre')->get();
+        return view('materias.edit', compact('materia', 'cursos', 'docentes', 'materias'));
     }
 
     /**
@@ -95,20 +132,79 @@ class MateriasController extends Controller
         $materia = Materia::findOrFail($id);
         
         $request->validate([
-            'nombre' => 'required|string|max:255|unique:materias,nombre,' . $id,
+            'nombre' => 'required|string|max:255',
             'descripcion' => 'nullable|string|max:1000',
-            'curso_id' => 'required|exists:cursos,id',
+            'cursos' => 'nullable|array',
+            'cursos.*' => 'exists:cursos,id',
+            'nuevo_curso' => 'nullable|string|max:255',
             'docente_id' => 'nullable|exists:users,id',
         ], [
             'nombre.required' => 'El nombre de la materia es obligatorio.',
-            'nombre.unique' => 'Ya existe una materia con este nombre.',
-            'curso_id.required' => 'Debe seleccionar un curso.',
-            'curso_id.exists' => 'El curso seleccionado no existe.',
+            //'nombre.unique' => 'Ya existe una materia con este nombre.',
+            'cursos.*.exists' => 'Alguno de los cursos seleccionados no existe.',
             'docente_id.exists' => 'El docente seleccionado no existe.',
         ]);
+        // Manejar cursos y posible nuevo curso (misma lógica que en store)
+        $selected = $request->input('cursos', []) ?: [];
+        if (! is_array($selected)) $selected = [];
+        $nuevoCursoName = trim($request->input('nuevo_curso', ''));
+        if (empty($selected) && $nuevoCursoName === '') {
+            return back()->withErrors(['cursos' => 'Debe seleccionar al menos un curso o crear uno nuevo.'])->withInput();
+        }
+        if ($nuevoCursoName !== '') {
+            $cursoModel = Curso::firstOrCreate(['nombre' => $nuevoCursoName], ['descripcion' => null]);
+            if ($cursoModel && $cursoModel->id) {
+                $selected[] = $cursoModel->id;
+            }
+        }
+        $selected = array_values(array_filter($selected, function($v){ return $v !== '__other__' && $v !== null && $v !== ''; }));
 
         try {
-            $materia->update($request->all());
+            $nombre = trim($request->input('nombre'));
+            $existing = Materia::where('nombre', $nombre)->first();
+
+            // Si existe otra materia con el mismo nombre y no es la misma que estamos editando,
+            // realizamos una fusión: reasignamos referencias y asociamos cursos al registro existente,
+            // luego eliminamos la materia antigua.
+            if ($existing && $existing->id != $materia->id) {
+                // Reasignar referencias en tablas que usan materia_id
+                try {
+                    DB::table('notas')->where('materia_id', $materia->id)->update(['materia_id' => $existing->id]);
+                } catch (\Throwable $e) {
+                    // ignorar si la tabla no existe o falla
+                }
+                try {
+                    DB::table('horarios')->where('materia_id', $materia->id)->update(['materia_id' => $existing->id]);
+                } catch (\Throwable $e) {
+                }
+                try {
+                    DB::table('asistencias')->where('materia_id', $materia->id)->update(['materia_id' => $existing->id]);
+                } catch (\Throwable $e) {
+                }
+
+                // Asociar cursos seleccionados al existente sin quitar las previas
+                if (!empty($selected)) {
+                    $existing->cursos()->syncWithoutDetaching($selected);
+                }
+
+                // Transferir campos opcionales si vienen y el existente no los tiene
+                $updateData = [];
+                if ($request->filled('descripcion') && empty($existing->descripcion)) $updateData['descripcion'] = $request->input('descripcion');
+                if ($request->filled('docente_id') && empty($existing->docente_id)) $updateData['docente_id'] = $request->input('docente_id');
+                if (!empty($updateData)) {
+                    $existing->update($updateData);
+                }
+
+                // Finalmente eliminar la materia antigua
+                $materia->delete();
+
+                return redirect()->route('materias.index')
+                               ->with('info', "Se detectó una materia existente con el nombre '{$nombre}'. Se fusionaron los cursos y referencias con la materia existente.");
+            }
+
+            // Si no hay conflicto, actualizar la materia normalmente
+            $materia->update($request->only(['nombre','descripcion','docente_id']));
+            $materia->cursos()->sync($selected);
             return redirect()->route('materias.index')
                            ->with('success', 'Materia actualizada exitosamente.');
         } catch (\Exception $e) {

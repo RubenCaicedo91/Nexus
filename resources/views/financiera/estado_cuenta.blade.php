@@ -4,6 +4,12 @@
 <div class="container py-4">
     <div class="card shadow-sm rounded overflow-hidden">
 
+        @if(session('info'))
+            <div class="p-3">
+                <div class="alert alert-info">{{ session('info') }}</div>
+            </div>
+        @endif
+
         <!-- Encabezado oscuro -->
         <div class="bg-dark text-white p-3">
             <h2 class="fw-semibold mb-0">
@@ -115,13 +121,28 @@
                 @endif
             @endif
 
+            @php
+                $authUser = auth()->user();
+                $roleNombre = optional($authUser)->role->nombre ?? '';
+                $isAcudiente = $authUser && $roleNombre && stripos($roleNombre, 'acudient') !== false;
+                if (! $isAcudiente && $authUser && $roleNombre) {
+                    $rn = mb_strtolower($roleNombre);
+                    $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+                    if (mb_stripos($rn, 'acudient') !== false) {
+                        $isAcudiente = true;
+                    }
+                }
+            @endphp
+
             <div class="text-end mt-4">
                 @if(!empty($isCoordinator) && $isCoordinator)
                     <button type="button" class="btn btn-secondary" disabled title="No tienes permiso para registrar pagos"> <i class="bi bi-plus-circle me-1"></i> Registrar otro pago</button>
                 @else
-                    <a href="{{ route('financiera.formularioPago') }}" class="btn btn-secondary">
-                        <i class="bi bi-plus-circle me-1"></i> Registrar otro pago
-                    </a>
+                    @if(!isset($isAcudiente) || !$isAcudiente)
+                        <a href="{{ route('financiera.formularioPago') }}" class="btn btn-secondary">
+                            <i class="bi bi-plus-circle me-1"></i> Registrar otro pago
+                        </a>
+                    @endif
                 @endif
             </div>
         </div>

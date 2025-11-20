@@ -18,6 +18,18 @@
         <div class="p-4 bg-light">
             <!-- Filtros -->
             <form method="GET" class="row g-3 mb-4">
+                @if(isset($acudienteStudents) && $acudienteStudents->count() > 0)
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Estudiante</label>
+                    <select name="estudiante_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Todos --</option>
+                        @foreach($acudienteStudents as $a)
+                            <option value="{{ $a->id }}" {{ (isset($selectedEstudianteId) && $selectedEstudianteId == $a->id) ? 'selected' : '' }}>{{ $a->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+
                 <div class="col-md-3">
                     <label class="form-label fw-bold">Curso</label>
                     <select name="curso_id" class="form-select">
@@ -42,12 +54,47 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-6 d-flex align-items-end">
+                <div class="col-md-3 d-flex align-items-end">
                     <button class="btn btn-secondary w-100">
                         <i class="bi bi-funnel-fill me-1"></i> Filtrar
                     </button>
                 </div>
             </form>
+
+            @if(isset($acudienteStudents) && isset($estudianteCursoMap))
+                <!-- Campo oculto con el mapa estudiante->curso (JSON) -->
+                <input type="hidden" id="estudianteCursoMapData" value='@json($estudianteCursoMap)'>
+                <script>
+                    (function(){
+                        var map = {};
+                        var mapEl = document.getElementById('estudianteCursoMapData');
+                        if (mapEl) {
+                            try {
+                                map = JSON.parse(mapEl.value || '{}');
+                            } catch (e) {
+                                map = {};
+                            }
+                        }
+
+                        var estudianteSel = document.querySelector('select[name="estudiante_id"]');
+                        if (!estudianteSel) return;
+
+                        estudianteSel.addEventListener('change', function(e){
+                            var val = this.value;
+                            // Si hay un curso asociado en el mapa, colocarlo en el select de curso
+                            if (val && Object.prototype.hasOwnProperty.call(map, val) && map[val]) {
+                                var cursoSel = document.querySelector('select[name="curso_id"]');
+                                if (cursoSel) {
+                                    cursoSel.value = map[val];
+                                }
+                            }
+                            // Enviar formulario para repoblar materias y resultados
+                            // (se enviará estudiante_id y curso_id si existe)
+                            this.form.submit();
+                        });
+                    })();
+                </script>
+            @endif
 
             @php
                 $canCreateNotes = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_notas');

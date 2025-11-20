@@ -50,6 +50,10 @@
                     if ($u && method_exists($u, 'hasPermission') && ($u->hasPermission('ver_asistencias') || $u->hasPermission('registrar_asistencia'))) {
                         $canAccessAsistencias = true;
                     }
+                    // Permitir al rol Acudiente ver/registrar asistencias
+                    if ($u && optional($u->role)->nombre && stripos(optional($u->role)->nombre, 'acudiente') !== false) {
+                        $canAccessAsistencias = true;
+                    }
                     // Permitir al rol Docente
                     if ($u && optional($u->role)->nombre && (stripos(optional($u->role)->nombre, 'docente') !== false || stripos(optional($u->role)->nombre, 'estudiante') !== false)) {
                         $canAccessAsistencias = true;
@@ -58,7 +62,7 @@
                     $canViewHorarios = $canManageAcademica;
                     if ($u && optional($u->role)->nombre) {
                         $roleCheck = optional($u->role)->nombre;
-                        if (stripos($roleCheck, 'docente') !== false || stripos($roleCheck, 'estudiante') !== false) {
+                        if (stripos($roleCheck, 'docente') !== false || stripos($roleCheck, 'estudiante') !== false || stripos($roleCheck, 'acudiente') !== false) {
                             $canViewHorarios = true;
                         }
                     }

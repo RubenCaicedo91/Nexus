@@ -22,6 +22,9 @@
 
         <!-- Contenido -->
         <div class="p-4 bg-light">
+            @if(session('info'))
+                <div class="alert alert-info">{{ session('info') }}</div>
+            @endif
             @if(session('success'))
                                         <div class="d-flex flex-wrap gap-2 align-items-center">
                     {{ session('success') }}

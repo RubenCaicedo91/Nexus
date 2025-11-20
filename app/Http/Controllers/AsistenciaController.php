@@ -52,6 +52,18 @@ class AsistenciaController extends Controller
 
         // Si el usuario es Estudiante, forzamos el curso a su grupo y no permitimos ver otros cursos
         list($isEstudiante, $studentCourseId, $studentCourseNombre) = $this->getStudentCourseInfo();
+        // Detectar si es Acudiente y obtener sus estudiantes
+        $user = Auth::user();
+        $isAcudiente = false;
+        $acudienteStudentIds = [];
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            $isAcudiente = true;
+            try {
+                $acudienteStudentIds = \App\Models\User::where('acudiente_id', $user->id)->pluck('id')->toArray();
+            } catch (\Throwable $e) {
+                $acudienteStudentIds = [];
+            }
+        }
         if ($isEstudiante) {
             // sobrescribimos cursoId para evitar que vea otros cursos
             $cursoId = $studentCourseId;
@@ -65,6 +77,16 @@ class AsistenciaController extends Controller
         }
         if ($materiaId !== null && $materiaId !== '') {
             $query->where('materia_id', $materiaId);
+        }
+
+        // Si es acudiente, limitar asistencias solo a sus estudiantes
+        if ($isAcudiente) {
+            if (!empty($acudienteStudentIds)) {
+                $query->whereIn('estudiante_id', $acudienteStudentIds);
+            } else {
+                // no tiene estudiantes asociados -> devolver vacío
+                $query->whereRaw('1 = 0');
+            }
         }
 
         // Si es estudiante, además de limitar por curso, solo ver sus propios registros
@@ -119,7 +141,7 @@ class AsistenciaController extends Controller
             ];
         }
 
-        return view('gestion-academica.asistencias.index', compact('asistencias', 'cursos', 'materias', 'fecha', 'cursoId', 'materiaId', 'rowStats', 'isEstudiante', 'studentCourseId', 'studentCourseNombre'));
+        return view('gestion-academica.asistencias.index', compact('asistencias', 'cursos', 'materias', 'fecha', 'cursoId', 'materiaId', 'rowStats', 'isEstudiante', 'studentCourseId', 'studentCourseNombre', 'isAcudiente'));
     }
 
     /**
@@ -208,6 +230,23 @@ class AsistenciaController extends Controller
         if ($isEstudiante) {
             abort(403, 'Estudiantes no pueden crear asistencias');
         }
+        // Detectar acudiente y obtener solo sus estudiantes
+        $user = Auth::user();
+        $isAcudiente = false;
+        $acudienteStudentIds = [];
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            $isAcudiente = true;
+            try {
+                $acudienteStudentIds = \App\Models\User::where('acudiente_id', $user->id)->pluck('id')->toArray();
+            } catch (\Throwable $e) {
+                $acudienteStudentIds = [];
+            }
+        }
+        // No permitir a Acudiente crear asistencias
+        if ($isAcudiente) {
+            abort(403, 'Acudientes no pueden crear asistencias');
+        }
+
         // Si se pasa curso_id en query, mostramos estudiantes matriculados en ese curso
         $cursos = Curso::orderBy('nombre')->get();
         $selectedCursoId = $request->query('curso_id');
@@ -226,13 +265,28 @@ class AsistenciaController extends Controller
                 abort(403, 'No autorizado para registrar asistencias en este curso');
             }
 
-            $matriculas = Matricula::with('user')->where('curso_id', $selectedCursoId)->orderBy('user_id')->get();
+            $matriculas = Matricula::with('user')->where('curso_id', $selectedCursoId)->orderBy('user_id');
+            if ($isAcudiente) {
+                if (!empty($acudienteStudentIds)) {
+                    $matriculas->whereIn('user_id', $acudienteStudentIds);
+                } else {
+                    $matriculas->whereRaw('1 = 0');
+                }
+            }
+            $matriculas = $matriculas->get();
         } else {
-            $estudiantes = User::join('roles', 'users.roles_id', '=', 'roles.id')
+            $estudiantesQuery = User::join('roles', 'users.roles_id', '=', 'roles.id')
                 ->where('roles.nombre', 'Estudiante')
-                ->select('users.id', 'users.name')
-                ->orderBy('users.name')
-                ->get();
+                ->select('users.id', 'users.name', 'users.email')
+                ->orderBy('users.name');
+            if ($isAcudiente) {
+                if (!empty($acudienteStudentIds)) {
+                    $estudiantesQuery->whereIn('users.id', $acudienteStudentIds);
+                } else {
+                    $estudiantesQuery->whereRaw('1 = 0');
+                }
+            }
+            $estudiantes = $estudiantesQuery->get();
         }
 
         return view('gestion-academica.asistencias.create', compact('cursos', 'estudiantes', 'selectedCursoId', 'selectedEstudianteId', 'matriculas'));
@@ -243,6 +297,11 @@ class AsistenciaController extends Controller
         list($isEstudiante) = $this->getStudentCourseInfo();
         if ($isEstudiante) {
             abort(403, 'Estudiantes no pueden registrar asistencias');
+        }
+        // Bloquear a Acudientes de crear asistencias
+        $user = Auth::user();
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            abort(403, 'Acudientes no pueden registrar asistencias');
         }
         $validated = $request->validate([
             'fecha' => ['required', 'date'],
@@ -318,6 +377,11 @@ class AsistenciaController extends Controller
         if ($isEstudiante) {
             abort(403, 'Estudiantes no pueden modificar asistencias');
         }
+        // Bloquear a Acudientes de modificar asistencias
+        $user = Auth::user();
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            abort(403, 'Acudientes no pueden modificar asistencias');
+        }
         $asistencia = Asistencia::findOrFail($id);
 
         if (!$this->canManageAttendance($asistencia->curso_id)) {
@@ -343,6 +407,11 @@ class AsistenciaController extends Controller
         list($isEstudiante) = $this->getStudentCourseInfo();
         if ($isEstudiante) {
             abort(403, 'Estudiantes no pueden eliminar asistencias');
+        }
+        // Bloquear a Acudientes de eliminar asistencias
+        $user = Auth::user();
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            abort(403, 'Acudientes no pueden eliminar asistencias');
         }
         $asistencia = Asistencia::findOrFail($id);
         if (!$this->canManageAttendance($asistencia->curso_id)) {
@@ -427,6 +496,18 @@ class AsistenciaController extends Controller
     public function registroPorCurso($cursoId)
     {
         list($isEstudiante, $studentCourseId) = $this->getStudentCourseInfo();
+        // Detectar acudiente y preparar lista de estudiantes permitidos
+        $user = Auth::user();
+        $isAcudiente = false;
+        $acudienteStudentIds = [];
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            $isAcudiente = true;
+            try {
+                $acudienteStudentIds = \App\Models\User::where('acudiente_id', $user->id)->pluck('id')->toArray();
+            } catch (\Throwable $e) {
+                $acudienteStudentIds = [];
+            }
+        }
         // Si es estudiante, sólo puede ver su propio curso
         if ($isEstudiante && $studentCourseId != $cursoId) {
             abort(403, 'No autorizado para ver el registro de este curso');
@@ -435,7 +516,15 @@ class AsistenciaController extends Controller
         if (!$this->canManageAttendance($cursoId) && ! $isEstudiante) {
             abort(403, 'No autorizado para ver el registro de este curso');
         }
-        $matriculas = Matricula::with('user')->where('curso_id', $cursoId)->orderBy('user_id')->get();
+        $matriculasQuery = Matricula::with('user')->where('curso_id', $cursoId)->orderBy('user_id');
+        if ($isAcudiente) {
+            if (!empty($acudienteStudentIds)) {
+                $matriculasQuery->whereIn('user_id', $acudienteStudentIds);
+            } else {
+                $matriculasQuery->whereRaw('1 = 0');
+            }
+        }
+        $matriculas = $matriculasQuery->get();
         // Allow passing a date via querystring (e.g. ?fecha=2025-11-19)
         $fecha = request()->query('fecha', date('Y-m-d'));
         $materiaId = request()->query('materia_id') ?: null;
@@ -459,6 +548,18 @@ class AsistenciaController extends Controller
     public function partialRegistro(Request $request, $cursoId)
     {
         list($isEstudiante, $studentCourseId) = $this->getStudentCourseInfo();
+        // Detectar acudiente y preparar lista de estudiantes permitidos
+        $user = Auth::user();
+        $isAcudiente = false;
+        $acudienteStudentIds = [];
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            $isAcudiente = true;
+            try {
+                $acudienteStudentIds = \App\Models\User::where('acudiente_id', $user->id)->pluck('id')->toArray();
+            } catch (\Throwable $e) {
+                $acudienteStudentIds = [];
+            }
+        }
         if ($isEstudiante && $studentCourseId != $cursoId) {
             abort(403, 'No autorizado para ver el registro de este curso');
         }
@@ -466,7 +567,15 @@ class AsistenciaController extends Controller
         if (!$this->canManageAttendance($cursoId) && ! $isEstudiante) {
             abort(403, 'No autorizado para ver el registro de este curso');
         }
-        $matriculas = Matricula::with('user')->where('curso_id', $cursoId)->orderBy('user_id')->get();
+        $matriculasQuery = Matricula::with('user')->where('curso_id', $cursoId)->orderBy('user_id');
+        if ($isAcudiente) {
+            if (!empty($acudienteStudentIds)) {
+                $matriculasQuery->whereIn('user_id', $acudienteStudentIds);
+            } else {
+                $matriculasQuery->whereRaw('1 = 0');
+            }
+        }
+        $matriculas = $matriculasQuery->get();
         $fecha = $request->query('fecha', date('Y-m-d'));
         $materiaId = $request->query('materia_id') ?: null;
         $materias = \App\Models\Materia::where('curso_id', $cursoId)->orderBy('nombre')->get();
@@ -489,6 +598,12 @@ class AsistenciaController extends Controller
         if ($isEstudiante) {
             abort(403, 'Estudiantes no pueden registrar asistencias');
         }
+        // Bloquear a Acudientes de crear/editar asistencias masivas
+        $user = Auth::user();
+        if (Auth::check() && optional($user->role)->nombre && mb_stripos(optional($user->role)->nombre, 'acudiente') !== false) {
+            abort(403, 'Acudientes no pueden registrar asistencias');
+        }
+
         if (!$this->canManageAttendance($cursoId)) {
             abort(403, 'No autorizado para registrar asistencias en este curso');
         }

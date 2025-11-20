@@ -34,45 +34,58 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="nombre" class="required">
+                                    <label for="nombre_select" class="required">
                                         <i class="fas fa-book"></i> Nombre de la Materia
                                     </label>
-                                    <input type="text" 
-                                           class="form-control @error('nombre') is-invalid @enderror" 
-                                           id="nombre" 
-                                           name="nombre" 
-                                           value="{{ old('nombre', $materia->nombre) }}" 
+                                    <select id="nombre_select" class="form-control mb-2">
+                                        <option value="">-- Seleccionar una materia existente (opcional) --</option>
+                                        @foreach($materias as $m)
+                                            <option value="{{ $m->nombre }}">{{ $m->nombre }}</option>
+                                        @endforeach
+                                        <option value="__other__">Otros...</option>
+                                    </select>
+
+                                    <input type="text"
+                                           class="form-control @error('nombre') is-invalid @enderror"
+                                           id="nombre"
+                                           name="nombre"
+                                           value="{{ old('nombre', $materia->nombre) }}"
                                            placeholder="Ej: Matemáticas, Español, Ciencias..."
                                            required>
                                     @error('nombre')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
+                                    <small class="form-text text-muted">Puedes seleccionar una materia existente para autocompletar el nombre, o elegir "Otros..." y escribir uno nuevo.</small>
                                 </div>
                             </div>
 
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="curso_id" class="required">
-                                        <i class="fas fa-graduation-cap"></i> Curso
+                                    <label for="cursos" class="required">
+                                        <i class="fas fa-graduation-cap"></i> Cursos
                                     </label>
-                                    <select class="form-control @error('curso_id') is-invalid @enderror" 
-                                            id="curso_id" 
-                                            name="curso_id" 
+                                    <select class="form-control @error('cursos') is-invalid @enderror" 
+                                            id="cursos" 
+                                            name="cursos[]" 
+                                            multiple
                                             required>
-                                        <option value="">Seleccionar curso...</option>
+                                        @php $selectedCursos = old('cursos', $materia->cursos->pluck('id')->toArray()); @endphp
                                         @foreach($cursos as $curso)
                                             <option value="{{ $curso->id }}" 
-                                                    {{ old('curso_id', $materia->curso_id) == $curso->id ? 'selected' : '' }}>
+                                                    {{ in_array($curso->id, $selectedCursos) ? 'selected' : '' }}>
                                                 {{ $curso->nombre }}
                                             </option>
                                         @endforeach
                                     </select>
-                                    @error('curso_id')
+                                    @error('cursos')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
+                                    <small class="form-text text-muted">Mantén presionada la tecla Ctrl (o Cmd) para seleccionar múltiples cursos.</small>
                                 </div>
                             </div>
                         </div>
+
+                        
 
                         <div class="row">
                             <div class="col-md-6">
@@ -153,6 +166,8 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Campo oculto con los cursos seleccionados (JSON) para uso en JS -->
+                    <input type="hidden" id="selectedCursosData" value='@json(old('cursos', $materia->cursos->pluck('id')->toArray()))'>
                 </form>
             </div>
         </div>
@@ -188,9 +203,83 @@
 function resetForm() {
     // Restaurar valores originales
     document.getElementById('nombre').value = '{{ $materia->nombre }}';
-    document.querySelector('select[name="curso_id"]').value = '{{ $materia->curso_id }}';
+    // Restaurar select de nombre si existe
+    var nombreSelect = document.getElementById('nombre_select');
+    if (nombreSelect) {
+        var found = false;
+        for (var i = 0; i < nombreSelect.options.length; i++) {
+            if (nombreSelect.options[i].value === '{{ $materia->nombre }}') { nombreSelect.selectedIndex = i; found = true; break; }
+        }
+        if (!found) {
+            // crear opción y seleccionarla
+            var opt = document.createElement('option'); opt.value = '{{ $materia->nombre }}'; opt.text = '{{ $materia->nombre }}';
+            // insertar antes de 'Otros...' si existe
+            var other = Array.from(nombreSelect.options).find(function(o){ return o.value === '__other__'; });
+            if (other) nombreSelect.insertBefore(opt, other); else nombreSelect.appendChild(opt);
+            nombreSelect.value = '{{ $materia->nombre }}';
+        }
+    }
+    // restaurar selección múltiple de cursos desde el campo oculto JSON
+    var selected = [];
+    var selectedDataEl = document.getElementById('selectedCursosData');
+    if (selectedDataEl) {
+        try {
+            selected = JSON.parse(selectedDataEl.value || '[]');
+        } catch (e) {
+            selected = [];
+        }
+    }
+    var cursoSel = document.querySelector('select[name="cursos[]"]');
+    if (cursoSel) {
+        for (var i = 0; i < cursoSel.options.length; i++) {
+            cursoSel.options[i].selected = selected.indexOf(parseInt(cursoSel.options[i].value)) !== -1;
+        }
+    }
     document.querySelector('select[name="docente_id"]').value = '{{ $materia->docente_id ?? "" }}';
     document.getElementById('descripcion').value = '{{ $materia->descripcion }}';
 }
+// Mostrar/ocultar campo nuevo curso cuando se seleccione 'Otros'
+document.addEventListener('DOMContentLoaded', function(){
+    var selectNombre = document.getElementById('nombre_select');
+    var inputNombre = document.getElementById('nombre');
+
+    if (selectNombre && inputNombre) {
+        // seleccionar la opcion correspondiente si existe, sino crearla
+        var current = '{{ $materia->nombre }}';
+        var found = Array.from(selectNombre.options).some(function(o){ return o.value === current; });
+        if (found) selectNombre.value = current;
+        else {
+            var opt = document.createElement('option'); opt.value = current; opt.text = current;
+            var other = Array.from(selectNombre.options).find(function(o){ return o.value === '__other__'; });
+            if (other) selectNombre.insertBefore(opt, other); else selectNombre.appendChild(opt);
+            selectNombre.value = current;
+        }
+
+        selectNombre.addEventListener('change', function(){
+            var val = this.value;
+            if (val === '__other__') {
+                inputNombre.value = '';
+                inputNombre.focus();
+            } else if (val === '') {
+                // no hacer nada
+            } else {
+                inputNombre.value = val;
+            }
+        });
+
+        inputNombre.addEventListener('blur', function(){
+            var v = this.value.trim();
+            if (!v) return;
+            var exists = Array.from(selectNombre.options).some(function(o){ return o.value === v; });
+            if (!exists) {
+                var opt = document.createElement('option');
+                opt.value = v; opt.text = v;
+                var otherOpt = Array.from(selectNombre.options).find(function(o){ return o.value === '__other__'; });
+                if (otherOpt) selectNombre.insertBefore(opt, otherOpt);
+                else selectNombre.appendChild(opt);
+            }
+        });
+    }
+});
 </script>
 @endsection

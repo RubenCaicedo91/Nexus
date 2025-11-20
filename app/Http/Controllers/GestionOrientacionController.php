@@ -48,6 +48,20 @@ class GestionOrientacionController extends Controller
             }
         }
 
+        // Si el usuario es Acudiente, redirigir al listado de citas (acceso limitado)
+        $isAcudiente = false;
+        if ($roleName) {
+            $rn = mb_strtolower($roleName);
+            $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+            if (mb_stripos($rn, 'acudient') !== false) {
+                $isAcudiente = true;
+            }
+        }
+
+        if ($isAcudiente) {
+            return redirect()->route('orientacion.citas')->with('info', 'Acceso limitado: solo Citas');
+        }
+
         return view('orientacion.index', compact('isCoordinator', 'isCoordinadorDisciplina', 'isDocente', 'isEstudiante'));
     }
 
@@ -235,7 +249,7 @@ class GestionOrientacionController extends Controller
         if ($cita->esCompletada() || $cita->esCancelada()) {
             return back()->with('error', 'No se puede cambiar el estado de una cita que ya está finalizada.');
         }
-        // Permitir cambio de estado sólo a orientadores
+        // Permitir cambio de estado sólo a orientadores (bloquear Acudientes)
         $user = Auth::user();
         $roleName = null;
         if ($user) {
@@ -441,8 +455,16 @@ class GestionOrientacionController extends Controller
     // ---------------- Informes ----------------
     public function listarInformes(Request $request)
     {
-        // Denegar acceso a Coordinador Académico y Docentes: sólo el personal de orientación puede usar Informes
-        if ($this->isCoordinadorAcademico(Auth::user()) || $this->isDocente(Auth::user())) {
+        // Denegar acceso a Coordinador Académico, Docentes y Acudientes: sólo el personal de orientación puede usar Informes
+        $user = Auth::user();
+        $roleName = optional($user)->role->nombre ?? null;
+        $isAcudiente = false;
+        if ($roleName) {
+            $rn = mb_strtolower($roleName);
+            $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+            if (mb_stripos($rn, 'acudient') !== false) $isAcudiente = true;
+        }
+        if ($this->isCoordinadorAcademico(Auth::user()) || $this->isDocente(Auth::user()) || $isAcudiente) {
             abort(403, 'Acceso restringido: sólo el personal de orientación puede gestionar Informes.');
         }
         // Construir consulta sobre citas completadas (quienes fueron atendidas)
@@ -503,7 +525,10 @@ class GestionOrientacionController extends Controller
      */
     public function exportarInformesPdf(Request $request)
     {
-        if ($this->isCoordinadorAcademico(Auth::user()) || $this->isDocente(Auth::user())) {
+        // bloquear también para Acudientes
+        $user = Auth::user();
+        $roleName = optional($user)->role->nombre ?? null;
+        if ($this->isCoordinadorAcademico($user) || $this->isDocente($user) || ($roleName && mb_stripos(mb_strtolower($roleName), 'acudient') !== false)) {
             abort(403, 'Acceso restringido: sólo el personal de orientación puede exportar Informes.');
         }
         // Reusar la misma lógica de filtros de listarInformes
@@ -550,7 +575,9 @@ class GestionOrientacionController extends Controller
      */
     public function exportarInformesExcel(Request $request)
     {
-        if ($this->isCoordinadorAcademico(Auth::user()) || $this->isDocente(Auth::user())) {
+        $user = Auth::user();
+        $roleName = optional($user)->role->nombre ?? null;
+        if ($this->isCoordinadorAcademico($user) || $this->isDocente($user) || ($roleName && mb_stripos(mb_strtolower($roleName), 'acudient') !== false)) {
             abort(403, 'Acceso restringido: sólo el personal de orientación puede exportar Informes.');
         }
         $query = Cita::with(['solicitante.role', 'orientador.role'])->where('estado', 'completada');
@@ -629,8 +656,10 @@ class GestionOrientacionController extends Controller
     // ---------------- Seguimientos ----------------
     public function listarSeguimientos(Request $request)
     {
-        // Denegar acceso a Coordinador Académico y Docentes: sólo el personal de orientación puede usar Seguimientos
-        if ($this->isCoordinadorAcademico(Auth::user()) || $this->isDocente(Auth::user())) {
+        // Denegar acceso a Coordinador Académico, Docentes y Acudientes: sólo el personal de orientación puede usar Seguimientos
+        $user = Auth::user();
+        $roleName = optional($user)->role->nombre ?? null;
+        if ($this->isCoordinadorAcademico($user) || $this->isDocente($user) || ($roleName && mb_stripos(mb_strtolower($roleName), 'acudient') !== false)) {
             abort(403, 'Acceso restringido: sólo el personal de orientación puede gestionar seguimientos.');
         }
         // Construir la consulta base incluyendo relaciones útiles
@@ -751,7 +780,9 @@ class GestionOrientacionController extends Controller
 
     public function guardarSeguimiento(Request $request)
     {
-        if ($this->isCoordinadorAcademico(Auth::user()) || $this->isDocente(Auth::user())) {
+        $user = Auth::user();
+        $roleName = optional($user)->role->nombre ?? null;
+        if ($this->isCoordinadorAcademico($user) || $this->isDocente($user) || ($roleName && mb_stripos(mb_strtolower($roleName), 'acudient') !== false)) {
             abort(403, 'Acceso restringido: sólo el personal de orientación puede registrar seguimientos.');
         }
         $request->validate([

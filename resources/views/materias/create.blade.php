@@ -33,43 +33,54 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="nombre" class="required">
+                                    <label for="nombre_select" class="required">
                                         <i class="fas fa-book"></i> Nombre de la Materia
                                     </label>
-                                    <input type="text" 
-                                           class="form-control @error('nombre') is-invalid @enderror" 
-                                           id="nombre" 
-                                           name="nombre" 
-                                           value="{{ old('nombre') }}" 
+                                    <select id="nombre_select" class="form-control mb-2">
+                                        <option value="">-- Seleccionar una materia existente (opcional) --</option>
+                                        @foreach($materias as $m)
+                                            <option value="{{ $m->nombre }}">{{ $m->nombre }}</option>
+                                        @endforeach
+                                        <option value="__other__">Otros...</option>
+                                    </select>
+
+                                    <input type="text"
+                                           class="form-control @error('nombre') is-invalid @enderror"
+                                           id="nombre"
+                                           name="nombre"
+                                           value="{{ old('nombre') }}"
                                            placeholder="Ej: Matemáticas, Español, Ciencias..."
                                            required>
                                     @error('nombre')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
+                                    <small class="form-text text-muted">Puedes seleccionar una materia existente para autocompletar el nombre, o elegir "Otros..." y escribir uno nuevo.</small>
                                 </div>
                             </div>
 
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="curso_id" class="required">
-                                        <i class="fas fa-graduation-cap"></i> Curso
+                                    <label for="cursos" class="required">
+                                        <i class="fas fa-graduation-cap"></i> Cursos
                                     </label>
-                                    <select class="form-control @error('curso_id') is-invalid @enderror" 
-                                            id="curso_id" 
-                                            name="curso_id" 
+                                    <select class="form-control @error('cursos') is-invalid @enderror" 
+                                            id="cursos" 
+                                            name="cursos[]" 
+                                            multiple
                                             required>
-                                        <option value="">Seleccionar curso...</option>
                                         @foreach($cursos as $curso)
                                             <option value="{{ $curso->id }}" 
-                                                    {{ old('curso_id') == $curso->id ? 'selected' : '' }}>
+                                                    {{ (is_array(old('cursos')) && in_array($curso->id, old('cursos'))) ? 'selected' : '' }}>
                                                 {{ $curso->nombre }}
                                             </option>
                                         @endforeach
                                     </select>
-                                    @error('curso_id')
+                                    @error('cursos')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
+                                    <small class="form-text text-muted">Mantén presionada la tecla Ctrl (o Cmd) para seleccionar múltiples cursos.</small>
                                 </div>
+                                
                             </div>
                         </div>
 
@@ -163,4 +174,43 @@
     margin-right: 5px;
 }
 </style>
+@endsection
+
+@section('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+    var selectNombre = document.getElementById('nombre_select');
+    var inputNombre = document.getElementById('nombre');
+
+    if (selectNombre && inputNombre) {
+        selectNombre.addEventListener('change', function(){
+            var val = this.value;
+            if (val === '__other__') {
+                inputNombre.value = '';
+                inputNombre.focus();
+            } else if (val === '') {
+                // no hacer nada
+            } else {
+                inputNombre.value = val;
+            }
+        });
+
+        // Al perder foco en el input, si el valor no está en la lista y no está vacío, añadirlo al select
+        inputNombre.addEventListener('blur', function(){
+            var v = this.value.trim();
+            if (!v) return;
+            var exists = Array.from(selectNombre.options).some(function(o){ return o.value === v; });
+            if (!exists) {
+                var opt = document.createElement('option');
+                opt.value = v;
+                opt.text = v;
+                // insertar antes de la opción 'Otros...' si existe
+                var otherOpt = Array.from(selectNombre.options).find(function(o){ return o.value === '__other__'; });
+                if (otherOpt) selectNombre.insertBefore(opt, otherOpt);
+                else selectNombre.appendChild(opt);
+            }
+        });
+    }
+});
+</script>
 @endsection
