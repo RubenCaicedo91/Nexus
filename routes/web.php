@@ -89,6 +89,8 @@ Route::get('/debug-html-temp', function() {
 
 // Rutas protegidas por autenticación
 Route::middleware(['auth'])->group(function () {
+    // Aplicar middleware dedicado para restringir acceso por rol (orientador/tesorero)
+    Route::middleware('restrict.role')->group(function () {
     Route::get('/dashboard', [AuthController::class, 'dashboard'])->name('dashboard');
 
     // Perfil del usuario autenticado (cargando relaciones necesarias)
@@ -361,6 +363,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/json/curso/{cursoId}/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'getStudentsByCourse'])->name('curso.estudiantes');
         Route::get('/json/estudiantes', [\App\Http\Controllers\AsignacionesController::class, 'searchStudents'])->name('json.estudiantes');
         Route::post('/{asignacion}/validar', [\App\Http\Controllers\AsignacionesController::class, 'validateAssignment'])->name('validar');
+    });
     });
 });
 

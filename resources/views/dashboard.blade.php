@@ -7,7 +7,7 @@
     <div class="p-4 rounded-3 mb-5 text-center shadow-sm"
         style="background: linear-gradient(90deg, #003366, #0073e6); color: white;">
         <h1 class="fw-bold fs-1">
-            🏫 ¡Bienvenido, Administrador del Sistema!
+            🏫 ¡Bienvenido, {{ optional(auth()->user())->name ?? 'Usuario' }}!
         </h1>
         <p class="fs-5 mt-2">
             Programa para administrar un colegio de forma integral y eficiente.

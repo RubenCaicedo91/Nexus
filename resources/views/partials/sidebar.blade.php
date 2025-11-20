@@ -129,17 +129,21 @@
             </div>
 
             <!-- Orientación -->
+            @php $currentRole = auth()->check() ? strtolower(optional(auth()->user()->role)->nombre ?? '') : ''; @endphp
             <a class="nav-link d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#submenuOrientacion" role="button" aria-expanded="false" aria-controls="submenuOrientacion">
                 <span><i class="fas fa-comments me-2"></i>Orientación</span>
                 <i class="fas fa-chevron-down small"></i>
             </a>
             <div class="collapse ps-4" id="submenuOrientacion">
-                <a class="nav-link" href="{{ route('orientacion.citas') }}">
-                    <i class="fas fa-calendar-check me-2"></i>Citas
-                </a>
-                <a class="nav-link" href="{{ route('orientacion.index') }}">
-                    <i class="fas fa-tachometer-alt me-2"></i>Dashboard Orientación
-                </a>
+                @if($currentRole === 'tesorero')
+                    <a class="nav-link" href="{{ route('orientacion.citas') }}">
+                        <i class="fas fa-calendar-check me-2"></i>Citas
+                    </a>
+                @else
+                    <a class="nav-link" href="{{ route('orientacion.index') }}">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard Orientación
+                    </a>
+                @endif
             </div>
 
             <!-- Configuración -->
