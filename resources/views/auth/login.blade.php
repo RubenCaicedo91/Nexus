@@ -8,6 +8,32 @@
 
 @section('content')
 
+@push('styles')
+<style>
+    /* Fondo exclusivo para la página de login */
+    body {
+        background-image: url('{{ asset("images/basecolegio.png") }}');
+        background-size: cover;
+        background-position: center center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+
+    /* Asegurar que el contenedor ocupe toda la altura y la tarjeta sea legible */
+    .login-container {
+        min-height: calc(100vh - 56px);
+        padding: 3rem 0;
+    }
+
+    .login-card {
+        background: rgba(255,255,255,0.95);
+        border-radius: .75rem;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+</style>
+@endpush
+
+
 <div class="login-container d-flex align-items-center justify-content-center">
     <div class="container">
         <div class="row justify-content-center">
