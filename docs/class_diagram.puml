@@ -39,6 +39,7 @@ class App.Http.Controllers.AsignacionesController {
 }
 
 class App.Http.Controllers.AsistenciaController {
+    # getStudentCourseInfo()
     + index()
     + export()
     + create($request)
@@ -125,6 +126,7 @@ class App.Http.Controllers.DocenteCursoController {
     + update($request, $docenteId)
     + assign($request)
     + removeAll($docenteId)
+    + cursosJson($docenteId)
 }
 
 class App.Http.Controllers.GestionAcademicaController {
@@ -137,7 +139,8 @@ class App.Http.Controllers.GestionAcademicaController {
     + actualizarCurso($request, $id)
     + eliminarCurso($id)
     + panelCursos()
-    + horarios()
+    + horarios($request)
+    + docentesPorCurso($cursoId)
     + guardarHorario($request)
     + editarHorario($id)
     + actualizarHorario($request, $id)
@@ -152,6 +155,8 @@ class App.Http.Controllers.GestionDisciplinariaController {
     + index()
     + buscarPorDocumento($request)
     - isCoordinadorAcademico()
+    - isDocente()
+    + debugCheckAssignment($request)
 }
 
 class App.Http.Controllers.GestionFinancieraController {
@@ -182,6 +187,7 @@ class App.Http.Controllers.GestionOrientacionController {
     + listarSeguimientos($request)
     + guardarSeguimiento($request)
     - isCoordinadorAcademico($user)
+    - isDocente($user)
     - isCoordinadorDisciplina($user)
 }
 
@@ -260,6 +266,7 @@ class App.Http.Controllers.MatriculasController {
 
 class App.Http.Controllers.NotasController {
     + __construct()
+    # userIsStudent()
     + index($request)
     + create($request)
     + store($request)
