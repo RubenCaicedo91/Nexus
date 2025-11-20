@@ -3,7 +3,27 @@
 @section('title', 'Gestión Financiera')
 
 @section('content')
+@php
+    $canRegister = Auth::check() && method_exists(Auth::user(), 'hasPermission') && Auth::user()->hasPermission('registrar_pagos');
+    $roleNombre = optional(Auth::user())->role->nombre ?? '';
+    $isAcudiente = Auth::check() && $roleNombre && stripos($roleNombre, 'acudient') !== false;
+    // también normalizar variantes con tildes/espacios si necesario
+    if (! $isAcudiente && Auth::check() && $roleNombre) {
+        $rn = mb_strtolower($roleNombre);
+        $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+        if (mb_stripos($rn, 'acudient') !== false) {
+            $isAcudiente = true;
+        }
+    }
+@endphp
 <div class="container">
+    @if(session('info'))
+        <div class="alert alert-info">{{ session('info') }}</div>
+    @endif
+
+    @if(!empty($isCoordinator) && $isCoordinator)
+        <div class="alert alert-warning mt-2">Como <strong>Coordinador Académico</strong> sólo puedes <strong>consultar el Estado de Cuenta</strong>. No puedes registrar pagos, actualizar el valor de matrícula ni generar reportes financieros desde este perfil.</div>
+    @endif
 
     <!-- Banner superior -->
     <div class="p-4 mb-4 text-center text-white rounded" 
@@ -14,6 +34,7 @@
 
     <div class="row g-3">
 
+        @if(! $isAcudiente)
         <!-- Registrar Pago -->
         <div class="col-md-4">
             <div class="card border-primary h-100 shadow-lg">
@@ -22,14 +43,15 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">💵 Permite registrar los pagos realizados por los estudiantes o usuarios.</p>
-                    <a href="{{ route('financiera.formularioPago') }}" 
-                       class="btn text-center w-100 text-white" 
-                       style="background-color: #00264d;">
-                        💰 Registrar Pago
-                    </a>
+                    @if($canRegister)
+                        <a href="{{ route('financiera.formularioPago') }}" class="btn text-center w-100 text-white" style="background-color: #00264d;">💰 Registrar Pago</a>
+                    @else
+                        <button type="button" class="btn w-100 btn-secondary" disabled title="No tienes permiso para registrar pagos." aria-disabled="true">💰 Registrar Pago</button>
+                    @endif
                 </div>
             </div>
         </div>
+        @endif
 
         <!-- Estado de Cuenta -->
         <div class="col-md-4">
@@ -39,15 +61,21 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">📋 Consulta el estado de cuenta actual de cada usuario o estudiante.</p>
-                    <a href="{{ route('financiera.estadoCuenta', ['id' => Auth::id()]) }}" 
-                       class="btn text-center w-100 text-white" 
-                       style="background-color: #0077b6;">
-                        📄 Consultar Estado
-                    </a>
+                    @php $isEstudiante = auth()->check() && optional(auth()->user()->role)->nombre && stripos(optional(auth()->user()->role)->nombre, 'estudiante') !== false; @endphp
+                    @if(isset($isEstudiante) && $isEstudiante)
+                        <a href="{{ route('financiera.estadoCuenta', auth()->id()) }}" class="btn text-center w-100 text-white" style="background-color: #0077b6;">📄 Consultar mi cuenta</a>
+                    @else
+                        <a href="{{ route('financiera.estadoCuenta.search') }}" 
+                           class="btn text-center w-100 text-white" 
+                           style="background-color: #0077b6;">
+                            📄 Consultar Estado
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>
 
+        @if(! $isAcudiente)
         <!-- Reporte Financiero -->
         <div class="col-md-4">
             <div class="card border-success h-100 shadow-lg">
@@ -56,14 +84,32 @@
                 </div>
                 <div class="card-body">
                     <p class="mb-3">📊 Genera reportes financieros detallados para análisis institucional.</p>
-                    <a href="{{ route('financiera.reporte') }}" 
-                       class="btn text-center w-100 text-white" 
-                       style="background-color: #0b6623;">
-                        📈 Generar Reporte
-                    </a>
+                    @php
+                        $canReport = false;
+                        if (Auth::check()) {
+                            $user = Auth::user();
+                            if (method_exists($user, 'hasPermission') && $user->hasPermission('generar_reportes_financieros')) {
+                                $canReport = true;
+                            }
+                            $roleName = optional($user->role)->nombre ?? '';
+                            if (!$canReport && $roleName) {
+                                $rn = mb_strtolower($roleName);
+                                $rn = strtr($rn, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+                                if (mb_stripos($rn, 'rector') !== false) {
+                                    $canReport = true;
+                                }
+                            }
+                        }
+                    @endphp
+                    @if($canReport)
+                        <a href="{{ route('financiera.reporte') }}" class="btn text-center w-100 text-white" style="background-color: #0b6623;">📈 Generar Reporte</a>
+                    @else
+                        <button type="button" class="btn w-100 btn-secondary" disabled title="No tienes permiso para generar reportes." aria-disabled="true">📈 Generar Reporte</button>
+                    @endif
                 </div>
             </div>
         </div>
+        @endif
 
     </div>
 </div>

@@ -13,6 +13,7 @@ class Cita extends Model
     protected $table = 'citas';
 
     protected $fillable = [
+        'parent_cita_id',
         'solicitante_id',
         'orientador_id',
         'estudiante_referido_id',
@@ -45,6 +46,7 @@ class Cita extends Model
         'fecha_solicitada' => 'date',
         'fecha_asignada' => 'date',
         'fecha_seguimiento' => 'date',
+        'hora_seguimiento' => 'string',
         'fecha_cancelacion' => 'datetime',
         'requiere_seguimiento' => 'boolean',
         'duracion_estimada' => 'integer',
@@ -75,10 +77,8 @@ class Cita extends Model
     const TIPOS_CITA = [
         'orientacion' => 'Orientación Académica',
         'psicologica' => 'Orientación Psicológica',
-        'disciplinaria' => 'Citación Disciplinaria',
-        'familiar' => 'Reunión Familiar',
-        'seguimiento' => 'Seguimiento Estudiantil',
-        'vocacional' => 'Orientación Vocacional'
+        'vocacional' => 'Orientación Vocacional',
+        'otro' => 'Otro'
     ];
 
     // Modalidades
@@ -94,6 +94,22 @@ class Cita extends Model
     public function solicitante()
     {
         return $this->belongsTo(User::class, 'solicitante_id');
+    }
+
+    /**
+     * Cita origen (si esta cita es un seguimiento)
+     */
+    public function parent()
+    {
+        return $this->belongsTo(self::class, 'parent_cita_id');
+    }
+
+    /**
+     * Seguimientos derivados de esta cita
+     */
+    public function children()
+    {
+        return $this->hasMany(self::class, 'parent_cita_id');
     }
 
     /**

@@ -3,7 +3,8 @@
 @section('content')
 <div class="container">
     <h2>Generar informe psicosocial</h2>
-    <p class="text-muted">Solo se pueden generar informes para citas atendidas.</p>
+
+    <p class="text-muted">Solo se pueden generar informes para citas completadas (atendidas).</p>
 
     <div class="card">
         <div class="card-body">
@@ -11,12 +12,12 @@
                 @csrf
 
                 <div class="col-12">
-                    <label for="cita_id" class="form-label">Cita atendida</label>
+                    <label for="cita_id" class="form-label">Cita completada</label>
                     <select id="cita_id" name="cita_id" class="form-select" required>
                         @forelse($citas as $cita)
-                            <option value="{{ $cita->id }}">Cita #{{ $cita->id }} — {{ \Carbon\Carbon::parse($cita->fecha)->format('d/m/Y H:i') }}</option>
+                            <option value="{{ $cita->id }}">Cita #{{ $cita->id }} — {{ optional($cita->solicitante)->name ?? 'Solicitante' }} — {{ $cita->fecha_solicitada ? \Carbon\Carbon::parse($cita->fecha_solicitada)->format('d/m/Y') . ' ' . ($cita->hora_solicitada ?? '') : 'Sin fecha' }}</option>
                         @empty
-                            <option disabled>No hay citas atendidas disponibles</option>
+                            <option disabled>No hay citas completadas disponibles</option>
                         @endforelse
                     </select>
                 </div>

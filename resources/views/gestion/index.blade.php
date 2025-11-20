@@ -26,9 +26,54 @@
                     <i class="fas fa-book fa-2x"></i>
                 </div>
                 <h5 class="card-title mb-3">Gestionar Cursos</h5>
-                <a href="{{ route('cursos.panel') }}" class="btn btn-outline-primary w-100">
-                    <i class="fas fa-edit me-2"></i>Ver y Crear Cursos
-                </a>
+                @php
+                    $u = auth()->user();
+                    $roleNombre = optional($u->role)->nombre ?? '';
+                    $roleNorm = strtr(mb_strtolower($roleNombre), ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u']);
+                    $canManageAcademica = false;
+                    if ($u && method_exists($u, 'hasPermission') && $u->hasPermission('gestionar_academica')) {
+                        $canManageAcademica = true;
+                    }
+                    if ($u && ($u->roles_id == 1 || stripos($roleNombre, 'admin') !== false || stripos($roleNombre, 'administrador') !== false || stripos($roleNombre, 'rector') !== false)) {
+                        $canManageAcademica = true;
+                    }
+                    // Permitir Coordinador Académico específicamente
+                    if (mb_stripos($roleNorm, 'coordinador academ') !== false || mb_stripos($roleNorm, 'cordinador academ') !== false) {
+                        $canManageAcademica = true;
+                    }
+
+                    // Permisos/roles específicos para acceder al módulo de Asistencias
+                    $canAccessAsistencias = false;
+                    if ($canManageAcademica) {
+                        $canAccessAsistencias = true;
+                    }
+                    if ($u && method_exists($u, 'hasPermission') && ($u->hasPermission('ver_asistencias') || $u->hasPermission('registrar_asistencia'))) {
+                        $canAccessAsistencias = true;
+                    }
+                    // Permitir al rol Acudiente ver/registrar asistencias
+                    if ($u && optional($u->role)->nombre && stripos(optional($u->role)->nombre, 'acudiente') !== false) {
+                        $canAccessAsistencias = true;
+                    }
+                    // Permitir al rol Docente
+                    if ($u && optional($u->role)->nombre && (stripos(optional($u->role)->nombre, 'docente') !== false || stripos(optional($u->role)->nombre, 'estudiante') !== false)) {
+                        $canAccessAsistencias = true;
+                    }
+                    // Permitir a Docentes y a Estudiantes ver el panel de Horarios (solo vista, no gestión completa)
+                    $canViewHorarios = $canManageAcademica;
+                    if ($u && optional($u->role)->nombre) {
+                        $roleCheck = optional($u->role)->nombre;
+                        if (stripos($roleCheck, 'docente') !== false || stripos($roleCheck, 'estudiante') !== false || stripos($roleCheck, 'acudiente') !== false) {
+                            $canViewHorarios = true;
+                        }
+                    }
+                @endphp
+                @if($canManageAcademica)
+                    <a href="{{ route('cursos.panel') }}" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-edit me-2"></i>Ver y Crear Cursos
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled title="No tienes permiso para gestionar cursos">Ver y Crear Cursos (sin permiso)</button>
+                @endif
             </div>
         </div>
     </div>
@@ -41,9 +86,13 @@
                     <i class="fas fa-clock fa-2x"></i>
                 </div>
                 <h5 class="card-title mb-3">Horarios</h5>
-                <a href="{{ route('gestion.horarios') }}" class="btn btn-info w-100">
-                    <i class="fas fa-clock me-2"></i>Gestionar Horarios
-                </a>
+                @if($canViewHorarios)
+                    <a href="{{ route('gestion.horarios') }}" class="btn btn-info w-100">
+                        <i class="fas fa-clock me-2"></i>Ver Horarios
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled title="No tienes permiso para gestionar horarios">Gestionar Horarios (sin permiso)</button>
+                @endif
             </div>
         </div>
     </div>
@@ -118,6 +167,25 @@
                     </a>
                 @else
                     <button class="btn btn-outline-secondary w-100" disabled>Asignaciones (sin permiso)</button>
+                @endif
+            </div>
+        </div>
+    </div>
+    
+    {{-- Tarjeta: Asistencias --}}
+    <div class="col-md-4 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <div class="text-teal mb-3" style="color: #0d6efd;">
+                    <i class="fas fa-calendar-check fa-2x"></i>
+                </div>
+                <h5 class="card-title mb-3">Asistencias</h5>
+                @if($canAccessAsistencias)
+                    <a href="{{ route('asistencias.index') }}" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-calendar-check me-2"></i>Ir a Asistencias
+                    </a>
+                @else
+                    <button class="btn btn-outline-secondary w-100" disabled>Asistencias (sin permiso)</button>
                 @endif
             </div>
         </div>

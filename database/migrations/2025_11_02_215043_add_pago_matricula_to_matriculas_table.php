@@ -11,11 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('matriculas')) {
+            return;
+        }
+
         Schema::table('matriculas', function (Blueprint $table) {
-            $table->string('comprobante_pago')->nullable()->after('certificado_notas');
-            $table->decimal('monto_pago', 10, 2)->nullable()->after('comprobante_pago');
-            $table->date('fecha_pago')->nullable()->after('monto_pago');
-            $table->boolean('documentos_completos')->default(false)->after('fecha_pago');
+            if (!Schema::hasColumn('matriculas', 'comprobante_pago')) {
+                $table->string('comprobante_pago')->nullable();
+            }
+            if (!Schema::hasColumn('matriculas', 'monto_pago')) {
+                $table->decimal('monto_pago', 10, 2)->nullable();
+            }
+            if (!Schema::hasColumn('matriculas', 'fecha_pago')) {
+                $table->date('fecha_pago')->nullable();
+            }
+            if (!Schema::hasColumn('matriculas', 'documentos_completos')) {
+                $table->boolean('documentos_completos')->default(false);
+            }
         });
     }
 
@@ -24,8 +36,27 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('matriculas')) {
+            return;
+        }
+
         Schema::table('matriculas', function (Blueprint $table) {
-            $table->dropColumn(['comprobante_pago', 'monto_pago', 'fecha_pago', 'documentos_completos']);
+            $drop = [];
+            if (Schema::hasColumn('matriculas', 'comprobante_pago')) {
+                $drop[] = 'comprobante_pago';
+            }
+            if (Schema::hasColumn('matriculas', 'monto_pago')) {
+                $drop[] = 'monto_pago';
+            }
+            if (Schema::hasColumn('matriculas', 'fecha_pago')) {
+                $drop[] = 'fecha_pago';
+            }
+            if (Schema::hasColumn('matriculas', 'documentos_completos')) {
+                $drop[] = 'documentos_completos';
+            }
+            if (!empty($drop)) {
+                $table->dropColumn($drop);
+            }
         });
     }
 };

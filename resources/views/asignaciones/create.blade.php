@@ -86,6 +86,11 @@
                                             @enderror
                                         </div>
 
+                                        <div id="info_matricula" class="mb-3" style="display:none;">
+                                            <label class="form-label"><strong>Última matrícula:</strong></label>
+                                            <div id="info_matricula_text" class="form-control-plaintext"></div>
+                                        </div>
+
                                         <div class="mb-3">
                                             <label for="fecha_matricula" class="form-label">Fecha de Matrícula <span class="text-danger">*</span></label>
                                             <input type="date" name="fecha_matricula" id="fecha_matricula" 
@@ -97,11 +102,23 @@
                                         </div>
 
                                         <div class="mb-3">
+                                            <label for="tipo_usuario" class="form-label">Tipo de Usuario <span class="text-danger">*</span></label>
+                                            <select name="tipo_usuario" id="tipo_usuario" class="form-select @error('tipo_usuario') is-invalid @enderror" required>
+                                                <option value="nuevo" {{ old('tipo_usuario', 'nuevo') == 'nuevo' ? 'selected' : '' }}>Nuevo</option>
+                                                <option value="antiguo" {{ old('tipo_usuario') == 'antiguo' ? 'selected' : '' }}>Antiguo</option>
+                                            </select>
+                                            <div class="form-text">Seleccione si el estudiante es nuevo o antiguo. Si es nuevo, no se requiere el certificado de notas.</div>
+                                            @error('tipo_usuario')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
                                             <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
                                             <select name="estado" id="estado" class="form-select @error('estado') is-invalid @enderror" required>
-                                                <option value="activa" {{ old('estado', 'activa') == 'activa' ? 'selected' : '' }}>Activa</option>
-                                                <option value="inactiva" {{ old('estado') == 'inactiva' ? 'selected' : '' }}>Inactiva</option>
-                                                <option value="suspendida" {{ old('estado') == 'suspendida' ? 'selected' : '' }}>Suspendida</option>
+                                                <option value="activo" {{ old('estado', 'activo') == 'activo' ? 'selected' : '' }}>Activo</option>
+                                                <option value="inactivo" {{ old('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                                                <option value="suspendido" {{ old('estado') == 'suspendido' ? 'selected' : '' }}>Suspendido</option>
                                             </select>
                                             @error('estado')
                                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -257,6 +274,25 @@
 @section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const tipoUsuarioSelect = document.getElementById('tipo_usuario');
+    const certificadoNotasInput = document.getElementById('certificado_notas');
+
+    function toggleCertificadoNotasRequirement() {
+        if (!tipoUsuarioSelect || !certificadoNotasInput) return;
+        if (tipoUsuarioSelect.value === 'antiguo') {
+            certificadoNotasInput.required = true;
+        } else {
+            certificadoNotasInput.required = false;
+        }
+    }
+
+    // Inicializar según valor por defecto
+    toggleCertificadoNotasRequirement();
+
+    // Escuchar cambios en el select
+    if (tipoUsuarioSelect) {
+        tipoUsuarioSelect.addEventListener('change', toggleCertificadoNotasRequirement);
+    }
     const form = document.querySelector('form');
     const submitBtn = document.getElementById('submitBtn');
     
@@ -351,6 +387,55 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('¡Estudiantes encontrados correctamente!');
     } else {
         console.log('⚠️ PROBLEMA: No se cargaron estudiantes en el select');
+    }
+
+    // Mostrar info de última matrícula cuando se selecciona un estudiante,
+    // pero NO asignar automáticamente el curso en el select.
+    const userSelect = document.getElementById('user_id');
+    const infoContainer = document.getElementById('info_matricula');
+    const infoText = document.getElementById('info_matricula_text');
+
+    async function fetchUltimaMatricula(userId) {
+        if (!userId) {
+            infoContainer.style.display = 'none';
+            infoText.innerHTML = '';
+            return;
+        }
+        try {
+            const resp = await fetch('/asignaciones/json/ultima-matricula/' + encodeURIComponent(userId));
+            if (resp.status === 204) {
+                infoContainer.style.display = 'block';
+                infoText.innerHTML = 'No existe matrícula previa para este estudiante.';
+                return;
+            }
+            if (!resp.ok) throw new Error('Network response not ok');
+            const data = await resp.json();
+            // Construir texto: mostrar fecha/estado y la selección del usuario como texto plano
+            let texto = 'Fecha: ' + (data.fecha_matricula || 'N/A') + ' — Estado: ' + (data.estado || 'N/A') + '<br>';
+            if (data.curso_asignado_nombre) {
+                texto += '<strong>Curso matriculado:</strong> ' + data.curso_asignado_nombre;
+            } else if (data.curso_seleccionado) {
+                // Mostrar únicamente como texto la selección que hizo el usuario al matricularse
+                texto += '<strong>Curso seleccionado al matricular:</strong> ' + data.curso_seleccionado;
+            } else {
+                texto += '<strong>Curso matriculado:</strong> No asignado';
+            }
+            infoContainer.style.display = 'block';
+            infoText.innerHTML = texto;
+        } catch (e) {
+            console.error('Error fetch ultima matricula', e);
+            infoContainer.style.display = 'block';
+            infoText.innerHTML = 'Error al cargar la información de la matrícula.';
+        }
+    }
+
+    if (userSelect) {
+        userSelect.addEventListener('change', function() {
+            const uid = this.value;
+            fetchUltimaMatricula(uid);
+        });
+        // Cargar info inicial si ya hay un user seleccionado
+        if (userSelect.value) fetchUltimaMatricula(userSelect.value);
     }
 });
 </script>

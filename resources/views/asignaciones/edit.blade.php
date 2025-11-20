@@ -26,7 +26,7 @@
                         Puede actualizar documentos individualmente o modificar la información básica.
                     </div>
 
-                    <form action="{{ route('asignaciones.update', $asignacion) }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('asignaciones.update', $asignacion) }}" method="POST" enctype="multipart/form-data" data-existing-certificado="{{ !empty($asignacion->certificado_notas) ? '1' : '0' }}">
                         @csrf
                         @method('PUT')
                         
@@ -70,6 +70,12 @@
                                             @enderror
                                         </div>
 
+                                        <div id="info_matricula" class="mb-3" style="display:none;">
+                                            <label class="form-label"><strong>Última matrícula:</strong> <span class="badge bg-secondary">Solo informativo</span></label>
+                                            <div id="info_matricula_text" class="form-control-plaintext"></div>
+                                            <div class="form-text text-muted">Este campo muestra el curso por el que fue matriculado el estudiante previamente. No se asigna automáticamente al guardar.</div>
+                                        </div>
+
                                         <div class="mb-3">
                                             <label for="fecha_matricula" class="form-label">Fecha de Matrícula <span class="text-danger">*</span></label>
                                             <input type="date" name="fecha_matricula" id="fecha_matricula" 
@@ -81,11 +87,23 @@
                                         </div>
 
                                         <div class="mb-3">
+                                            <label for="tipo_usuario" class="form-label">Tipo de Usuario <span class="text-danger">*</span></label>
+                                            <select name="tipo_usuario" id="tipo_usuario" class="form-select @error('tipo_usuario') is-invalid @enderror" required>
+                                                <option value="nuevo" {{ old('tipo_usuario', $asignacion->tipo_usuario ?? 'nuevo') == 'nuevo' ? 'selected' : '' }}>Nuevo</option>
+                                                <option value="antiguo" {{ old('tipo_usuario', $asignacion->tipo_usuario) == 'antiguo' ? 'selected' : '' }}>Antiguo</option>
+                                            </select>
+                                            <div class="form-text">Si el estudiante es nuevo, el certificado de notas no es obligatorio.</div>
+                                            @error('tipo_usuario')
+                                                <div class="invalid-feedback">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+
+                                        <div class="mb-3">
                                             <label for="estado" class="form-label">Estado <span class="text-danger">*</span></label>
                                             <select name="estado" id="estado" class="form-select @error('estado') is-invalid @enderror" required>
-                                                <option value="activa" {{ old('estado', $asignacion->estado) == 'activa' ? 'selected' : '' }}>Activa</option>
-                                                <option value="inactiva" {{ old('estado', $asignacion->estado) == 'inactiva' ? 'selected' : '' }}>Inactiva</option>
-                                                <option value="suspendida" {{ old('estado', $asignacion->estado) == 'suspendida' ? 'selected' : '' }}>Suspendida</option>
+                                                <option value="activo" {{ old('estado', $asignacion->estado) == 'activo' ? 'selected' : '' }}>Activo</option>
+                                                <option value="inactivo" {{ old('estado', $asignacion->estado) == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                                                <option value="suspendido" {{ old('estado', $asignacion->estado) == 'suspendido' ? 'selected' : '' }}>Suspendido</option>
                                             </select>
                                             @error('estado')
                                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -129,19 +147,44 @@
 
                                         <div class="mb-3">
                                             <label for="comprobante_pago" class="form-label">Nuevo Comprobante de Pago</label>
-                                            @if($asignacion->comprobante_pago)
-                                                <div class="mb-2">
-                                                    <small class="text-success">
-                                                        <i class="fas fa-check-circle me-1"></i>Archivo actual: 
-                                                        <a href="{{ route('matriculas.archivo', ['matricula' => $asignacion->id, 'campo' => 'comprobante_pago']) }}" 
-                                                           target="_blank" class="text-primary">Ver comprobante actual</a>
-                                                    </small>
-                                                </div>
+                                            @php
+                                                $roleName = optional(Auth::user()->role)->nombre ?? '';
+                                                $isPrivileged = (stripos($roleName, 'tesor') !== false) || (stripos($roleName, 'administrador') !== false) || (stripos($roleName, 'admin') !== false);
+                                            @endphp
+
+                                            @if($isPrivileged)
+                                                {{-- Mostrar todos los documentos cargados por el usuario (actuales + históricos) --}}
+                                                @if(isset($userDocuments) && $userDocuments->count() > 0)
+                                                    <div class="mb-2">
+                                                        <small class="text-success d-block mb-2"><i class="fas fa-check-circle me-1"></i>Documentos cargados por el usuario:</small>
+                                                        <ul class="list-unstyled mb-0">
+                                                            @foreach($userDocuments as $doc)
+                                                                <li>
+                                                                    <a href="{{ route('matriculas.comprobanteFile', ['matricula' => $asignacion->id, 'filename' => $doc->filename]) }}" target="_blank">{{ $doc->filename }}</a>
+                                                                    <small class="text-muted"> — {{ $doc->type }} @if($doc->uploaded_by) · {{ $doc->uploaded_by }} @endif @if($doc->created_at) · {{ $doc->created_at->format('Y-m-d H:i') }} @endif</small>
+                                                                </li>
+                                                            @endforeach
+                                                        </ul>
+                                                    </div>
+                                                @else
+                                                    <div class="mb-2"><small class="text-muted">No se encontraron documentos cargados por el usuario.</small></div>
+                                                @endif
+                                            @else
+                                                @if($asignacion->comprobante_pago)
+                                                    <div class="mb-2">
+                                                        <small class="text-success">
+                                                            <i class="fas fa-check-circle me-1"></i>Archivo actual: 
+                                                            <a href="{{ route('matriculas.archivo', ['matricula' => $asignacion->id, 'campo' => 'comprobante_pago']) }}" 
+                                                               target="_blank" class="text-primary">Ver comprobante actual</a>
+                                                        </small>
+                                                    </div>
+                                                @endif
                                             @endif
+
                                             <input type="file" name="comprobante_pago" id="comprobante_pago" 
                                                    class="form-control @error('comprobante_pago') is-invalid @enderror" 
                                                    accept=".pdf,.jpg,.jpeg,.png">
-                                            <div class="form-text">Solo cargar si desea reemplazar el archivo actual. Formatos: PDF, JPG, PNG. Máximo 2MB.</div>
+                                            <div class="form-text">Al subir un nuevo comprobante, el sistema conservará los comprobantes anteriores; solo se reemplaza la referencia al último comprobante que verá el usuario.</div>
                                             @error('comprobante_pago')
                                                 <div class="invalid-feedback">{{ $message }}</div>
                                             @enderror
@@ -156,7 +199,7 @@
                             <div class="card-header bg-light">
                                 <h5 class="mb-0">
                                     <i class="fas fa-file-alt me-2"></i>Documentos 
-                                    @if($asignacion->documentos_completos)
+                                    @if($asignacion->tieneDocumentosCompletos())
                                         <span class="badge bg-success ms-2">Completos</span>
                                     @else
                                         <span class="badge bg-danger ms-2">Incompletos</span>
@@ -211,7 +254,7 @@
                                     @endforeach
                                 </div>
 
-                                @if(!$asignacion->documentos_completos)
+                                @if(!$asignacion->tieneDocumentosCompletos())
                                     <div class="alert alert-warning">
                                         <i class="fas fa-exclamation-triangle me-2"></i>
                                         <strong>Nota:</strong> La asignación no estará completa hasta que todos los documentos estén cargados.
@@ -247,6 +290,24 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.querySelector('form');
     const submitBtn = document.getElementById('submitBtn');
+    const tipoUsuarioSelect = document.getElementById('tipo_usuario');
+    const certificadoNotasInput = document.getElementById('certificado_notas');
+    const existingCertificadoNotas = form && form.dataset && form.dataset.existingCertificado === '1';
+
+    function toggleCertificadoNotasRequirement() {
+        if (!tipoUsuarioSelect || !certificadoNotasInput) return;
+        if (tipoUsuarioSelect.value === 'antiguo' && !existingCertificadoNotas) {
+            certificadoNotasInput.required = true;
+        } else {
+            certificadoNotasInput.required = false;
+        }
+    }
+
+    // Inicializar y escuchar cambios
+    toggleCertificadoNotasRequirement();
+    if (tipoUsuarioSelect) {
+        tipoUsuarioSelect.addEventListener('change', toggleCertificadoNotasRequirement);
+    }
     
     // Validar archivos antes del envío
     form.addEventListener('submit', function(e) {
@@ -305,6 +366,53 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
             }
         });
+
+        // --- Mostrar info de última matrícula (sin asignar automáticamente) ---
+        const userSelect = document.getElementById('user_id');
+        const infoContainer = document.getElementById('info_matricula');
+        const infoText = document.getElementById('info_matricula_text');
+
+        async function fetchUltimaMatricula(userId) {
+            if (!userId) {
+                if (infoContainer) { infoContainer.style.display = 'none'; }
+                if (infoText) { infoText.innerHTML = ''; }
+                return;
+            }
+            try {
+                const resp = await fetch('/asignaciones/json/ultima-matricula/' + encodeURIComponent(userId));
+                if (resp.status === 204) {
+                    if (infoContainer) { infoContainer.style.display = 'block'; }
+                    if (infoText) { infoText.innerHTML = 'No existe matrícula previa para este estudiante.'; }
+                    return;
+                }
+                if (!resp.ok) throw new Error('Network response not ok');
+                const data = await resp.json();
+                // Mostrar fecha/estado y la selección hecha en la matrícula como texto plano
+                let texto = 'Fecha: ' + (data.fecha_matricula || 'N/A') + ' — Estado: ' + (data.estado || 'N/A') + '<br>';
+                if (data.curso_asignado_nombre) {
+                    texto += '<strong>Curso matriculado:</strong> ' + data.curso_asignado_nombre;
+                } else if (data.curso_seleccionado) {
+                    texto += '<strong>Curso seleccionado al matricular:</strong> ' + data.curso_seleccionado;
+                } else {
+                    texto += '<strong>Curso matriculado:</strong> No asignado';
+                }
+                if (infoContainer) { infoContainer.style.display = 'block'; }
+                if (infoText) { infoText.innerHTML = texto; }
+            } catch (e) {
+                console.error('Error fetch ultima matricula', e);
+                if (infoContainer) { infoContainer.style.display = 'block'; }
+                if (infoText) { infoText.innerHTML = 'Error al cargar la información de la matrícula.'; }
+            }
+        }
+
+        if (userSelect) {
+            userSelect.addEventListener('change', function() {
+                const uid = this.value;
+                fetchUltimaMatricula(uid);
+            });
+            // Cargar info inicial
+            if (userSelect.value) fetchUltimaMatricula(userSelect.value);
+        }
     });
 });
 </script>

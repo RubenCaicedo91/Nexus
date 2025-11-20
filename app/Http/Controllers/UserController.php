@@ -18,6 +18,10 @@ class UserController extends Controller
         if ($user instanceof User && $user->hasPermission('gestionar_usuarios')) {
             return true;
         }
+        // Permitir a usuarios cuyo rol sea Rector
+        if ($user && optional($user->role)->nombre && stripos(optional($user->role)->nombre, 'rector') !== false) {
+            return true;
+        }
         // Fallback legacy
         if ($user && isset($user->roles_id) && (int)$user->roles_id === 1) return true;
         if ($user && optional($user->role)->nombre) {
@@ -27,11 +31,40 @@ class UserController extends Controller
         abort(403, 'Acceso no autorizado');
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeManager();
-        $users = User::with('role')->orderBy('name')->paginate(25);
-        return view('usuarios.index', compact('users'));
+
+        $query = User::with('role');
+
+        // Filtro por nombre (busca en name, first_name y first_last)
+        $name = trim($request->get('name', ''));
+        if ($name !== '') {
+            $query->where(function($q) use ($name) {
+                $q->where('name', 'like', "%{$name}%")
+                  ->orWhere('first_name', 'like', "%{$name}%")
+                  ->orWhere('first_last', 'like', "%{$name}%");
+            });
+        }
+
+        // Filtro por email
+        $email = trim($request->get('email', ''));
+        if ($email !== '') {
+            $query->where('email', 'like', "%{$email}%");
+        }
+
+        // Filtro por rol (roles_id)
+        $role = $request->get('role');
+        if (!is_null($role) && $role !== '') {
+            $query->where('roles_id', $role);
+        }
+
+        $users = $query->orderBy('name')->paginate(25)->appends($request->except('page'));
+
+        // Pasar lista de roles para el select de filtros
+        $roles = RolesModel::orderBy('nombre')->get();
+
+        return view('usuarios.index', compact('users', 'roles'));
     }
 
     public function create()
@@ -44,7 +77,14 @@ class UserController extends Controller
                 return (object)['id' => $key, 'nombre' => $label];
             });
         }
-        return view('usuarios.create', compact('roles'));
+        // Cargar acudientes disponibles para asignar a estudiantes
+        $rolAcudiente = RolesModel::where('nombre', 'Acudiente')->first();
+        $acudientes = [];
+        if ($rolAcudiente) {
+            $acudientes = \App\Models\User::where('roles_id', $rolAcudiente->id)->orderBy('name')->get();
+        }
+
+        return view('usuarios.create', compact('roles', 'acudientes'));
     }
 
     public function store(Request $request)
@@ -90,6 +130,25 @@ class UserController extends Controller
             'celular' => $data['celular'] ?? null,
         ]);
 
+        // Si el rol asignado es Estudiante, requerimos que se haya enviado un acudiente válido
+        $rolEstudiante = RolesModel::where('nombre', 'Estudiante')->first();
+        if ($rolEstudiante && isset($data['roles_id']) && (int)$data['roles_id'] === (int)$rolEstudiante->id) {
+            $acudienteId = $request->input('acudiente_id');
+            $rolAcudiente = RolesModel::where('nombre','Acudiente')->first();
+            $acudienteValido = false;
+            if ($acudienteId && $rolAcudiente) {
+                $acudienteValido = \App\Models\User::where('id', $acudienteId)->where('roles_id', $rolAcudiente->id)->exists();
+            }
+            if (!$acudienteValido) {
+                // Borrar el usuario creado para no dejar registros inconsistentes
+                $user->delete();
+                return redirect()->back()->withInput()->withErrors(['acudiente_id' => 'Para el rol Estudiante es obligatorio seleccionar un acudiente válido.']);
+            }
+
+            $user->acudiente_id = $acudienteId;
+            $user->save();
+        }
+
         return redirect()->route('usuarios.index')->with('success', 'Usuario creado correctamente.');
     }
 
@@ -103,7 +162,14 @@ class UserController extends Controller
                 return (object)['id' => $key, 'nombre' => $label];
             });
         }
-        return view('usuarios.edit', compact('user', 'roles'));
+        // Cargar acudientes para permitir asignar/actualizar el acudiente de un estudiante
+        $rolAcudiente = RolesModel::where('nombre', 'Acudiente')->first();
+        $acudientes = [];
+        if ($rolAcudiente) {
+            $acudientes = \App\Models\User::where('roles_id', $rolAcudiente->id)->orderBy('name')->get();
+        }
+
+        return view('usuarios.edit', compact('user', 'roles', 'acudientes'));
     }
 
     public function update(Request $request, $id)
@@ -149,6 +215,26 @@ class UserController extends Controller
         $user->document_type = $data['document_type'] ?? null;
         $user->document_number = $data['document_number'] ?? null;
         $user->celular = $data['celular'] ?? null;
+        // Si el rol actualizado es Estudiante, requerimos acudiente válido
+        $rolEstudiante = RolesModel::where('nombre', 'Estudiante')->first();
+        if ($rolEstudiante && isset($data['roles_id']) && (int)$data['roles_id'] === (int)$rolEstudiante->id) {
+            $acudienteId = $request->input('acudiente_id');
+            $rolAcudiente = RolesModel::where('nombre','Acudiente')->first();
+            $acudienteValido = false;
+            if ($acudienteId && $rolAcudiente) {
+                $acudienteValido = \App\Models\User::where('id', $acudienteId)->where('roles_id', $rolAcudiente->id)->exists();
+            }
+            if (!$acudienteValido) {
+                return redirect()->back()->withInput()->withErrors(['acudiente_id' => 'Para el rol Estudiante es obligatorio seleccionar un acudiente válido.']);
+            }
+            $user->acudiente_id = $acudienteId;
+        } else {
+            // Si no es estudiante, limpiar campo acudiente si fue enviado vacío
+            if ($request->has('acudiente_id') && empty($request->input('acudiente_id'))) {
+                $user->acudiente_id = null;
+            }
+        }
+
         $user->save();
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado correctamente.');
@@ -172,16 +258,49 @@ class UserController extends Controller
         $q = trim($request->get('q', ''));
         if ($q === '') return response()->json(['data' => []]);
 
-        $query = User::query();
-        $query->where(function($sub) use ($q) {
-            $sub->where('name', 'like', "%{$q}%")
-                ->orWhere('first_name', 'like', "%{$q}%")
-                ->orWhere('first_last', 'like', "%{$q}%")
-                ->orWhere('document_number', 'like', "%{$q}%");
-        });
-
-        $results = $query->select('id','name','first_name','first_last','document_number')->orderBy('name')->limit(50)->get();
+        // Buscar únicamente por número de documento (coincidencia parcial permitida).
+        $results = User::where('document_number', 'like', "%{$q}%")
+            ->select('id','name','first_name','first_last','document_number')
+            ->orderBy('document_number')
+            ->limit(50)
+            ->get();
 
         return response()->json(['data' => $results]);
+    }
+
+    /**
+     * Devuelve usuarios que pertenecen a un rol/grupo.
+     * Público para usuarios autenticados (no requiere authorizeManager).
+     */
+    public function byRole(Request $request, $rolId)
+    {
+        if (! Auth::check()) {
+            return response()->json(['data' => []], 401);
+        }
+
+        $q = trim($request->get('q', ''));
+
+        $query = User::where('roles_id', $rolId);
+
+        if ($q !== '') {
+            $query->where(function($sub) use ($q) {
+                $sub->where('name', 'like', "%{$q}%")
+                    ->orWhere('first_name', 'like', "%{$q}%")
+                    ->orWhere('first_last', 'like', "%{$q}%")
+                    ->orWhere('document_number', 'like', "%{$q}%");
+            });
+        }
+
+        $users = $query->select('id', 'name', 'first_name', 'first_last', 'document_number')
+            ->orderBy('name')
+            ->limit(50)
+            ->get()
+            ->map(function($u) use ($rolId) {
+                // Anexar rol_id para facilitar la UI en frontend
+                $u->rol_id = (int) $rolId;
+                return $u;
+            });
+
+        return response()->json(['data' => $users]);
     }
 }

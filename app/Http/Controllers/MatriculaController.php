@@ -11,34 +11,128 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
+use App\Models\MatriculaComprobante;
+use App\Models\Notificacion;
 
 class MatriculaController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+
+        $this->middleware(function ($request, $next) {
+            $user = Auth::user();
+            if (! $user) {
+                abort(403, 'Acceso no autorizado');
+            }
+
+            $roleName = optional($user->role)->nombre ?? '';
+
+            // Bloquear explícitamente al rol 'coordinador disciplina'
+            if ($roleName && stripos($roleName, 'coordinador disciplina') !== false) {
+                abort(403, 'Acceso no autorizado');
+            }
+
+            // Permitir usuarios con permiso gestionar_academica o roles administrativos
+            if ((method_exists($user, 'hasPermission') && $user->hasPermission('gestionar_academica')) ||
+                ($roleName && (
+                    stripos($roleName, 'admin') !== false ||
+                    stripos($roleName, 'administrador') !== false ||
+                    stripos($roleName, 'rector') !== false
+                )) ||
+                (isset($user->roles_id) && (int)$user->roles_id === 1)
+            ) {
+                return $next($request);
+            }
+
+            // Permitir a los Acudientes ver el módulo de Matrículas (solo visualización)
+            if ($roleName && stripos($roleName, 'acudiente') !== false) {
+                return $next($request);
+            }
+
+            abort(403, 'Acceso no autorizado');
+        });
+    }
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
         // Usar paginación por defecto para la lista (mejor experiencia y compatibilidad con ->links())
-        $matriculas = Matricula::with('user')->orderBy('created_at', 'desc')->paginate(10);
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            // Mostrar solo matrículas de los estudiantes asociados a este acudiente
+            $matriculas = Matricula::with('user')
+                ->whereHas('user', function($q) use ($user){
+                    $q->where('acudiente_id', $user->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+        } else {
+            $matriculas = Matricula::with('user')->orderBy('created_at', 'desc')->paginate(10);
+        }
         return view('matriculas.index', compact('matriculas'));
     }
 
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public function create(Request $request)
     {
         // Obtener dinámicamente el id del rol 'Estudiante' en lugar de usar un id fijo
         $studentRole = RolesModel::where('nombre', 'Estudiante')->first();
         if ($studentRole) {
+            // Si la petición incluye 'q' (búsqueda), responder JSON filtrando
+            // únicamente por número de documento (document_number).
+            $q = trim($request->get('q', ''));
+            if ($q !== '' || $request->ajax() || $request->wantsJson()) {
+                if ($q === '') {
+                    return response()->json(['data' => []]);
+                }
+
+
+                $students = User::where('roles_id', $studentRole->id)
+                    ->where('document_number', 'like', "%{$q}%")
+                    ->select('id','name','first_name','second_name','first_last','second_last','document_number','document_type','email','celular')
+                    ->orderBy('document_number')
+                    ->limit(50)
+                    ->get();
+
+                return response()->json(['data' => $students]);
+            }
+
             $students = User::where('roles_id', $studentRole->id)->get();
         } else {
             // Si no existe el rol, devolver colección vacía para evitar errores en la vista
             $students = collect();
         }
 
-        return view('matriculas.create', compact('students'));
+        // Obtener lista de cursos y normalizar para mostrar solo el nombre base
+        // Pero incluir únicamente aquellas bases que tienen al menos un curso
+        // con sufijo de letra (ej: "Primero A", "Primero B"). De esta forma
+        // no se mostrarán niveles que aún no tienen grupos asociados.
+        $rawCursos = \App\Models\Curso::orderBy('nombre')->pluck('nombre');
+        $baseCursos = [];
+        foreach ($rawCursos as $nombre) {
+            // Detectar nombres que terminan en una letra (posible sufijo de grupo)
+            // Requerimos al menos un separador (espacio, guion, paréntesis o corchete)
+            // antes de la letra para evitar coincidir con palabras que terminan
+            // naturalmente en letra (ej: "Pre-jardín"). Ejemplo válido: "Primero A".
+            if (preg_match('/^(.*?)[\s\-\(\[]+([A-Za-zÁÉÍÓÚÑáéíóúñ])$/u', trim($nombre), $m)) {
+                $base = trim($m[1]);
+                if ($base === '') {
+                    $base = $nombre; // fallback
+                }
+                if (!in_array($base, $baseCursos, true)) {
+                    $baseCursos[] = $base;
+                }
+            }
+        }
+
+        return view('matriculas.create', compact('students', 'baseCursos'));
     }
 
     // Helpers nuevos para rutas ESTABLES
@@ -435,10 +529,52 @@ class MatriculaController extends Controller
 
         $ext = $file->getClientOriginalExtension() ?: $file->extension();
         $safeDoc = $docSegment ?: 'sin_documento';
-        $filename = 'PM_' . $safeDoc . '.' . $ext;
+        $base = 'PM_' . $safeDoc;
 
-        // Guardar siempre en la raíz del disco
-        return $this->uploadToFtpRoot($file, $filename);
+        $disk = Storage::disk('ftp_matriculas');
+
+        // Buscar si ya existe el archivo sin sufijo
+        $basenameNoSuffix = strtolower($base . '.' . $ext);
+        $existsNoSuffix = false;
+        $maxSuffix = 0;
+
+        try {
+            $all = [];
+            try { $all = $disk->allFiles(''); } catch (\Exception $e) { $all = []; }
+            try { $all = array_merge($all, $disk->allFiles('estudiante')); } catch (\Exception $e) { /* ignore */ }
+
+            foreach ($all as $candidate) {
+                $b = strtolower(basename($candidate));
+                if ($b === $basenameNoSuffix) {
+                    $existsNoSuffix = true;
+                }
+                // match suffix pattern PM_doc_01.ext
+                if (preg_match('/^' . preg_quote(strtolower($base), '/') . '_(\d+)\.' . preg_quote(strtolower($ext), '/') . '$/', $b, $m)) {
+                    $n = intval($m[1]);
+                    if ($n > $maxSuffix) $maxSuffix = $n;
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::warning('uploadPagoMatricula: no se pudieron listar archivos para comprobar sufijos', ['error' => $e->getMessage()]);
+        }
+
+        if (! $existsNoSuffix && $maxSuffix === 0) {
+            $filename = $base . '.' . $ext;
+        } else {
+            // determinar siguiente sufijo
+            $next = $maxSuffix + 1;
+            $filename = $base . '_' . sprintf('%02d', $next) . '.' . $ext;
+        }
+
+        // Guardar en root usando putFileAs (no eliminar históricos)
+        $filename = basename($filename);
+        try {
+            $stored = $disk->putFileAs('', $file, $filename);
+            return $stored === false ? null : $stored;
+        } catch (\Exception $e) {
+            \Log::error('uploadPagoMatricula: error al subir comprobante', ['error' => $e->getMessage(), 'filename' => $filename]);
+            return null;
+        }
     }
     /**
      * Sube un archivo según el nombre del campo del formulario.
@@ -473,16 +609,44 @@ class MatriculaController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $roleName = optional(Auth::user()->role)->nombre;
+        $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+
+        $rules = [
             'user_id' => 'required|exists:users,id',
+            'tipo_usuario' => 'required|in:nuevo,antiguo',
             'fecha_matricula' => 'required|date',
-            // 'estado' ahora se calcula automáticamente en el modelo
             'documento_identidad' => 'nullable|file|max:20480',
             'rh' => 'nullable|file|max:20480',
             'comprobante_pago' => 'nullable|file|max:20480',
             'certificado_medico' => 'nullable|file|max:20480',
-            'certificado_notas' => 'nullable|file|max:20480',
-        ]);
+            'certificado_notas' => 'required_if:tipo_usuario,antiguo|file|max:20480',
+        ];
+
+        if (in_array($roleName, $allowedRoles)) {
+            $rules['estado'] = 'nullable|in:activo,inactivo,completado,suspendido,falta de documentacion';
+        }
+
+        $request->validate($rules);
+
+        // Validación adicional para UPDATE: si el tipo de usuario es 'antiguo'
+        // y no existe `certificado_notas` en la matrícula ni se está subiendo
+        // uno nuevo, devolver error para forzar la carga del certificado.
+        $tipo = $request->input('tipo_usuario');
+        if ($tipo === 'antiguo') {
+            $willDelete = $request->has('delete_certificado_notas');
+            $hasExisting = !empty($matricula->certificado_notas);
+            $isUploading = $request->hasFile('certificado_notas');
+
+            if (($willDelete && !$isUploading) || (!$hasExisting && !$isUploading)) {
+                return back()->withErrors(['certificado_notas' => 'El certificado de notas es obligatorio para usuarios antiguos.'])
+                             ->withInput();
+            }
+        }
+
+        // Nota: la validación para UPDATE fue removida de `store()` porque
+        // referenciaba `$matricula` (no existe en este contexto). Se aplica
+        // la comprobación correspondiente en `update()`.
 
         $userId = (int) $request->user_id;
         $tipo_usuario = $request->input('tipo_usuario');
@@ -512,12 +676,63 @@ class MatriculaController extends Controller
         $matricula->user_id = $userId;
         $matricula->fecha_matricula = $request->fecha_matricula;
         $matricula->tipo_usuario = $tipo_usuario ?? null;
+        // Guardar el nombre base del curso seleccionado en la matrícula (informativo)
+        // Sólo hacerlo si la columna existe en la base de datos (migración no aplicada aún evita error)
+        try {
+            if (Schema::hasColumn('matriculas', 'curso_nombre')) {
+                $matricula->curso_nombre = $request->input('curso_nombre') ?: null;
+            }
+        } catch (\Throwable $e) {
+            // Si por alguna razón no se puede comprobar el esquema, omitimos el campo para evitar excepción
+            logger()->warning('No se pudo comprobar columna curso_nombre al crear matrícula: ' . $e->getMessage());
+        }
         $matricula->documento_identidad = $rutas['documento_identidad'] ?? null;
         $matricula->rh = $rutas['rh'] ?? null;
         $matricula->comprobante_pago = $rutas['comprobante_pago'] ?? null;
         $matricula->certificado_medico = $rutas['certificado_medico'] ?? null;
         $matricula->certificado_notas = $rutas['certificado_notas'] ?? null;
+        // Permitir que solo roles autorizados establezcan manualmente el estado
+        if (in_array($roleName, $allowedRoles) && $request->filled('estado')) {
+            $matricula->estado = $request->input('estado');
+        }
         $matricula->save();
+
+        // Si se subió un comprobante de pago, registrar su metadata en la tabla de audit
+        if (!empty($rutas['comprobante_pago'])) {
+            try {
+                $mc = MatriculaComprobante::create([
+                    'matricula_id' => $matricula->id,
+                    'filename' => basename($rutas['comprobante_pago']),
+                    'path' => $rutas['comprobante_pago'],
+                    'original_name' => $request->hasFile('comprobante_pago') ? $request->file('comprobante_pago')->getClientOriginalName() : null,
+                    'uploaded_by' => Auth::id(),
+                ]);
+
+                // Crear notificación para el acudiente del estudiante (si existe)
+                try {
+                    $studentUser = User::find($matricula->user_id);
+                    $destUserId = $studentUser && $studentUser->acudiente_id ? $studentUser->acudiente_id : $matricula->user_id;
+
+                    Notificacion::create([
+                        'usuario_id' => $destUserId,
+                        'titulo' => 'Comprobante de matrícula subido',
+                        'mensaje' => 'Se ha subido un comprobante de matrícula: ' . ($mc->original_name ?? $mc->filename),
+                        'leida' => false,
+                        'fecha' => now(),
+                        'tipo' => 'comprobante_matricula',
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::warning('store(): no se pudo crear notificación por comprobante', ['error' => $e->getMessage()]);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('store(): no se pudo crear MatriculaComprobante', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // Nota: no se asigna automáticamente `curso_id` aquí.
+        // La selección de curso en el formulario de matrícula sirve solo
+        // para mostrar una preferencia/base; la asignación real se debe
+        // realizar desde el módulo de Asignaciones.
 
         return redirect()->route('matriculas.index')->with('success', 'Matrícula creada correctamente.');
     }
@@ -526,23 +741,91 @@ class MatriculaController extends Controller
      */
     public function show(Matricula $matricula)
     {
+        // Si el usuario es Acudiente, sólo permitir ver la matrícula de sus propios estudiantes
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            $student = $matricula->user;
+            if (! $student || ($student->acudiente_id ?? null) != $user->id) {
+                abort(403, 'Acceso no autorizado');
+            }
+        }
+
         return view('matriculas.show', compact('matricula'));
+    }
+
+    /**
+     * Devuelve los cursos existentes que coinciden con una base (ej: "Primero" -> "Primero A", "Primero B").
+     * Usado por AJAX en el formulario de matrícula para mostrar las opciones informativas.
+     */
+    public function cursosPorBase($base)
+    {
+        $base = trim(urldecode($base));
+        $items = \App\Models\Curso::where('nombre', 'LIKE', $base . ' %')
+            ->orWhere('nombre', $base)
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
+
+        return response()->json($items);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Matricula $matricula)
+    public function edit(Request $request, Matricula $matricula)
     {
         // Obtener dinámicamente el id del rol 'Estudiante'
         $studentRole = RolesModel::where('nombre', 'Estudiante')->first();
         if ($studentRole) {
+            $q = trim($request->get('q', ''));
+            if ($q !== '' || $request->ajax() || $request->wantsJson()) {
+                if ($q === '') {
+                    return response()->json(['data' => []]);
+                }
+
+
+                $students = User::where('roles_id', $studentRole->id)
+                    ->where('document_number', 'like', "%{$q}%")
+                    ->select('id','name','first_name','second_name','first_last','second_last','document_number','document_type','email','celular')
+                    ->orderBy('document_number')
+                    ->limit(50)
+                    ->get();
+
+                return response()->json(['data' => $students]);
+            }
+
             $students = User::where('roles_id', $studentRole->id)->get();
         } else {
             $students = collect();
         }
 
-        return view('matriculas.edit', compact('matricula', 'students'));
+        // También enviar las bases de curso (mismo criterio que en create)
+        $rawCursos = \App\Models\Curso::orderBy('nombre')->pluck('nombre');
+        $baseCursos = [];
+        foreach ($rawCursos as $nombre) {
+            if (preg_match('/^(.*?)[\s\-\(\[]+([A-Za-zÁÉÍÓÚÑáéíóúñ])$/u', trim($nombre), $m)) {
+                $base = trim($m[1]);
+                if ($base === '') {
+                    $base = $nombre;
+                }
+                if (!in_array($base, $baseCursos, true)) {
+                    $baseCursos[] = $base;
+                }
+            }
+        }
+
+        // Calcular la base del curso actual de la matrícula (si existe)
+        $currentCursoBase = null;
+        if ($matricula->curso && !empty($matricula->curso->nombre)) {
+            $nombre = $matricula->curso->nombre;
+            if (preg_match('/^(.*?)[\s\-\(\[]+([A-Za-zÁÉÍÓÚÑáéíóúñ])$/u', trim($nombre), $m)) {
+                $currentCursoBase = trim($m[1]);
+            } else {
+                $currentCursoBase = $nombre;
+            }
+        }
+
+        return view('matriculas.edit', compact('matricula', 'students', 'baseCursos', 'currentCursoBase'));
     }
 
     /**
@@ -552,16 +835,24 @@ class MatriculaController extends Controller
     {
         $matricula = Matricula::findOrFail($id);
 
-        $request->validate([
+        $roleName = optional(Auth::user()->role)->nombre;
+        $allowedRoles = ['Administrador_sistema', 'Administrador de sistema', 'Rector', 'Coordinador Académico', 'Coordinador Academico'];
+
+        $rules = [
             'user_id' => 'required|exists:users,id',
             'fecha_matricula' => 'required|date',
-            // 'estado' ahora se calcula automáticamente en el modelo
             'documento_identidad' => 'nullable|file|max:20480',
             'rh' => 'nullable|file|max:20480',
             'comprobante_pago' => 'nullable|file|max:20480',
             'certificado_medico' => 'nullable|file|max:20480',
             'certificado_notas' => 'nullable|file|max:20480',
-        ]);
+        ];
+
+        if (in_array($roleName, $allowedRoles)) {
+            $rules['estado'] = 'nullable|in:activo,inactivo,completado,suspendido,falta de documentacion';
+        }
+
+        $request->validate($rules);
 
         $documentos = [
             'documento_identidad',
@@ -570,6 +861,10 @@ class MatriculaController extends Controller
             'certificado_medico',
             'certificado_notas'
         ];
+
+        // Variables para capturar datos del comprobante si se sube durante la actualización
+        $uploadedComprobantePath = null;
+        $uploadedComprobanteOriginal = null;
 
         $deletedAny = false;
         $deletedList = [];
@@ -589,17 +884,24 @@ class MatriculaController extends Controller
             }
 
             if ($request->hasFile($campo)) {
-                if ($matricula->$campo) {
-                    try {
-                        Storage::disk('ftp_matriculas')->delete($matricula->$campo);
-                    } catch (\Exception $e) {
-                        \Log::warning('update(): error borrando archivo previo antes de reemplazar', ['campo' => $campo, 'error' => $e->getMessage()]);
+                // Para comprobante_pago NO eliminamos históricos ni el archivo existente.
+                if ($campo !== 'comprobante_pago') {
+                    if ($matricula->$campo) {
+                        try {
+                            Storage::disk('ftp_matriculas')->delete($matricula->$campo);
+                        } catch (\Exception $e) {
+                            \Log::warning('update(): error borrando archivo previo antes de reemplazar', ['campo' => $campo, 'error' => $e->getMessage()]);
+                        }
                     }
                 }
 
                 $uploaded = $this->uploadByFieldName((int)$request->user_id, $campo, $request->file($campo));
                 if ($uploaded) {
                     $matricula->$campo = $uploaded;
+                    if ($campo === 'comprobante_pago') {
+                        $uploadedComprobantePath = $uploaded;
+                        $uploadedComprobanteOriginal = $request->hasFile($campo) ? $request->file($campo)->getClientOriginalName() : null;
+                    }
                 }
             }
         }
@@ -607,8 +909,55 @@ class MatriculaController extends Controller
         $matricula->user_id = $request->user_id;
         $matricula->fecha_matricula = $request->fecha_matricula;
         $matricula->tipo_usuario = $request->tipo_usuario;
+        // Mantener la preferencia/base del curso originalmente seleccionada
+        try {
+            if (Schema::hasColumn('matriculas', 'curso_nombre')) {
+                $matricula->curso_nombre = $request->input('curso_nombre') ?: $matricula->curso_nombre;
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('No se pudo comprobar columna curso_nombre al actualizar matrícula: ' . $e->getMessage());
+        }
+
+        // Solo roles autorizados pueden cambiar el estado manualmente
+        if (in_array($roleName, $allowedRoles) && $request->filled('estado')) {
+            $matricula->estado = $request->input('estado');
+        }
 
         $matricula->save();
+
+        // Si se subió un comprobante durante la actualización, registrar metadata
+        if (!empty($uploadedComprobantePath)) {
+            try {
+                $mc = MatriculaComprobante::create([
+                    'matricula_id' => $matricula->id,
+                    'filename' => basename($uploadedComprobantePath),
+                    'path' => $uploadedComprobantePath,
+                    'original_name' => $uploadedComprobanteOriginal,
+                    'uploaded_by' => Auth::id(),
+                ]);
+
+                // Notificar al acudiente del estudiante cuando se sube un comprobante
+                try {
+                    $studentUser = User::find($matricula->user_id);
+                    $destUserId = $studentUser && $studentUser->acudiente_id ? $studentUser->acudiente_id : $matricula->user_id;
+
+                    Notificacion::create([
+                        'usuario_id' => $destUserId,
+                        'titulo' => 'Comprobante de matrícula subido',
+                        'mensaje' => 'Se ha subido un comprobante de matrícula: ' . ($mc->original_name ?? $mc->filename),
+                        'leida' => false,
+                        'fecha' => now(),
+                    ]);
+                } catch (\Throwable $e) {
+                    \Log::warning('update(): no se pudo crear notificación por comprobante', ['error' => $e->getMessage()]);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('update(): no se pudo crear MatriculaComprobante', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // Nota: no se asigna automáticamente `curso_id` en la actualización.
+        // La asignación se realiza desde el módulo de Asignaciones cuando corresponda.
 
         // Si borramos al menos un archivo, permanecer en la misma página de edición
         if ($deletedAny) {
@@ -667,6 +1016,16 @@ class MatriculaController extends Controller
         }
 
         // 2. Obtener la ruta desde la base de datos
+        // Si el usuario es Acudiente, sólo permitir descargar archivos de sus estudiantes
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            $student = $matricula->user;
+            if (! $student || ($student->acudiente_id ?? null) != $user->id) {
+                abort(403, 'Acceso no autorizado');
+            }
+        }
+
         $path = $matricula->$campo;
         if (!$path) {
             Log::warning('Matricula archivo(): ruta vacía en BD', ['campo' => $campo, 'matricula_id' => $matricula->id]);
@@ -721,6 +1080,82 @@ class MatriculaController extends Controller
             'basename' => $basename
         ]);
         abort(404);
+    }
+
+    /**
+     * Validar o anular la validación del pago (solo tesorero).
+     */
+    public function validarPago(Request $request, Matricula $matricula)
+    {
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre;
+
+        // Aceptar varias variantes del nombre de rol 'tesorero'
+        $allowed = ['tesorero', 'Tesorero', 'tesorero '];
+        if (! $user || ! in_array($roleName, $allowed, true)) {
+            abort(403, 'Acción no autorizada');
+        }
+
+        $action = $request->input('validar') ? true : false;
+
+        $matricula->pago_validado = (bool) $action;
+        $matricula->pago_validado_por = $action ? $user->id : null;
+        $matricula->pago_validado_at = $action ? now() : null;
+        $matricula->save();
+
+        return redirect()->back()->with('success', $action ? 'Pago validado por Tesorería.' : 'Validación de pago anulada.');
+    }
+
+    /**
+     * Servir un comprobante específico por nombre (solo tesorero puede ver todos).
+     */
+    public function comprobanteFile(Request $request, Matricula $matricula, $filename)
+    {
+        $user = Auth::user();
+        $roleName = optional($user->role)->nombre ?? '';
+
+        $isTesorero = in_array(strtolower($roleName), ['tesorero', 'tesorero '], true) || stripos($roleName, 'tesor') !== false;
+
+        $basename = basename($filename);
+
+        // Si no es tesorero, solo puede acceder al último comprobante (almacenado en DB)
+        if (! $isTesorero) {
+            $expected = basename($matricula->comprobante_pago ?? '');
+            if ($basename !== $expected) {
+                abort(403, 'Acceso no autorizado al comprobante solicitado');
+            }
+        }
+
+        // Si el usuario es Acudiente, sólo permitir ver comprobantes de sus estudiantes
+        if ($user && stripos($roleName, 'acudiente') !== false) {
+            $student = $matricula->user;
+            if (! $student || ($student->acudiente_id ?? null) != $user->id) {
+                abort(403, 'Acceso no autorizado');
+            }
+        }
+
+        $disk = Storage::disk('ftp_matriculas');
+        try {
+            $all = [];
+            try { $all = $disk->allFiles(''); } catch (\Exception $e) { $all = []; }
+            try { $all = array_merge($all, $disk->allFiles('estudiante')); } catch (\Exception $e) { /* ignore */ }
+
+            $found = null;
+            foreach ($all as $candidate) {
+                if (strtolower(basename($candidate)) === strtolower($basename)) {
+                    $found = $candidate;
+                    break;
+                }
+            }
+
+            if ($found) {
+                return $this->serveFileFromDisk($disk, $found);
+            }
+        } catch (\Exception $e) {
+            \Log::error('comprobanteFile: error buscando archivo', ['error' => $e->getMessage()]);
+        }
+
+        abort(404, 'Comprobante no encontrado');
     }
 
     /**

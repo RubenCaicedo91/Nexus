@@ -19,7 +19,7 @@
                     <form method="GET" class="row g-3 mb-4">
                         <div class="col-md-3">
                             <label for="curso_id" class="form-label">Curso</label>
-                            <select name="curso_id" id="curso_id" class="form-select">
+                            <select name="curso_id" id="curso_id" class="form-select" data-url-template="{{ route('asignaciones.curso.estudiantes', ['cursoId' => 'CURSO_ID']) }}" data-search-url="{{ route('asignaciones.json.estudiantes') }}">
                                 <option value="">Todos los cursos</option>
                                 @foreach($cursos as $curso)
                                     <option value="{{ $curso->id }}" {{ request('curso_id') == $curso->id ? 'selected' : '' }}>
@@ -31,22 +31,22 @@
                         {{-- CAMBIO AQUÍ: El filtro de estudiante ahora es un desplegable --}}
                         <div class="col-md-3">
                             <label for="estudiante" class="form-label">Estudiante</label>
-                            <select name="estudiante" id="estudiante" class="form-select">
-                                <option value="">Todos los estudiantes</option>
+                            <input type="text" name="estudiante" id="estudiante" class="form-control" list="estudiantes_list" value="{{ request('estudiante') }}" placeholder="Escriba nombre o apellido...">
+                            <input type="hidden" name="estudiante_id" id="estudiante_id" value="{{ request('estudiante_id') }}">
+                            <datalist id="estudiantes_list">
                                 @foreach($estudiantes as $estudiante)
-                                    <option value="{{ $estudiante->name }}" {{ request('estudiante') == $estudiante->name ? 'selected' : '' }}>
-                                        {{ $estudiante->name }}
-                                    </option>
+                                    <option value="{{ $estudiante->name }}">{{ $estudiante->name }}</option>
                                 @endforeach
-                            </select>
+                            </datalist>
                         </div>
                         <div class="col-md-2">
                             <label for="estado" class="form-label">Estado</label>
                             <select name="estado" id="estado" class="form-select">
                                 <option value="">Todos</option>
-                                <option value="activa" {{ request('estado') == 'activa' ? 'selected' : '' }}>Activa</option>
-                                <option value="inactiva" {{ request('estado') == 'inactiva' ? 'selected' : '' }}>Inactiva</option>
-                                <option value="suspendida" {{ request('estado') == 'suspendida' ? 'selected' : '' }}>Suspendida</option>
+                                <option value="activo" {{ request('estado') == 'activo' ? 'selected' : '' }}>Activo</option>
+                                <option value="inactivo" {{ request('estado') == 'inactivo' ? 'selected' : '' }}>Inactivo</option>
+                                <option value="suspendido" {{ request('estado') == 'suspendido' ? 'selected' : '' }}>Suspendido</option>
+                               
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -91,26 +91,39 @@
                                             <small class="text-muted">{{ $asignacion->user->email }}</small>
                                         </td>
                                         <td>
-                                            <span class="badge bg-info">{{ $asignacion->curso->nombre ?? 'Sin asignar' }}</span>
+                                            @if(!empty($asignacion->curso))
+                                                <span class="badge bg-info">{{ $asignacion->curso->nombre }}</span>
+                                            @else
+                                                <span class="badge bg-info">Sin asignar</span>
+                                                @if(!empty($asignacion->curso_nombre))
+                                                    <span class="badge bg-secondary ms-2">Matriculado: {{ $asignacion->curso_nombre }}</span>
+                                                @endif
+                                            @endif
                                         </td>
                                         <td>{{ \Carbon\Carbon::parse($asignacion->fecha_matricula)->format('d/m/Y') }}</td>
                                         <td>
                                             @switch($asignacion->estado)
-                                                @case('activa')
-                                                    <span class="badge bg-success">Activa</span>
+                                                @case('activo')
+                                                    <span class="badge bg-success">Activo</span>
                                                     @break
-                                                @case('inactiva')
-                                                    <span class="badge bg-secondary">Inactiva</span>
+                                                @case('inactivo')
+                                                    <span class="badge bg-secondary">Inactivo</span>
                                                     @break
-                                                @case('suspendida')
-                                                    <span class="badge bg-warning">Suspendida</span>
+                                                @case('falta de documentacion')
+                                                    <span class="badge bg-warning text-dark">Falta documentación</span>
+                                                    @break
+                                                @case('completado')
+                                                    <span class="badge bg-warning">Completado</span>
+                                                    @break
+                                                @case('suspendido')
+                                                    <span class="badge bg-warning">Suspendido</span>
                                                     @break
                                                 @default
                                                     <span class="badge bg-light text-dark">{{ $asignacion->estado }}</span>
                                             @endswitch
                                         </td>
                                         <td>
-                                            @if($asignacion->documentos_completos)
+                                            @if(method_exists($asignacion, 'tieneDocumentosCompletos') ? $asignacion->tieneDocumentosCompletos() : ($asignacion->documentos_completos ?? false))
                                                 <span class="badge bg-success">
                                                     <i class="fas fa-check me-1"></i>Completos
                                                 </span>
@@ -208,19 +221,161 @@
 @endsection
 
 @section('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-submit form when filters change
-    // CAMBIO AQUÍ: Se añade 'estudiante' a la lista de filtros que envían el formulario automáticamente
-    const filters = ['curso_id', 'estudiante', 'estado', 'documentos_completos'];
-    filters.forEach(filterId => {
-        const element = document.getElementById(filterId);
-        if (element) {
-            element.addEventListener('change', function() {
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Cuando cambia el curso, obtener estudiantes por AJAX y actualizar el select
+        const cursoSelect = document.getElementById('curso_id');
+        const estudianteInput = document.getElementById('estudiante');
+        const estudiantesDatalist = document.getElementById('estudiantes_list');
+        // mapa nombre -> id para resolver selección del datalist
+        const estudiantesMap = {};
+
+        function buildUrl(template, id) {
+            return template.replace('CURSO_ID', id);
+        }
+
+        async function fetchStudents(cursoId, selectedName = '') {
+            // Si no hay curso, dejamos las opciones iniciales (ya renderizadas en el datalist)
+            const template = cursoSelect.getAttribute('data-url-template');
+            if (!cursoId) {
+                // Si existe selectedName, aseguramos que el input lo mantenga
+                if (selectedName) estudianteInput.value = selectedName;
+                return;
+            }
+
+            const url = buildUrl(template, cursoId);
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Error al obtener estudiantes');
+                const data = await res.json();
+
+                // data = [{id, name}, ...] — rellenar datalist
+                estudiantesDatalist.innerHTML = '';
+                // limpiar mapa previo para evitar entradas antiguas
+                for (const k in estudiantesMap) delete estudiantesMap[k];
+                data.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.name;
+                    estudiantesDatalist.appendChild(opt);
+                    estudiantesMap[s.name] = s.id;
+                });
+
+                // Mantener valor seleccionado si aplica
+                if (selectedName) {
+                    estudianteInput.value = selectedName;
+                    const hid = document.getElementById('estudiante_id');
+                    if (hid && estudiantesMap[selectedName]) hid.value = estudiantesMap[selectedName];
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Auto-submit para filtros (excepto curso_id, que actualiza el select)
+        const autoSubmitFilters = ['estudiante', 'estado', 'documentos_completos'];
+        autoSubmitFilters.forEach(filterId => {
+            const element = document.getElementById(filterId);
+            if (element) {
+                element.addEventListener('change', function() {
+                    this.form.submit();
+                });
+            }
+        });
+
+        // Autocompletado al escribir en el campo estudiante (debounce)
+        const searchUrl = cursoSelect.getAttribute('data-search-url');
+        function debounce(fn, wait = 250) {
+            let t;
+            return function(...args) {
+                clearTimeout(t);
+                t = setTimeout(() => fn.apply(this, args), wait);
+            };
+        }
+
+        async function searchStudentsByText(q) {
+            if (!q || q.length < 2) {
+                return; // evitar búsquedas muy cortas
+            }
+            try {
+                const url = new URL(searchUrl, window.location.origin);
+                url.searchParams.set('q', q);
+                const cursoId = cursoSelect.value;
+                if (cursoId) url.searchParams.set('curso_id', cursoId);
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('Error al buscar estudiantes');
+                const data = await res.json();
+
+                estudiantesDatalist.innerHTML = '';
+                // limpiar mapa previo
+                for (const k in estudiantesMap) delete estudiantesMap[k];
+                data.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.name;
+                    estudiantesDatalist.appendChild(opt);
+                    estudiantesMap[s.name] = s.id;
+                });
+                console.debug('searchStudentsByText result', data);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        if (estudianteInput) {
+            estudianteInput.addEventListener('input', debounce(function(e) {
+                const q = this.value.trim();
+                if (!q) return;
+                searchStudentsByText(q);
+            }, 300));
+
+            // al perder foco, si el texto coincide exactamente con una opción, rellenar id
+            estudianteInput.addEventListener('blur', function() {
+                const name = this.value.trim();
+                const hid = document.getElementById('estudiante_id');
+                if (hid) {
+                    hid.value = estudiantesMap[name] ? estudiantesMap[name] : '';
+                }
+            });
+
+            // al cambiar (selección), asignar id y enviar el formulario
+            estudianteInput.addEventListener('change', function() {
+                const name = this.value.trim();
+                const hid = document.getElementById('estudiante_id');
+                if (hid) hid.value = estudiantesMap[name] ? estudiantesMap[name] : '';
                 this.form.submit();
             });
         }
+
+        // Cuando cambia curso: actualizar lista de estudiantes (no enviado automático)
+        if (cursoSelect) {
+            cursoSelect.addEventListener('change', function() {
+                const id = this.value;
+                // cargar estudiantes del curso y luego limpiar estudiante_id y enviar el formulario
+                fetchStudents(id).then(() => {
+                    const hid = document.getElementById('estudiante_id');
+                    const estInput = document.getElementById('estudiante');
+                    if (hid) hid.value = '';
+                    if (estInput) estInput.value = '';
+                    // enviar formulario automáticamente para aplicar el filtro por curso
+                    const form = cursoSelect.closest('form');
+                    if (form) form.submit();
+                });
+            });
+
+            // Si hay un curso seleccionado al cargar la página, obtener estudiantes y mantener el seleccionado si existe
+            const initialCurso = cursoSelect.value;
+            const selectedName = estudianteInput ? estudianteInput.value : '';
+            const selectedId = document.getElementById('estudiante_id') ? document.getElementById('estudiante_id').value : '';
+            if (initialCurso) {
+                fetchStudents(initialCurso, selectedName).then(() => {
+                    if (selectedId) {
+                        const hid = document.getElementById('estudiante_id');
+                        if (hid) hid.value = selectedId;
+                    }
+                });
+            }
+        }
     });
-});
-</script>
+    </script>
 @endsection

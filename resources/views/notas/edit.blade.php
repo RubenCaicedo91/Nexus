@@ -23,8 +23,8 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Periodo</label>
-                    <div>{{ $nota->periodo }}</div>
+                    <label class="form-label">Año</label>
+                    <div>{{ $nota->anio }}</div>
                 </div>
 
                 <div class="mb-3">

@@ -24,17 +24,7 @@
                     <div class="row mb-4">
                         <div class="col-md-12">
                             <form method="GET" action="{{ route('citas.index') }}" class="row g-3">
-                                <div class="col-md-2">
-                                    <label for="estado" class="form-label">Estado</label>
-                                    <select name="estado" id="estado" class="form-select">
-                                        <option value="">Todos</option>
-                                        @foreach(\App\Models\Cita::ESTADOS as $key => $value)
-                                            <option value="{{ $key }}" {{ request('estado') == $key ? 'selected' : '' }}>
-                                                {{ $value }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
+                                {{-- Estado filter removed per request --}}
 
                                 <div class="col-md-2">
                                     <label for="tipo_cita" class="form-label">Tipo</label>
@@ -60,27 +50,24 @@
                                     </select>
                                 </div>
 
-                                @if(auth()->user()->roles->nombre !== 'Acudiente')
+                                @php
+                                    $currentRole = strtolower(trim((string) (optional(auth()->user()->role)->nombre ?? '')));
+                                    $isAcudiente = $currentRole === 'acudiente';
+                                    $isOrientador = $currentRole === 'orientador';
+                                @endphp
+
+                                @if(! $isAcudiente)
                                 <div class="col-md-2">
                                     <label for="orientador_id" class="form-label">Orientador</label>
                                     <select name="orientador_id" id="orientador_id" class="form-select">
                                         <option value="">Todos</option>
                                         @foreach($orientadores as $orientador)
-                                            <option value="{{ $orientador->id }}" {{ request('orientador_id') == $orientador->id ? 'selected' : '' }}>
-                                                {{ $orientador->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                @endif
-
-                                <div class="col-md-2">
-                                    <label for="fecha_desde" class="form-label">Desde</label>
-                                    <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ request('fecha_desde') }}">
-                                </div>
-
-                                <div class="col-md-2">
-                                    <label for="fecha_hasta" class="form-label">Hasta</label>
+                                                <option value="{{ $orientador->id }}" {{ request('orientador_id') == $orientador->id ? 'selected' : '' }}>
+                                                    {{ $orientador->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <label for="fecha_hasta" class="form-label">Hasta</label>
                                     <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ request('fecha_hasta') }}">
                                 </div>
 
@@ -96,90 +83,50 @@
                         </div>
                     </div>
 
-                    {{-- Estadísticas rápidas --}}
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="card bg-warning text-white">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-clock fa-2x mb-2"></i>
-                                    <h5>{{ $citas->where('estado', 'solicitada')->count() }}</h5>
-                                    <small>Solicitadas</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-info text-white">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-calendar-check fa-2x mb-2"></i>
-                                    <h5>{{ $citas->where('estado', 'programada')->count() }}</h5>
-                                    <small>Programadas</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                    <h5>{{ $citas->where('estado', 'completada')->count() }}</h5>
-                                    <small>Completadas</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-danger text-white">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-times-circle fa-2x mb-2"></i>
-                                    <h5>{{ $citas->where('estado', 'cancelada')->count() }}</h5>
-                                    <small>Canceladas</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {{-- Estadísticas por estado eliminadas --}}
 
                     {{-- Tabla de citas --}}
                     <div class="table-responsive">
-                        <table class="table table-striped table-hover">
+                        <table class="table table-striped table-hover" style="table-layout:fixed; width:100%;">
                             <thead class="table-dark">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Solicitante</th>
-                                    <th>Estudiante</th>
-                                    <th>Tipo</th>
-                                    <th>Fecha/Hora</th>
-                                    <th>Orientador</th>
-                                    <th>Estado</th>
-                                    <th>Prioridad</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($citas as $cita)
-                                <tr>
-                                    <td>
-                                        <strong>#{{ $cita->id }}</strong>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <i class="fas fa-user me-2 text-muted"></i>
-                                            <div>
-                                                <strong>{{ $cita->solicitante->name }}</strong><br>
-                                                <small class="text-muted">{{ $cita->solicitante->email }}</small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        @if($cita->estudianteReferido)
-                                            <div class="d-flex align-items-center">
-                                                <i class="fas fa-graduation-cap me-2 text-primary"></i>
-                                                <div>
-                                                    <strong>{{ $cita->estudianteReferido->name }}</strong><br>
-                                                    <small class="text-muted">{{ $cita->estudianteReferido->email }}</small>
-                                                </div>
-                                            </div>
-                                        @else
-                                            <span class="text-muted">No especificado</span>
-                                        @endif
-                                    </td>
+                                    <tr>
+                                        <th>Solicitante</th>
+                                        <th>Estudiante</th>
+                                        <th>Tipo</th>
+                                        <th>Fecha/Hora</th>
+                                        <th>Orientador</th>
+                                        <th>Prioridad</th>
+                                           <th>Estado</th>
+
+                                            @if($esSolicitante)
+                                                @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                        <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-success open-cita" title="Revisión">
+                                                            <i class="fas fa-sticky-note"></i>
+                                                        </a>
+                                                @endif
+                                            @elseif($isOrientador)
+                                                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#atenderModal-{{ $cita->id }}" title="Atendió">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#noAsistioModal-{{ $cita->id }}" title="No atendió">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                                @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                    <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-success open-cita" title="Revisión de notas">
+                                                        <i class="fas fa-sticky-note"></i>
+                                                    </a>
+                                                @endif
+                                                @else
+                                                @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                    <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-success open-cita" title="Revisión">
+                                                        <i class="fas fa-sticky-note"></i>
+                                                    </a>
+                                                @else
+                                                    <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-outline-primary" title="Ver detalles">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                @endif
+                                            @endif
                                     <td>
                                         <span class="badge bg-secondary">
                                             {{ $cita->tipo_cita_formateado }}
@@ -220,23 +167,6 @@
                                     </td>
                                     <td>
                                         @php
-                                            $badgeClass = match($cita->estado) {
-                                                'solicitada' => 'bg-warning',
-                                                'programada' => 'bg-info',
-                                                'confirmada' => 'bg-primary',
-                                                'en_curso' => 'bg-warning',
-                                                'completada' => 'bg-success',
-                                                'cancelada' => 'bg-danger',
-                                                'reprogramada' => 'bg-secondary',
-                                                default => 'bg-secondary'
-                                            };
-                                        @endphp
-                                        <span class="badge {{ $badgeClass }}">
-                                            {{ $cita->estado_formateado }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @php
                                             $prioridadClass = match($cita->prioridad) {
                                                 'baja' => 'text-success',
                                                 'media' => 'text-warning',
@@ -251,33 +181,94 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="btn-group" role="group">
-                                            <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-outline-primary" title="Ver detalles">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            
-                                            @if($cita->estado === 'solicitada' && 
-                                                (auth()->user()->id === $cita->solicitante_id || auth()->user()->roles->nombre === 'Rector'))
-                                                <a href="{{ route('citas.edit', $cita) }}" class="btn btn-sm btn-outline-warning" title="Editar">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                            @endif
+                                        @if($cita->esCompletada())
+                                            <span class="badge bg-success">Atendido</span>
+                                        @elseif($cita->esCancelada())
+                                            <span class="badge bg-danger">No atendido</span>
+                                        @elseif($cita->children && $cita->children->count() > 0)
+                                            <span class="badge bg-info">Con seguimiento</span>
+                                        @else
+                                            <span class="badge bg-secondary">Sin acción aún</span>
+                                        @endif
+                                    </td>
+                                    <td style="width:240px; max-width:240px; white-space:normal; overflow:hidden;">
+                                        <div style="display:flex; flex-wrap:wrap; gap:.5rem; width:100%;">
+                                            {{-- Inline buttons for small+ screens --}}
+                                            <div class="d-none d-sm-flex gap-2 w-100">
+                                                @if($esSolicitante)
+                                                    @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                        <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-success open-cita" title="Revisión">
+                                                            <i class="fas fa-sticky-note"></i>
+                                                        </a>
+                                                    @endif
+                                                @elseif($isOrientador)
+                                                    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#atenderModal-{{ $cita->id }}" title="Atendió">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#noAsistioModal-{{ $cita->id }}" title="No atendió">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                    @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                        <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-success open-cita" title="Revisión de notas">
+                                                            <i class="fas fa-sticky-note"></i>
+                                                        </a>
+                                                    @endif
+                                                @else
+                                                    @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                        <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-success open-cita" title="Revisión">
+                                                            <i class="fas fa-sticky-note"></i>
+                                                        </a>
+                                                    @else
+                                                        <a href="{{ route('citas.show', $cita) }}" class="btn btn-sm btn-outline-primary" title="Ver detalles">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                    @endif
+                                                @endif
+                                                {{-- Botón Motivo cuando la cita fue marcada como no atendida --}}
+                                                @if($cita->esCancelada() && !empty($cita->motivo_cancelacion))
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1 ver-motivo" data-motivo="{{ e($cita->motivo_cancelacion) }}" title="Ver motivo">
+                                                        <i class="fas fa-comment-alt"></i>
+                                                    </button>
+                                                @endif
+                                            </div>
 
-                                            @if($cita->puedeSerCancelada() && 
-                                                (auth()->user()->id === $cita->solicitante_id || 
-                                                 auth()->user()->id === $cita->orientador_id || 
-                                                 auth()->user()->roles->nombre === 'Rector'))
-                                                <button type="button" class="btn btn-sm btn-outline-danger btn-cancelar-cita" 
-                                                        data-cita-id="{{ $cita->id }}" title="Cancelar">
-                                                    <i class="fas fa-times"></i>
+                                            {{-- Dropdown for xs screens --}}
+                                            <div class="d-sm-none dropdown w-100">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle w-100" type="button" id="accionesDropdown{{ $cita->id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    Acciones
                                                 </button>
-                                            @endif
+                                                <ul class="dropdown-menu" aria-labelledby="accionesDropdown{{ $cita->id }}">
+                                                    @if($esSolicitante)
+                                                        @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                                <li><a class="dropdown-item open-cita text-success" href="{{ route('citas.show', $cita) }}">Revisión</a></li>
+                                                            @endif
+                                                    @elseif($isOrientador)
+                                                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#atenderModal-{{ $cita->id }}">Atendió</a></li>
+                                                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#noAsistioModal-{{ $cita->id }}">No atendió</a></li>
+                                                        @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                            <li><a class="dropdown-item open-cita text-success" href="{{ route('citas.show', $cita) }}">Revisión de notas</a></li>
+                                                        @endif
+                                                    @else
+                                                        @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                                            <li><a class="dropdown-item open-cita text-success" href="{{ route('citas.show', $cita) }}">Revisión</a></li>
+                                                        @else
+                                                            <li><a class="dropdown-item" href="{{ route('citas.show', $cita) }}">Ver detalles</a></li>
+                                                        @endif
+                                                    @endif
+                                                    @if($cita->esCancelada() && !empty($cita->motivo_cancelacion))
+                                                        <li><a class="dropdown-item open-cita text-danger" href="{{ route('citas.show', $cita) }}">Motivo</a></li>
+                                                    @endif
+                                                </ul>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
+                                @if(!empty($cita->resumen_cita) && ($esSolicitante || $esAcudienteDelEstudiante || $isOrientador))
+                                    {{-- per-row modal removed in favor of AJAX modal --}}
+                                @endif
                                 @empty
                                 <tr>
-                                    <td colspan="9" class="text-center py-5">
+                                       <td colspan="8" class="text-center py-5">
                                         <div class="d-flex flex-column align-items-center">
                                             <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
                                             <h5 class="text-muted">No hay citas registradas</h5>
@@ -331,6 +322,22 @@
     </div>
 </div>
 
+<!-- Modal: Mostrar motivo completo -->
+<div class="modal fade" id="motivoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Motivo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="motivoModalBody" style="white-space:pre-wrap;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Manejar botones de cancelar cita
@@ -341,6 +348,25 @@ document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('cancelarCitaForm');
             form.action = `/citas/${citaId}/cancelar`;
             modal.show();
+        });
+    });
+
+    // inicializar tooltips (para motivos truncados)
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(function (el) { new bootstrap.Tooltip(el); });
+
+    // manejar clicks en 'Ver motivo' para abrir modal con texto completo
+    document.querySelectorAll('.ver-motivo').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+            e.preventDefault();
+            var motivo = this.getAttribute('data-motivo') || '';
+            var body = document.getElementById('motivoModalBody');
+            if(body) body.textContent = motivo;
+            var modalEl = document.getElementById('motivoModal');
+            if(modalEl) {
+                var modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
         });
     });
 });

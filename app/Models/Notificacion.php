@@ -16,5 +16,34 @@ class Notificacion extends Model
         'mensaje',
         'leida',
         'fecha',
+        'creador_id',
+        'solo_acudiente_responde',
+        'solo_lectura',
+        'tipo',
+        'group_key',
+        'deleted_by_creador',
     ];
+
+    protected $casts = [
+        'leida' => 'boolean',
+        'solo_acudiente_responde' => 'boolean',
+        'solo_lectura' => 'boolean',
+        'fecha' => 'datetime',
+    ];
+
+    /**
+     * Usuario que creó la notificación (remitente)
+     */
+    public function creador()
+    {
+        return $this->belongsTo(User::class, 'creador_id');
+    }
+
+    /**
+     * Usuario destinatario de la notificación
+     */
+    public function usuario()
+    {
+        return $this->belongsTo(User::class, 'usuario_id');
+    }
 }

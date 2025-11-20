@@ -53,17 +53,24 @@ class CitasController extends Controller
         
         // Filtro por rol del usuario actual
         $user = Auth::user();
-        if ($user->roles->nombre === 'Acudiente') {
-            // Los acudientes solo ven sus propias citas
+        $roleName = strtolower($user->roles->nombre ?? ($user->role->nombre ?? ''));
+        if ($roleName === 'acudiente') {
+            // Los acudientes ven las citas que ellos mismos solicitaron y las que están a nombre de sus estudiantes
+            $studentIds = $user->acudientes()->pluck('id')->toArray();
+            $query->where(function($q) use ($user, $studentIds) {
+                $q->where('solicitante_id', $user->id)
+                  ->orWhereIn('estudiante_referido_id', $studentIds ?: [0]);
+            });
+        } elseif ($roleName === 'orientador') {
+            // Los orientadores ven todas las solicitudes (sin filtrar)
+            // no añadimos condiciones para que vean todo
+        } else {
+            // Otros roles solo ven sus propias citas
             $query->where('solicitante_id', $user->id);
-        } elseif ($user->roles->nombre === 'Orientador') {
-            // Los orientadores ven las citas asignadas a ellos
-            $query->where('orientador_id', $user->id);
         }
         
-        $citas = $query->orderBy('fecha_asignada', 'desc')
-                      ->orderBy('hora_asignada', 'desc')
-                      ->paginate(15);
+        $citas = $query->orderBy('created_at', 'desc')
+                  ->paginate(15);
         
         // Datos para filtros
         $orientadores = User::join('roles', 'users.roles_id', '=', 'roles.id')
@@ -156,17 +163,63 @@ class CitasController extends Controller
     {
         // Verificar permisos
         $user = Auth::user();
-        if ($user->roles->nombre === 'Acudiente' && $cita->solicitante_id !== $user->id) {
-            abort(403, 'No tienes permisos para ver esta cita.');
-        }
-        
-        if ($user->roles->nombre === 'Orientador' && $cita->orientador_id !== $user->id) {
-            abort(403, 'No tienes permisos para ver esta cita.');
+        $roleName = strtolower($user->roles->nombre ?? ($user->role->nombre ?? ''));
+
+        // Permitir si es orientador
+        if ($roleName === 'orientador') {
+            // ok
+        } else {
+            // Permitir si es el solicitante declarado
+            if ($cita->solicitante_id === $user->id) {
+                // ok
+            } else {
+                // Permitir si el usuario es el acudiente del estudiante referido
+                $esAcudienteDelEstudiante = optional($cita->estudianteReferido)->acudiente_id === $user->id;
+                // Permitir si el usuario es el estudiante referido
+                $esEstudianteReferido = optional($cita->estudianteReferido)->id === $user->id;
+
+                if (! $esAcudienteDelEstudiante && ! $esEstudianteReferido) {
+                    abort(403, 'No tienes permisos para ver esta cita.');
+                }
+            }
         }
 
-        $cita->load(['solicitante', 'orientador', 'estudianteReferido', 'canceladoPor']);
+        $with = ['solicitante', 'orientador', 'estudianteReferido', 'canceladoPor'];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('citas', 'parent_cita_id')) {
+            $with[] = 'children';
+            $with[] = 'parent';
+        }
+        $cita->load($with);
         
         return view('citas.show', compact('cita'));
+    }
+
+    /**
+     * Ajax: retornar partial HTML con la revisión/observaciones de la cita.
+     */
+    public function revision(Cita $cita)
+    {
+        // Reusar las mismas reglas de permiso que en show
+        $user = Auth::user();
+        $roleName = strtolower($user->roles->nombre ?? ($user->role->nombre ?? ''));
+
+        if ($roleName === 'orientador') {
+            // ok
+        } else {
+            if ($cita->solicitante_id === $user->id) {
+                // ok
+            } else {
+                $esAcudienteDelEstudiante = optional($cita->estudianteReferido)->acudiente_id === $user->id;
+                $esEstudianteReferido = optional($cita->estudianteReferido)->id === $user->id;
+
+                if (! $esAcudienteDelEstudiante && ! $esEstudianteReferido) {
+                    abort(403, 'No tienes permisos para ver esta revisión.');
+                }
+            }
+        }
+
+        $cita->load(['solicitante', 'orientador', 'estudianteReferido', 'children']);
+        return view('citas.partials.revision', compact('cita'));
     }
 
     /**
@@ -174,14 +227,14 @@ class CitasController extends Controller
      */
     public function edit(Cita $cita)
     {
-        // Solo el solicitante o administradores pueden editar citas no programadas
+        // Solo el solicitante puede editar citas no programadas
         $user = Auth::user();
-        if ($cita->estado !== 'solicitada' && $user->roles->nombre !== 'Rector') {
+        if ($cita->estado !== 'solicitada' && $user->id !== $cita->solicitante_id) {
             return redirect()->route('citas.show', $cita)
                             ->with('error', 'No se puede editar una cita que ya ha sido programada.');
         }
 
-        if ($user->roles->nombre === 'Acudiente' && $cita->solicitante_id !== $user->id) {
+        if ($user->id !== $cita->solicitante_id) {
             abort(403, 'No tienes permisos para editar esta cita.');
         }
 
@@ -205,9 +258,9 @@ class CitasController extends Controller
      */
     public function update(Request $request, Cita $cita)
     {
-        // Verificar permisos
+        // Verificar permisos: solo el solicitante puede actualizar solicitudes no programadas
         $user = Auth::user();
-        if ($cita->estado !== 'solicitada' && $user->roles->nombre !== 'Rector') {
+        if ($cita->estado !== 'solicitada' && $user->id !== $cita->solicitante_id) {
             return redirect()->route('citas.show', $cita)
                             ->with('error', 'No se puede editar una cita que ya ha sido programada.');
         }
@@ -240,9 +293,9 @@ class CitasController extends Controller
      */
     public function destroy(Cita $cita)
     {
-        // Solo el solicitante o administradores pueden eliminar
+        // Solo el solicitante puede eliminar su solicitud
         $user = Auth::user();
-        if ($user->id !== $cita->solicitante_id && $user->roles->nombre !== 'Rector') {
+        if ($user->id !== $cita->solicitante_id) {
             abort(403, 'No tienes permisos para eliminar esta cita.');
         }
 
@@ -263,7 +316,8 @@ class CitasController extends Controller
     public function programar(Request $request, Cita $cita)
     {
         $user = Auth::user();
-        if (!in_array($user->roles->nombre, ['Orientador', 'Rector'])) {
+        $roleName = strtolower($user->roles->nombre ?? ($user->role->nombre ?? ''));
+        if ($roleName !== 'orientador') {
             abort(403, 'No tienes permisos para programar citas.');
         }
 
@@ -323,8 +377,9 @@ class CitasController extends Controller
     public function iniciar(Cita $cita)
     {
         $user = Auth::user();
-        if ($user->id !== $cita->orientador_id && $user->roles->nombre !== 'Rector') {
-            abort(403, 'Solo el orientador asignado puede iniciar la cita.');
+        $roleName = strtolower($user->roles->nombre ?? ($user->role->nombre ?? ''));
+        if ($roleName !== 'orientador') {
+            abort(403, 'Solo los orientadores pueden iniciar la cita.');
         }
 
         if (!in_array($cita->estado, ['programada', 'confirmada'])) {
@@ -344,8 +399,9 @@ class CitasController extends Controller
     public function completar(Request $request, Cita $cita)
     {
         $user = Auth::user();
-        if ($user->id !== $cita->orientador_id && $user->roles->nombre !== 'Rector') {
-            abort(403, 'Solo el orientador asignado puede completar la cita.');
+        $roleName = strtolower($user->roles->nombre ?? ($user->role->nombre ?? ''));
+        if ($roleName !== 'orientador') {
+            abort(403, 'Solo el orientador puede completar la cita.');
         }
 
         $validated = $request->validate([
@@ -362,11 +418,42 @@ class CitasController extends Controller
             $validated['plan_seguimiento'] ?? null
         );
 
-        if ($validated['requiere_seguimiento'] && $validated['fecha_seguimiento']) {
+        // Registrar orientador si no está asignado
+        if (empty($cita->orientador_id)) {
+            $cita->orientador_id = $user->id;
+            $cita->save();
+        }
+
+        if (!empty($validated['requiere_seguimiento']) && !empty($validated['fecha_seguimiento'])) {
             $cita->update([
                 'requiere_seguimiento' => true,
-                'fecha_seguimiento' => $validated['fecha_seguimiento']
+                'fecha_seguimiento' => $validated['fecha_seguimiento'],
             ]);
+
+            // Crear cita de seguimiento vinculada
+            try {
+                $seguimientoData = [
+                    'parent_cita_id' => $cita->id,
+                    'solicitante_id' => $cita->solicitante_id,
+                    'estudiante_referido_id' => $cita->estudiante_referido_id,
+                    'tipo_cita' => 'seguimiento',
+                    'modalidad' => $cita->modalidad ?? 'presencial',
+                    'motivo' => 'Seguimiento de la cita #' . $cita->id . ' - ' . substr($cita->motivo ?? '', 0, 120),
+                    'descripcion' => $cita->descripcion,
+                    'fecha_solicitada' => $validated['fecha_seguimiento'],
+                    'hora_solicitada' => $validated['hora_seguimiento'] ?? null,
+                    'fecha_asignada' => $validated['fecha_seguimiento'],
+                    'hora_asignada' => $validated['hora_seguimiento'] ?? null,
+                    'estado' => 'programada',
+                    'duracion_estimada' => $cita->duracion_estimada ?? 30,
+                    'orientador_id' => $user->id,
+                    'prioridad' => $cita->prioridad ?? 'media'
+                ];
+
+                \App\Models\Cita::create($seguimientoData);
+            } catch (\Throwable $e) {
+                logger()->error('Error creando cita de seguimiento (CitasController): ' . $e->getMessage(), ['cita_id' => $cita->id]);
+            }
         }
 
         return redirect()->route('citas.show', $cita)
@@ -378,6 +465,13 @@ class CitasController extends Controller
      */
     public function cancelar(Request $request, Cita $cita)
     {
+        // Solo orientador puede registrar una cita como "no asistió" o cancelar desde la vista de gestión
+        $user = Auth::user();
+        $roleName = strtolower($user->roles->nombre ?? ($user->role->nombre ?? ''));
+        if ($roleName !== 'orientador') {
+            abort(403, 'No tienes permisos para cancelar esta cita.');
+        }
+
         $validated = $request->validate([
             'motivo_cancelacion' => 'required|string|max:500'
         ]);

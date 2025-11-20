@@ -22,6 +22,14 @@ class Materia extends Model
         return $this->belongsTo(Curso::class, 'curso_id');
     }
 
+    /**
+     * Relación many-to-many: una materia puede pertenecer a varios cursos.
+     */
+    public function cursos()
+    {
+        return $this->belongsToMany(Curso::class, 'curso_materia', 'materia_id', 'curso_id')->withTimestamps();
+    }
+
     public function docente()
     {
         return $this->belongsTo(User::class, 'docente_id');

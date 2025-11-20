@@ -44,10 +44,16 @@
                                     <i class="fas fa-graduation-cap"></i>
                                 </span>
                                 <div class="info-box-content">
-                                    <span class="info-box-text">Curso Asignado</span>
-                                    <span class="info-box-number">
-                                        {{ $materia->curso ? $materia->curso->nombre : 'Sin asignar' }}
-                                    </span>
+                                        <span class="info-box-text">Cursos</span>
+                                        <span class="info-box-number">
+                                            @if($materia->cursos && $materia->cursos->count() > 0)
+                                                @foreach($materia->cursos as $c)
+                                                    <span class="badge bg-info text-dark me-1">{{ $c->nombre }}</span>
+                                                @endforeach
+                                            @else
+                                                <span class="badge bg-secondary">Sin asignar</span>
+                                            @endif
+                                        </span>
                                 </div>
                             </div>
                         </div>
